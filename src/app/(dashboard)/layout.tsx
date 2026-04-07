@@ -51,10 +51,10 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex flex-col h-full px-3 py-4">
-      <div className="flex items-center gap-2 px-3 mb-6">
+      <Link href="/" className="flex items-center gap-2 px-3 mb-6 hover:opacity-75 transition-opacity">
         <Briefcase className="w-5 h-5 text-gray-800" strokeWidth={1.75} />
         <span className="font-semibold text-gray-900 text-base">Job Hunt</span>
-      </div>
+      </Link>
       <NavLinks onNavigate={onNavigate} />
       <div className="pt-4 border-t border-gray-200 px-3">
         <SignOutButton />
@@ -86,10 +86,10 @@ export default function DashboardLayout({
         >
           <Menu className="w-5 h-5" />
         </button>
-        <div className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2 hover:opacity-75 transition-opacity">
           <Briefcase className="w-4 h-4 text-gray-800" strokeWidth={1.75} />
           <span className="font-semibold text-gray-900 text-sm">Job Hunt</span>
-        </div>
+        </Link>
       </div>
 
       {/* Mobile drawer overlay */}
