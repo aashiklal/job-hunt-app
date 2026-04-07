@@ -82,3 +82,14 @@ public/          # Static assets
 ```
 
 Clerk provider and MongoDB connection setup are not yet implemented.
+
+## Project Conventions
+
+- All MongoDB models live in `src/lib/models/` as Mongoose schemas with TypeScript interfaces. Use a singleton pattern to avoid model recompilation in dev.
+- MongoDB connection helper lives at `src/lib/db.ts` and caches the connection on `global` for hot-reload safety.
+- Every API route under `src/app/api/**` and every Server Action must call `auth()` from `@clerk/nextjs/server` first and return 401 if no `userId`. All Mongo queries must filter by `userId`.
+- Anthropic SDK is only ever imported in server code (route handlers, server actions, server components). Never in a client component. The client is instantiated in `src/lib/anthropic.ts`.
+- Use Server Actions for mutations where possible; use route handlers (`route.ts`) only when streaming responses or when a third party needs to POST in (e.g. Clerk webhooks).
+- shadcn components are added via `npx shadcn@latest add <name>`. Do not hand-write components that shadcn already provides.
+- Forms use `react-hook-form` + `zod` + `@hookform/resolvers`. Validation schemas live next to the form in a `schema.ts` file.
+- Environment variables required: `MONGODB_URI`, `ANTHROPIC_API_KEY`, `CLERK_SECRET_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_WEBHOOK_SIGNING_SECRET`.
