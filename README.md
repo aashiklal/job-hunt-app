@@ -29,6 +29,17 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+## Clerk Webhook Setup
+
+To sync users into MongoDB on sign-up, you need to configure a webhook in the Clerk dashboard.
+
+1. Go to **Clerk Dashboard → Webhooks → Add Endpoint**.
+2. Set the URL to `https://<your-domain>/api/webhooks/clerk`.
+3. Subscribe to these events: `user.created`, `user.updated`, `user.deleted`.
+4. Copy the **Signing Secret** and add it to your environment as `CLERK_WEBHOOK_SIGNING_SECRET`.
+
+**Local development:** Use [ngrok](https://ngrok.com) to expose your local server (`ngrok http 3000`), then set the ngrok URL as the webhook endpoint in Clerk. Alternatively, use Clerk's built-in webhook tester in the dashboard to send test events directly without a tunnel.
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
