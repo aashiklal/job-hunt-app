@@ -6,6 +6,8 @@ export type IUser = {
   firstName?: string;
   lastName?: string;
   createdAt: Date;
+  status: "pending" | "approved" | "rejected";
+  isAdmin: boolean;
 } & Document;
 
 const UserSchema = new Schema<IUser>(
@@ -15,6 +17,13 @@ const UserSchema = new Schema<IUser>(
     firstName: { type: String, trim: true },
     lastName: { type: String, trim: true },
     createdAt: { type: Date, default: Date.now },
+    status: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
+      index: true,
+    },
+    isAdmin: { type: Boolean, default: false },
   },
   { timestamps: false }
 );

@@ -49,7 +49,7 @@ export async function POST(req: Request) {
 
   const { type, data } = event;
 
-  if (type === "user.created" || type === "user.updated") {
+  if (type === "user.created") {
     const primaryEmail = data.email_addresses.find(
       (e) => e.id === data.primary_email_address_id
     );
@@ -61,8 +61,25 @@ export async function POST(req: Request) {
         email: primaryEmail?.email_address ?? "",
         firstName: data.first_name ?? undefined,
         lastName: data.last_name ?? undefined,
+        status: "pending",
+        isAdmin: false,
       },
       { upsert: true, new: true }
+    );
+  }
+
+  if (type === "user.updated") {
+    const primaryEmail = data.email_addresses.find(
+      (e) => e.id === data.primary_email_address_id
+    );
+
+    await User.findOneAndUpdate(
+      { clerkId: data.id },
+      {
+        email: primaryEmail?.email_address ?? "",
+        firstName: data.first_name ?? undefined,
+        lastName: data.last_name ?? undefined,
+      }
     );
   }
 
