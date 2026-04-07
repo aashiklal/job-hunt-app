@@ -20,7 +20,7 @@ export default async function LandingPage() {
       </p>
       {userId ? (
         <Link
-          href="/dashboard"
+          href="/jobs"
           className="px-5 py-2.5 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-700 transition-colors"
         >
           Go to dashboard
