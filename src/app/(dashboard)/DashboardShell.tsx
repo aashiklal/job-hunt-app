@@ -10,6 +10,7 @@ import {
   Menu,
   Settings,
   FileText,
+  ShieldCheck,
 } from "lucide-react";
 import {
   Sheet,
@@ -25,7 +26,13 @@ const navItems = [
   { label: "Settings", href: "/settings", icon: Settings },
 ] as const;
 
-function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+function NavLinks({
+  onNavigate,
+  isAdmin,
+}: {
+  onNavigate?: () => void;
+  isAdmin?: boolean;
+}) {
   const pathname = usePathname();
 
   return (
@@ -48,11 +55,34 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
           </Link>
         );
       })}
+      {isAdmin && (
+        <>
+          <div className="my-2 border-t border-gray-100" />
+          <Link
+            href="/admin"
+            onClick={onNavigate}
+            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+              pathname.startsWith("/admin")
+                ? "bg-gray-100 text-gray-900 font-medium"
+                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4 shrink-0" strokeWidth={1.75} />
+            Admin
+          </Link>
+        </>
+      )}
     </nav>
   );
 }
 
-function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarContent({
+  onNavigate,
+  isAdmin,
+}: {
+  onNavigate?: () => void;
+  isAdmin?: boolean;
+}) {
   return (
     <div className="flex flex-col h-full px-3 py-4">
       <Link
@@ -62,7 +92,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <Briefcase className="w-5 h-5 text-gray-800" strokeWidth={1.75} />
         <span className="font-semibold text-gray-900 text-base">Job Hunt</span>
       </Link>
-      <NavLinks onNavigate={onNavigate} />
+      <NavLinks onNavigate={onNavigate} isAdmin={isAdmin} />
       <div className="pt-4 border-t border-gray-200 px-1">
         <UserButton showName />
       </div>
@@ -72,8 +102,10 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export default function DashboardShell({
   children,
+  isAdmin,
 }: {
   children: React.ReactNode;
+  isAdmin?: boolean;
 }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -81,7 +113,7 @@ export default function DashboardShell({
     <div className="flex min-h-screen bg-gray-50">
       {/* Desktop sidebar */}
       <aside className="hidden md:flex flex-col w-60 shrink-0 bg-white border-r border-gray-200 fixed inset-y-0 left-0">
-        <SidebarContent />
+        <SidebarContent isAdmin={isAdmin} />
       </aside>
 
       {/* Mobile top bar */}
@@ -113,7 +145,7 @@ export default function DashboardShell({
           <SheetHeader className="sr-only">
             <SheetTitle>Navigation</SheetTitle>
           </SheetHeader>
-          <SidebarContent onNavigate={() => setDrawerOpen(false)} />
+          <SidebarContent onNavigate={() => setDrawerOpen(false)} isAdmin={isAdmin} />
         </SheetContent>
       </Sheet>
 

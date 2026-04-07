@@ -53,19 +53,34 @@ export async function POST(req: Request) {
     const primaryEmail = data.email_addresses.find(
       (e) => e.id === data.primary_email_address_id
     );
+    const email = primaryEmail?.email_address ?? "";
 
-    await User.findOneAndUpdate(
-      { clerkId: data.id },
-      {
-        clerkId: data.id,
-        email: primaryEmail?.email_address ?? "",
-        firstName: data.first_name ?? undefined,
-        lastName: data.last_name ?? undefined,
-        status: "pending",
-        isAdmin: false,
-      },
-      { upsert: true, new: true }
-    );
+    // If a bootstrap placeholder exists for this email, merge into it
+    // (preserves isAdmin / status set by the bootstrap script).
+    const existing = email ? await User.findOne({ email }) : null;
+    if (existing) {
+      await User.findOneAndUpdate(
+        { _id: existing._id },
+        {
+          clerkId: data.id,
+          firstName: data.first_name ?? undefined,
+          lastName: data.last_name ?? undefined,
+        }
+      );
+    } else {
+      await User.findOneAndUpdate(
+        { clerkId: data.id },
+        {
+          clerkId: data.id,
+          email,
+          firstName: data.first_name ?? undefined,
+          lastName: data.last_name ?? undefined,
+          status: "pending",
+          isAdmin: false,
+        },
+        { upsert: true, new: true }
+      );
+    }
   }
 
   if (type === "user.updated") {

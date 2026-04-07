@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth-helpers";
+import { RequestAccessButton } from "./_components/RequestAccessButton";
 
 export const metadata = {
   title: "Access Not Approved | Job Hunt",
@@ -29,8 +30,9 @@ export default async function RejectedPage() {
         <CardContent>
           <p className="text-gray-600 text-sm leading-relaxed">
             Your request for access wasn&apos;t approved. If you believe this is
-            a mistake, please contact the administrator.
+            a mistake, you can submit a new request below.
           </p>
+          <RequestAccessButton />
         </CardContent>
       </Card>
     </div>

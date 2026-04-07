@@ -6,7 +6,7 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const currentUser = await requireApprovedUser(); // used in Step C (admin sidebar link)
+  const currentUser = await requireApprovedUser();
 
-  return <DashboardShell>{children}</DashboardShell>;
+  return <DashboardShell isAdmin={currentUser.isAdmin}>{children}</DashboardShell>;
 }
