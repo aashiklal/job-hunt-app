@@ -29,6 +29,16 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+## Admin recovery
+
+If you ever get locked out of the admin panel (e.g. accidentally rejected yourself or the DB record was wiped), restore your access with the bootstrap script:
+
+```bash
+npx tsx scripts/bootstrap-admin.ts your@email.com
+```
+
+This sets `status: "approved"` and `isAdmin: true` for that email in the `jobhunt` database. Safe to run multiple times.
+
 ## Clerk Webhook Setup
 
 To sync users into MongoDB on sign-up, you need to configure a webhook in the Clerk dashboard.

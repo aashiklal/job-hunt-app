@@ -24,7 +24,7 @@ export default async function connectDB(): Promise<typeof mongoose> {
   }
 
   if (!cache.promise) {
-    cache.promise = mongoose.connect(uri).then((instance) => {
+    cache.promise = mongoose.connect(uri, { dbName: "jobhunt" }).then((instance) => {
       console.log("MongoDB connected");
       return instance;
     });

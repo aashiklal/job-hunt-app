@@ -41,7 +41,7 @@ const User =
   mongoose.models.User ?? mongoose.model("User", UserSchema);
 
 async function main() {
-  await mongoose.connect(MONGODB_URI as string);
+  await mongoose.connect(MONGODB_URI as string, { dbName: "jobhunt" });
   console.log("Connected to MongoDB.");
 
   // Promote the target admin user, creating a placeholder doc if needed

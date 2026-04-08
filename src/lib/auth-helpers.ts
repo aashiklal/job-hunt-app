@@ -35,7 +35,7 @@ export async function requireApprovedUser(): Promise<IUser> {
           firstName: clerkUser.firstName ?? undefined,
           lastName: clerkUser.lastName ?? undefined,
         },
-        { new: true }
+        { returnDocument: "after" }
       );
     }
 
