@@ -12,7 +12,10 @@ export const approveUser = defineAdminAction(
   async (_ctx, input: { userId: string }) => {
     const userId = userIdSchema.parse(input.userId);
     await users.setStatus(userId, "approved");
-    await subscriptions.ensureForUser(userId);
+    const subscription = await subscriptions.ensureForUser(userId);
+    if (!subscription) {
+      throw new Error("Failed to create subscription for approved user.");
+    }
     revalidatePath("/admin");
     return { userId };
   }

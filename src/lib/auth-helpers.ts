@@ -39,28 +39,19 @@ export const requireApprovedUserWithPlan = cache(
       )?.emailAddress;
 
       if (primaryEmail) {
-        await connectDB();
-        user = await User.findOneAndUpdate(
-          { email: primaryEmail },
-          {
-            clerkId: userId,
-            firstName: clerkUser.firstName ?? undefined,
-            lastName: clerkUser.lastName ?? undefined,
-          },
-          { returnDocument: "after" }
-        );
+        user = await users.claimByEmail(primaryEmail, userId, {
+          firstName: clerkUser.firstName ?? undefined,
+          lastName: clerkUser.lastName ?? undefined,
+        });
       }
 
       // Truly new user — create a pending record (webhook substitute for local dev)
       if (!user) {
-        await connectDB();
-        await User.create({
+        await users.createFromClerk({
           clerkId: userId,
           email: primaryEmail ?? "",
           firstName: clerkUser.firstName ?? undefined,
           lastName: clerkUser.lastName ?? undefined,
-          status: "pending",
-          isAdmin: false,
         });
         redirect("/pending");
       }
