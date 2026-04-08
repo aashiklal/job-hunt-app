@@ -83,11 +83,11 @@ src/
       DashboardShell.tsx           # Sidebar nav (client component)
       jobs/ resume/ tracker/       # Core dashboard pages
       analyze/ cover-letter/ email/ settings/
-    admin/
-      layout.tsx                   # Calls requireAdmin()
-      page.tsx                     # User access management table
-      _actions.ts                  # Server Actions: approve/reject users
-      _components/                 # Admin-only client components
+      admin/
+        layout.tsx                 # Calls requireAdmin() (notFound() if not admin)
+        page.tsx                   # User access management table
+        _actions.ts                # Server Actions: approve/reject users
+        _components/               # Admin-only client components
     api/webhooks/clerk/route.ts    # Clerk user.created/updated/deleted webhook
     sign-in/ sign-up/              # Clerk hosted UI catch-all routes
     pending/ rejected/             # Holding pages for non-approved users
@@ -97,9 +97,7 @@ src/
     anthropic.ts                   # Anthropic SDK singleton (server-only)
     db/
       connect.ts                   # MongoDB connection singleton (import this, not db.ts)
-      models/
-        Application.ts + index.ts  # Application model (re-exported from index)
-    models/                        # Other Mongoose models: User, Job, Resume, Document
+    models/                        # Mongoose models: User, Job, Resume, Document
 ```
 
 ## Access Control Flow
@@ -109,14 +107,14 @@ New users land in `status: "pending"` (set by Clerk webhook or lazily in `requir
 - **pending** → redirected to `/pending`
 - **rejected** → redirected to `/rejected` (can re-request access via Server Action)
 - **approved** → enters `(dashboard)` route group
-- **isAdmin: true** → can also access `/admin`
+- **isAdmin: true** → can also access `/admin` (inside the dashboard group; non-admins get `notFound()`)
 
 `proxy.ts` only enforces Clerk session presence (redirects unauthenticated users to sign-in). Business-level status checks happen in `src/lib/auth-helpers.ts`.
 
 ## Project Conventions
 
 - MongoDB connection: import `connectDB` from `@/lib/db/connect` (not `@/lib/db`). Both files exist; `db/connect.ts` is the canonical one used by all current code.
-- MongoDB models live in `src/lib/models/` (User, Job, Resume, Document) and `src/lib/db/models/` (Application, re-exported via its `index.ts`). Use the singleton pattern (`mongoose.models.X ?? mongoose.model(...)`) to avoid recompilation in dev.
+- MongoDB models live in `src/lib/models/` (User, Job, Resume, Document). Use the singleton pattern (`mongoose.models.X ?? mongoose.model(...)`) to avoid recompilation in dev.
 - Every API route and Server Action must call `auth()` from `@clerk/nextjs/server` and return 401 if no `userId`. All Mongo queries must filter by `userId`.
 - Anthropic SDK is only ever imported in server code. Client is instantiated in `src/lib/anthropic.ts`.
 - Use Server Actions for mutations where possible; use route handlers (`route.ts`) only for streaming responses or third-party inbound POSTs (e.g. Clerk webhooks).
