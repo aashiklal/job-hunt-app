@@ -74,23 +74,53 @@ For client-side navigations to feel instant with Cache Components, export `unsta
 
 ```
 src/
+  proxy.ts                         # Clerk auth proxy (replaces middleware.ts in Next.js 16)
   app/
-    layout.tsx   # Root layout — Geist font, sets html/body shell
-    page.tsx     # Home route (placeholder)
-    globals.css  # Global styles
-public/          # Static assets
+    layout.tsx                     # Root layout — Geist font, ClerkProvider
+    page.tsx                       # Public landing page
+    (dashboard)/                   # Route group; layout enforces requireApprovedUser()
+      layout.tsx                   # Calls requireApprovedUser(), renders DashboardShell
+      DashboardShell.tsx           # Sidebar nav (client component)
+      jobs/ resume/ tracker/       # Core dashboard pages
+      analyze/ cover-letter/ email/ settings/
+    admin/
+      layout.tsx                   # Calls requireAdmin()
+      page.tsx                     # User access management table
+      _actions.ts                  # Server Actions: approve/reject users
+      _components/                 # Admin-only client components
+    api/webhooks/clerk/route.ts    # Clerk user.created/updated/deleted webhook
+    sign-in/ sign-up/              # Clerk hosted UI catch-all routes
+    pending/ rejected/             # Holding pages for non-approved users
+    unauthorised/
+  lib/
+    auth-helpers.ts                # requireApprovedUser(), requireAdmin(), getCurrentUser()
+    anthropic.ts                   # Anthropic SDK singleton (server-only)
+    db/
+      connect.ts                   # MongoDB connection singleton (import this, not db.ts)
+      models/
+        Application.ts + index.ts  # Application model (re-exported from index)
+    models/                        # Other Mongoose models: User, Job, Resume, Document
 ```
 
-Clerk provider and MongoDB connection setup are not yet implemented.
+## Access Control Flow
+
+New users land in `status: "pending"` (set by Clerk webhook or lazily in `requireApprovedUser()`). Admins approve/reject from `/admin`. Status gates:
+
+- **pending** → redirected to `/pending`
+- **rejected** → redirected to `/rejected` (can re-request access via Server Action)
+- **approved** → enters `(dashboard)` route group
+- **isAdmin: true** → can also access `/admin`
+
+`proxy.ts` only enforces Clerk session presence (redirects unauthenticated users to sign-in). Business-level status checks happen in `src/lib/auth-helpers.ts`.
 
 ## Project Conventions
 
-- All MongoDB models live in `src/lib/models/` as Mongoose schemas with TypeScript interfaces. Use a singleton pattern to avoid model recompilation in dev.
-- MongoDB connection helper lives at `src/lib/db.ts` and caches the connection on `global` for hot-reload safety.
-- Every API route under `src/app/api/**` and every Server Action must call `auth()` from `@clerk/nextjs/server` first and return 401 if no `userId`. All Mongo queries must filter by `userId`.
-- Anthropic SDK is only ever imported in server code (route handlers, server actions, server components). Never in a client component. The client is instantiated in `src/lib/anthropic.ts`.
-- Use Server Actions for mutations where possible; use route handlers (`route.ts`) only when streaming responses or when a third party needs to POST in (e.g. Clerk webhooks).
+- MongoDB connection: import `connectDB` from `@/lib/db/connect` (not `@/lib/db`). Both files exist; `db/connect.ts` is the canonical one used by all current code.
+- MongoDB models live in `src/lib/models/` (User, Job, Resume, Document) and `src/lib/db/models/` (Application, re-exported via its `index.ts`). Use the singleton pattern (`mongoose.models.X ?? mongoose.model(...)`) to avoid recompilation in dev.
+- Every API route and Server Action must call `auth()` from `@clerk/nextjs/server` and return 401 if no `userId`. All Mongo queries must filter by `userId`.
+- Anthropic SDK is only ever imported in server code. Client is instantiated in `src/lib/anthropic.ts`.
+- Use Server Actions for mutations where possible; use route handlers (`route.ts`) only for streaming responses or third-party inbound POSTs (e.g. Clerk webhooks).
 - shadcn components are added via `npx shadcn@latest add <name>`. Do not hand-write components that shadcn already provides.
 - Forms use `react-hook-form` + `zod` + `@hookform/resolvers`. Validation schemas live next to the form in a `schema.ts` file.
 - Environment variables required: `MONGODB_URI`, `ANTHROPIC_API_KEY`, `CLERK_SECRET_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_WEBHOOK_SIGNING_SECRET`.
-- Server Components inside `src/app/(dashboard)/**` can assume the user is approved (the layout enforces this via `requireApprovedUser()`). Routes outside that group must call `requireApprovedUser()` or `requireAdmin()` themselves if they require an approved user.
+- Server Components inside `src/app/(dashboard)/**` can assume the user is approved (layout enforces this). Routes outside that group must call `requireApprovedUser()` or `requireAdmin()` themselves.
