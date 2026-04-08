@@ -184,7 +184,7 @@ Admins can override per-user limits via `subscriptions.setCustomLimit()` / `subs
 
 - MongoDB connection: import `connectDB` from `@/lib/db/connect` (not `@/lib/db`). Both files exist; `db/connect.ts` is the canonical one.
 - MongoDB models live in `src/lib/models/`. Use the singleton pattern (`mongoose.models.X ?? mongoose.model(...)`) to avoid recompilation in dev.
-- Every API route and Server Action must call `auth()` from `@clerk/nextjs/server` and return 401 if no `userId`. All Mongo queries must filter by `userId`.
+- Every API route handler must call `auth()` from `@clerk/nextjs/server` and return 401 if no `userId`. Server Actions use `defineAction`/`defineAdminAction` instead — never call `auth()` directly in actions. All Mongo queries must filter by `userId`.
 - Anthropic SDK is only ever imported in server code. Client is instantiated in `src/lib/anthropic.ts`.
 - Use Server Actions for mutations; use route handlers (`route.ts`) only for streaming responses or third-party inbound POSTs (e.g. Clerk webhooks).
 - shadcn components are added via `npx shadcn@latest add <name>`. Do not hand-write components that shadcn already provides.
