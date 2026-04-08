@@ -93,3 +93,4 @@ Clerk provider and MongoDB connection setup are not yet implemented.
 - shadcn components are added via `npx shadcn@latest add <name>`. Do not hand-write components that shadcn already provides.
 - Forms use `react-hook-form` + `zod` + `@hookform/resolvers`. Validation schemas live next to the form in a `schema.ts` file.
 - Environment variables required: `MONGODB_URI`, `ANTHROPIC_API_KEY`, `CLERK_SECRET_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_WEBHOOK_SIGNING_SECRET`.
+- Server Components inside `src/app/(dashboard)/**` can assume the user is approved (the layout enforces this via `requireApprovedUser()`). Routes outside that group must call `requireApprovedUser()` or `requireAdmin()` themselves if they require an approved user.
