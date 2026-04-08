@@ -25,23 +25,23 @@ export function UserActionButton({ userId, variant }: Props) {
 
   function handleApprove() {
     startTransition(async () => {
-      try {
-        await approveUser(userId);
+      const result = await approveUser({ userId });
+      if (result.ok) {
         toast.success("User approved.");
-      } catch {
-        toast.error("Failed to approve user.");
+      } else {
+        toast.error(result.error.message);
       }
     });
   }
 
   function handleReject() {
     startTransition(async () => {
-      try {
-        await rejectUser(userId);
+      const result = await rejectUser({ userId });
+      if (result.ok) {
         toast.success("User rejected.");
         setOpen(false);
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to reject user.");
+      } else {
+        toast.error(result.error.message);
         setOpen(false);
       }
     });

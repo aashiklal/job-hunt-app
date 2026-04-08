@@ -1,7 +1,7 @@
 import { formatDistanceToNow } from "date-fns";
-import { requireAdmin } from "@/lib/auth-helpers";
-import connectDB from "@/lib/db/connect";
-import User, { IUser } from "@/lib/models/User";
+import { requireAdminWithPlan } from "@/lib/auth-helpers";
+import * as usersRepo from "@/lib/repositories/users";
+import { type IUser } from "@/lib/repositories/users";
 import { Badge } from "@/components/ui/badge";
 import {
   Tabs,
@@ -85,11 +85,10 @@ function UserTable({
 }
 
 export default async function AdminPage() {
-  const admin = await requireAdmin();
+  const { user: admin } = await requireAdminWithPlan();
   const adminId = (admin._id as { toString(): string }).toString();
 
-  await connectDB();
-  const allUsers = await User.find({}).sort({ createdAt: -1 }).lean<IUser[]>();
+  const allUsers = await usersRepo.listAll();
 
   const pending = allUsers.filter((u) => u.status === "pending");
   const approved = allUsers.filter((u) => u.status === "approved");

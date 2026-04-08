@@ -39,7 +39,7 @@ export async function update(
   return Resume.findOneAndUpdate(
     { _id: resumeId, userId },
     { $set: data },
-    { new: true }
+    { returnDocument: "after" }
   );
 }
 
@@ -57,7 +57,7 @@ export async function setDefault(
   return Resume.findOneAndUpdate(
     { _id: resumeId, userId },
     { $set: { isDefault: true } },
-    { new: true }
+    { returnDocument: "after" }
   );
 }
 

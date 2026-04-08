@@ -2,18 +2,16 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import connectDB from "@/lib/db/connect";
-import User from "@/lib/models/User";
+import * as users from "@/lib/repositories/users";
 
 export async function requestAccessAgain(): Promise<void> {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
-  await connectDB();
-  await User.findOneAndUpdate(
-    { clerkId: userId, status: "rejected" },
-    { status: "pending" }
-  );
+  const user = await users.getByClerkId(userId);
+  if (user && user.status === "rejected") {
+    await users.setStatus(user._id.toString(), "pending");
+  }
 
   redirect("/pending");
 }

@@ -1,7 +1,6 @@
 import { headers } from "next/headers";
 import { Webhook } from "svix";
-import connectDB from "@/lib/db/connect";
-import User from "@/lib/models/User";
+import * as users from "@/lib/repositories/users";
 
 type ClerkUserEventData = {
   id: string;
@@ -45,8 +44,6 @@ export async function POST(req: Request) {
     return new Response("Invalid webhook signature", { status: 400 });
   }
 
-  await connectDB();
-
   const { type, data } = event;
 
   if (type === "user.created") {
@@ -57,29 +54,19 @@ export async function POST(req: Request) {
 
     // If a bootstrap placeholder exists for this email, merge into it
     // (preserves isAdmin / status set by the bootstrap script).
-    const existing = email ? await User.findOne({ email }) : null;
+    const existing = email ? await users.getByEmail(email) : null;
     if (existing) {
-      await User.findOneAndUpdate(
-        { _id: existing._id },
-        {
-          clerkId: data.id,
-          firstName: data.first_name ?? undefined,
-          lastName: data.last_name ?? undefined,
-        }
-      );
+      await users.claimByEmail(email, data.id, {
+        firstName: data.first_name ?? undefined,
+        lastName: data.last_name ?? undefined,
+      });
     } else {
-      await User.findOneAndUpdate(
-        { clerkId: data.id },
-        {
-          clerkId: data.id,
-          email,
-          firstName: data.first_name ?? undefined,
-          lastName: data.last_name ?? undefined,
-          status: "pending",
-          isAdmin: false,
-        },
-        { upsert: true, new: true }
-      );
+      await users.upsertFromClerk({
+        clerkId: data.id,
+        email,
+        firstName: data.first_name ?? undefined,
+        lastName: data.last_name ?? undefined,
+      });
     }
   }
 
@@ -87,19 +74,15 @@ export async function POST(req: Request) {
     const primaryEmail = data.email_addresses.find(
       (e) => e.id === data.primary_email_address_id
     );
-
-    await User.findOneAndUpdate(
-      { clerkId: data.id },
-      {
-        email: primaryEmail?.email_address ?? "",
-        firstName: data.first_name ?? undefined,
-        lastName: data.last_name ?? undefined,
-      }
-    );
+    await users.updateProfileFromClerk(data.id, {
+      email: primaryEmail?.email_address,
+      firstName: data.first_name ?? undefined,
+      lastName: data.last_name ?? undefined,
+    });
   }
 
   if (type === "user.deleted") {
-    await User.findOneAndDelete({ clerkId: data.id });
+    await users.deleteByClerkId(data.id);
   }
 
   return new Response("OK", { status: 200 });

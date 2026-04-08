@@ -13,11 +13,6 @@ const eslintConfig = defineConfig([
       "src/lib/repositories/**",
       "src/lib/auth-helpers.ts",
       "src/lib/usage.ts",
-      // TODO: remove after group 2.3 migration
-      "src/app/api/webhooks/clerk/route.ts",
-      "src/app/(dashboard)/admin/_actions.ts",
-      "src/app/(dashboard)/admin/page.tsx",
-      "src/app/rejected/_actions.ts",
     ],
     rules: {
       "no-restricted-imports": [

@@ -21,7 +21,7 @@ export async function ensureForUser(
         status: "active",
       },
     },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: "after" }
   );
 }
 
@@ -38,7 +38,7 @@ export async function setCustomLimit(
   return Subscription.findOneAndUpdate(
     { userId },
     { $set: { "customLimits.aiGenerationsPerMonth": aiGenerationsPerMonth } },
-    { new: true }
+    { returnDocument: "after" }
   );
 }
 
@@ -49,6 +49,6 @@ export async function clearCustomLimit(
   return Subscription.findOneAndUpdate(
     { userId },
     { $unset: { customLimits: "" } },
-    { new: true }
+    { returnDocument: "after" }
   );
 }

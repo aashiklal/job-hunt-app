@@ -1,4 +1,4 @@
-import { requireApprovedUser } from "@/lib/auth-helpers";
+import { requireApprovedUserWithPlan } from "@/lib/auth-helpers";
 import DashboardShell from "./DashboardShell";
 
 export default async function DashboardLayout({
@@ -6,7 +6,7 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const currentUser = await requireApprovedUser();
+  const { user } = await requireApprovedUserWithPlan();
 
-  return <DashboardShell isAdmin={currentUser.isAdmin}>{children}</DashboardShell>;
+  return <DashboardShell isAdmin={user.isAdmin}>{children}</DashboardShell>;
 }

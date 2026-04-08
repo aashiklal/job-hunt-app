@@ -1,6 +1,8 @@
 import connectDB from "@/lib/db/connect";
 import User, { IUser } from "@/lib/models/User";
 
+export type { IUser };
+
 export async function getById(id: string): Promise<IUser | null> {
   await connectDB();
   return User.findById(id);
@@ -33,7 +35,7 @@ export async function setStatus(
   status: "pending" | "approved" | "rejected"
 ): Promise<IUser | null> {
   await connectDB();
-  return User.findByIdAndUpdate(id, { status }, { new: true });
+  return User.findByIdAndUpdate(id, { status }, { returnDocument: "after" });
 }
 
 export async function setAdmin(
@@ -41,7 +43,7 @@ export async function setAdmin(
   isAdmin: boolean
 ): Promise<IUser | null> {
   await connectDB();
-  return User.findByIdAndUpdate(id, { isAdmin }, { new: true });
+  return User.findByIdAndUpdate(id, { isAdmin }, { returnDocument: "after" });
 }
 
 export async function createFromClerk(args: {
@@ -80,8 +82,31 @@ export async function upsertFromClerk(args: {
         isAdmin: false,
       },
     },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: "after" }
   );
+}
+
+/**
+ * Merges a Clerk user into an existing bootstrap placeholder found by email.
+ * Sets clerkId and profile fields only — does NOT touch status or isAdmin.
+ * Used by the user.created webhook when a pre-provisioned record already exists.
+ */
+export async function claimByEmail(
+  email: string,
+  clerkId: string,
+  args: { firstName?: string; lastName?: string }
+): Promise<IUser | null> {
+  await connectDB();
+  const update: Record<string, unknown> = { clerkId };
+  if (args.firstName !== undefined) update.firstName = args.firstName;
+  if (args.lastName !== undefined) update.lastName = args.lastName;
+  return User.findOneAndUpdate({ email }, { $set: update }, { returnDocument: "after" });
+}
+
+export async function deleteByClerkId(clerkId: string): Promise<boolean> {
+  await connectDB();
+  const result = await User.findOneAndDelete({ clerkId });
+  return result !== null;
 }
 
 export async function updateProfileFromClerk(
@@ -93,5 +118,5 @@ export async function updateProfileFromClerk(
   if (args.email !== undefined) update.email = args.email;
   if (args.firstName !== undefined) update.firstName = args.firstName;
   if (args.lastName !== undefined) update.lastName = args.lastName;
-  return User.findOneAndUpdate({ clerkId }, { $set: update }, { new: true });
+  return User.findOneAndUpdate({ clerkId }, { $set: update }, { returnDocument: "after" });
 }

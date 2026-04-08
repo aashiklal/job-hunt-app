@@ -46,7 +46,7 @@ export async function update(
   return Job.findOneAndUpdate(
     { _id: jobId, userId },
     { $set: data },
-    { new: true }
+    { returnDocument: "after" }
   );
 }
 
@@ -59,7 +59,7 @@ export async function setStatus(
   return Job.findOneAndUpdate(
     { _id: jobId, userId },
     { $set: { status } },
-    { new: true }
+    { returnDocument: "after" }
   );
 }
 
@@ -71,7 +71,7 @@ export async function softDelete(
   return Job.findOneAndUpdate(
     { _id: jobId, userId },
     { $set: { deletedAt: new Date() } },
-    { new: true }
+    { returnDocument: "after" }
   );
 }
 
@@ -83,6 +83,6 @@ export async function restore(
   return Job.findOneAndUpdate(
     { _id: jobId, userId },
     { $set: { deletedAt: null } },
-    { new: true }
+    { returnDocument: "after" }
   );
 }
