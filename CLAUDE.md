@@ -11,6 +11,11 @@ npm run dev       # Start dev server (Turbopack, port 3000)
 npm run build     # Production build (Turbopack)
 npm run start     # Start production server
 npm run lint      # Run ESLint directly (eslint)
+
+# One-time setup scripts (use tsx, require .env.local)
+npm run bootstrap:admin         # Promote a user to admin by clerkId
+npm run seed:plans              # Seed Plan documents into MongoDB
+npm run backfill:subscriptions  # Create Subscription records for existing approved users
 ```
 
 No test runner is configured yet.
@@ -97,7 +102,7 @@ src/
     anthropic.ts                   # Anthropic SDK singleton (server-only)
     db/
       connect.ts                   # MongoDB connection singleton (import this, not db.ts)
-    models/                        # Mongoose models: User, Job, Resume, Document
+    models/                        # Mongoose models: User, Job, Resume, Document, Plan, Subscription, Usage
 ```
 
 ## Access Control Flow
@@ -114,7 +119,8 @@ New users land in `status: "pending"` (set by Clerk webhook or lazily in `requir
 ## Project Conventions
 
 - MongoDB connection: import `connectDB` from `@/lib/db/connect` (not `@/lib/db`). Both files exist; `db/connect.ts` is the canonical one used by all current code.
-- MongoDB models live in `src/lib/models/` (User, Job, Resume, Document). Use the singleton pattern (`mongoose.models.X ?? mongoose.model(...)`) to avoid recompilation in dev.
+- MongoDB models live in `src/lib/models/` (User, Job, Resume, Document, Plan, Subscription, Usage). Use the singleton pattern (`mongoose.models.X ?? mongoose.model(...)`) to avoid recompilation in dev.
+- **Plan/Subscription/Usage** — Plans (seeded via `npm run seed:plans`) define feature limits by `key` (e.g. `"personal"`). Each approved user gets one Subscription (upserted in `approveUser` action). Usage tracks AI generation counts per month via `period` field (`"YYYY-MM"` format). `src/lib/usage-helpers.ts` contains helpers for reading/incrementing usage.
 - Every API route and Server Action must call `auth()` from `@clerk/nextjs/server` and return 401 if no `userId`. All Mongo queries must filter by `userId`.
 - Anthropic SDK is only ever imported in server code. Client is instantiated in `src/lib/anthropic.ts`.
 - Use Server Actions for mutations where possible; use route handlers (`route.ts`) only for streaming responses or third-party inbound POSTs (e.g. Clerk webhooks).

@@ -36,7 +36,7 @@ export class QuotaExceededError extends Error {
 // ---------------------------------------------------------------------------
 
 /** Returns the current billing period as "YYYY-MM" in UTC. */
-function getCurrentPeriod(): string {
+export function getCurrentPeriod(): string {
   const now = new Date();
   const year = now.getUTCFullYear();
   const month = String(now.getUTCMonth() + 1).padStart(2, "0");

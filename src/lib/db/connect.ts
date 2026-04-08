@@ -14,7 +14,6 @@ const cache: MongooseCache =
 
 export default async function connectDB(): Promise<typeof mongoose> {
   if (cache.conn) {
-    console.log("Using cached connection");
     return cache.conn;
   }
 

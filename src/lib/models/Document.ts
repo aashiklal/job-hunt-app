@@ -1,6 +1,6 @@
 import mongoose, { Document, Model, Schema, Types } from "mongoose";
 
-export type DocumentType = "resume" | "cover_letter";
+export type DocumentType = "resume" | "cover_letter" | "jd_analysis";
 
 export type IDocument = {
   userId: Types.ObjectId;
@@ -8,6 +8,9 @@ export type IDocument = {
   type: DocumentType;
   content: string;
   aiModel: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  resumeIdUsed?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 } & Document;
@@ -18,11 +21,14 @@ const DocumentSchema = new Schema<IDocument>(
     jobId: { type: Schema.Types.ObjectId, ref: "Job", required: true, index: true },
     type: {
       type: String,
-      enum: ["resume", "cover_letter"],
+      enum: ["resume", "cover_letter", "jd_analysis"],
       required: true,
     },
     content: { type: String, required: true },
     aiModel: { type: String, required: true },
+    inputTokens: { type: Number },
+    outputTokens: { type: Number },
+    resumeIdUsed: { type: Schema.Types.ObjectId, ref: "Resume" },
   },
   { timestamps: true }
 );

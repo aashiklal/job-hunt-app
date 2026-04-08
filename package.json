@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "bootstrap:admin": "tsx scripts/bootstrap-admin.ts",
-    "seed:plans": "tsx scripts/seed-plans.ts"
+    "seed:plans": "tsx scripts/seed-plans.ts",
+    "backfill:subscriptions": "tsx scripts/backfill-subscriptions.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.82.0",

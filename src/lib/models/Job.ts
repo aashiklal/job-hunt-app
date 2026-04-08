@@ -22,6 +22,7 @@ export type IJob = {
   notes?: string;
   appliedAt?: Date;
   coverLetterGenerated?: boolean;
+  deletedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 } & Document;
@@ -43,6 +44,7 @@ const JobSchema = new Schema<IJob>(
     notes: { type: String },
     appliedAt: { type: Date },
     coverLetterGenerated: { type: Boolean, default: false },
+    deletedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

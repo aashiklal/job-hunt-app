@@ -10,7 +10,7 @@ export type IUsage = {
 
 const UsageSchema = new Schema<IUsage>(
   {
-    userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     period: { type: String, required: true, index: true },
     aiGenerations: { type: Number, required: true, default: 0 },
   },
