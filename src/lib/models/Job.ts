@@ -1,6 +1,14 @@
 import mongoose, { Document, Model, Schema, Types } from "mongoose";
 
-export type JobStatus = "saved" | "applied" | "interview" | "offer" | "rejected";
+export type JobStatus =
+  | "saved"
+  | "applied"
+  | "screening"
+  | "interview"
+  | "assessment"
+  | "offer"
+  | "rejected"
+  | "withdrawn";
 
 export type IJob = {
   userId: Types.ObjectId;
@@ -13,6 +21,7 @@ export type IJob = {
   status: JobStatus;
   notes?: string;
   appliedAt?: Date;
+  coverLetterGenerated?: boolean;
   createdAt: Date;
   updatedAt: Date;
 } & Document;
@@ -28,11 +37,12 @@ const JobSchema = new Schema<IJob>(
     salary: { type: String, trim: true },
     status: {
       type: String,
-      enum: ["saved", "applied", "interview", "offer", "rejected"],
+      enum: ["saved", "applied", "screening", "interview", "assessment", "offer", "rejected", "withdrawn"],
       default: "saved",
     },
     notes: { type: String },
     appliedAt: { type: Date },
+    coverLetterGenerated: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
