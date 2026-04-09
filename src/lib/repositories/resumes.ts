@@ -27,7 +27,17 @@ export async function create(
   if (data.isDefault) {
     await Resume.updateMany({ userId }, { $set: { isDefault: false } });
   }
-  return Resume.create({ userId, ...data });
+  return Resume.create({
+    userId,
+    title: data.title,
+    content: data.content,
+    isDefault: data.isDefault ?? false,
+  });
+}
+
+export async function countForUser(userId: string): Promise<number> {
+  await connectDB();
+  return Resume.countDocuments({ userId });
 }
 
 export async function update(
@@ -80,4 +90,26 @@ export async function deleteResume(
   }
 
   return true;
+}
+
+export type ResumeListItem = {
+  _id: string;
+  userId: string;
+  title: string;
+  content: string;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export function toResumeListItem(doc: IResume): ResumeListItem {
+  return {
+    _id: (doc._id as { toString(): string }).toString(),
+    userId: (doc.userId as unknown as { toString(): string }).toString(),
+    title: doc.title,
+    content: doc.content,
+    isDefault: doc.isDefault,
+    createdAt: doc.createdAt.toISOString(),
+    updatedAt: doc.updatedAt.toISOString(),
+  };
 }
