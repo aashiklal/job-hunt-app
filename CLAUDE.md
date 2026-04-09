@@ -33,6 +33,8 @@ No test runner is configured yet.
 - **@dnd-kit/core** — drag-and-drop (used in the kanban pipeline view); use `useDraggable`/`useDroppable` directly, not the sortable package, for column-based drag-and-drop
 - **sonner** — toast notifications; import `toast` from `"sonner"` and ensure `<Toaster />` is in the root layout
 - **date-fns** — date formatting utilities
+- **unpdf** — server-side PDF text extraction (no native deps, Vercel-compatible); API: `getDocumentProxy(new Uint8Array(buffer))` then `extractText(pdf, { mergePages: true })`
+- **mammoth** — server-side DOCX text extraction; prefer `convertToMarkdown` (preserves headings/bullets for AI) over `extractRawText`. Note: `convertToMarkdown` is missing from mammoth's type declaration — cast through `unknown` to call it: `(mammoth as unknown as { convertToMarkdown: ... })`
 
 ## Next.js 16 Breaking Changes
 
@@ -100,14 +102,25 @@ src/
         _components/job-form.tsx           # Shared create/edit form (client component)
         _components/jobs-list-view.tsx     # Table/list view
         _components/jobs-pipeline-view.tsx # Kanban view with optimistic drag-and-drop (useOptimistic)
-      resume/ tracker/             # Core dashboard pages
+      resume/                        # Resume management
+        page.tsx                   # List view with plan-limit enforcement
+        new/page.tsx               # Create form (redirects if at plan limit)
+        [id]/page.tsx              # Edit form
+        _actions.ts                # createResume, updateResume, setDefaultResume, deleteResume
+        _components/resume-form.tsx          # Shared create/edit form; PDF/DOCX upload toolbar populates content field
+        _components/set-default-button.tsx   # Client component; router.refresh() on success
+        _components/delete-resume-button.tsx # Hard delete with AlertDialog (no trash)
+      tracker/                     # Placeholder dashboard page
       analyze/ cover-letter/ email/ settings/
       admin/
         layout.tsx                 # Calls requireAdminWithPlan() (notFound() if not admin)
         page.tsx                   # User access management table
         _actions.ts                # Server Actions: approve/reject users (defineAdminAction)
         _components/               # Admin-only client components
-    api/webhooks/clerk/route.ts    # Clerk user.created/updated/deleted webhook
+    api/
+      webhooks/clerk/route.ts      # Clerk user.created/updated/deleted webhook
+      resume/parse-pdf/route.ts    # POST — parse PDF, return extracted text (auth-gated, parse-and-discard)
+      resume/parse-docx/route.ts   # POST — parse DOCX via mammoth, return extracted text (auth-gated, parse-and-discard)
     sign-in/ sign-up/              # Clerk hosted UI catch-all routes
     pending/ rejected/             # Holding pages for non-approved users
     unauthorised/
@@ -173,7 +186,9 @@ Use `returnDocument: "after"` for all `findOneAndUpdate` / `findByIdAndUpdate` c
 
 ### Soft Delete Pattern
 
-Models that support soft delete use a `deletedAt: Date | null` field. Active-record queries always filter `deletedAt: null`; trash queries filter `deletedAt: { $ne: null }`. Hard delete (`findOneAndDelete`) is only permitted on documents already in the trash (enforce this in the repository layer). Restore sets `deletedAt: null`.
+**Jobs** use soft delete (`deletedAt: Date | null`). Active-record queries filter `deletedAt: null`; trash queries filter `deletedAt: { $ne: null }`. Hard delete (`findOneAndDelete`) is only permitted on documents already in the trash. Restore sets `deletedAt: null`.
+
+**Resumes** are hard-deleted directly — no trash, no `deletedAt` field. When the deleted resume was the default, the repository automatically promotes the most-recently-updated remaining resume to default.
 
 ## Plan / Subscription / Usage
 
@@ -198,14 +213,20 @@ try {
 
 Admins can override per-user limits via `subscriptions.setCustomLimit()` / `subscriptions.clearCustomLimit()`.
 
+Non-AI resource limits (e.g. `plan.maxResumes`) are enforced in two places intentionally:
+1. **The page** (`new/page.tsx`) — redirects to the list if at limit, so the user never sees a form they cannot submit.
+2. **The action** (`_actions.ts`) — throws if at limit, guarding against direct API calls that bypass the UI.
+
+`-1` means unlimited. Always check `maxX !== -1 && count >= maxX` before throwing.
+
 ## Project Conventions
 
 - MongoDB connection: import `connectDB` from `@/lib/db/connect` (not `@/lib/db`). Both files exist; `db/connect.ts` is the canonical one.
-- `JobStatus` is the source-of-truth type in `src/lib/models/Job.ts`; `JobListItem` (the lean projection for list/kanban views) is defined in `src/lib/repositories/jobs.ts`.
+- `JobStatus` is the source-of-truth type in `src/lib/models/Job.ts`; `JobListItem` / `toJobListItem()` (lean projection for list/kanban views) is in `src/lib/repositories/jobs.ts`. Same pattern for resumes: `ResumeListItem` / `toResumeListItem()` in `src/lib/repositories/resumes.ts`. Always serialize Mongoose documents through these helpers before passing data to Client Components — never pass a raw Mongoose document.
 - MongoDB models live in `src/lib/models/`. Use the singleton pattern (`mongoose.models.X ?? mongoose.model(...)`) to avoid recompilation in dev.
 - Every API route handler must call `auth()` from `@clerk/nextjs/server` and return 401 if no `userId`. Server Actions use `defineAction`/`defineAdminAction` instead — never call `auth()` directly in actions. All Mongo queries must filter by `userId`.
 - Anthropic SDK is only ever imported in server code. Client is instantiated in `src/lib/anthropic.ts`.
-- Use Server Actions for mutations; use route handlers (`route.ts`) only for streaming responses or third-party inbound POSTs (e.g. Clerk webhooks).
+- Use Server Actions for mutations; use route handlers (`route.ts`) only for: streaming responses, third-party inbound webhooks (e.g. Clerk), or operations that need to handle raw binary data (e.g. file upload parsing). Route handlers that require auth must call `auth()` from `@clerk/nextjs/server` and return 401 — they cannot use `requireApprovedUserWithPlan()` because its internal `redirect()` calls are incompatible with the JSON response contract.
 - shadcn components are added via `npx shadcn@latest add <name>`. Do not hand-write components that shadcn already provides.
 - Forms use `react-hook-form` + `zod` + `@hookform/resolvers`. Zod schemas for server-side validation live in `_actions.ts`; client-side schemas are defined inline in the form component. Do not create a separate `schema.ts` file.
 - Environment variables required: `MONGODB_URI`, `ANTHROPIC_API_KEY`, `CLERK_SECRET_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_WEBHOOK_SIGNING_SECRET`.
