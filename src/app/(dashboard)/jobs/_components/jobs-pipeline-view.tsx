@@ -1,10 +1,25 @@
 "use client";
 
+import { useOptimistic, useTransition, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  useDroppable,
+  useDraggable,
+} from "@dnd-kit/core";
+import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { JobListItem, JobStatus } from "@/lib/repositories/jobs";
+import { setJobStatus } from "@/app/(dashboard)/jobs/_actions";
 
 const COLUMNS: ReadonlyArray<{ status: JobStatus; label: string }> = [
   { status: "saved", label: "Saved" },
@@ -17,14 +32,142 @@ const COLUMNS: ReadonlyArray<{ status: JobStatus; label: string }> = [
   { status: "withdrawn", label: "Withdrawn" },
 ];
 
+const VALID_STATUSES = COLUMNS.map((c) => c.status);
+
+type OptimisticAction = { type: "move"; jobId: string; toStatus: JobStatus };
+
+function optimisticReducer(
+  jobs: JobListItem[],
+  action: OptimisticAction
+): JobListItem[] {
+  if (action.type === "move") {
+    return jobs.map((j) =>
+      j._id === action.jobId
+        ? { ...j, status: action.toStatus, updatedAt: new Date().toISOString() }
+        : j
+    );
+  }
+  return jobs;
+}
+
+// ---------------------------------------------------------------------------
+// DraggableCard
+// ---------------------------------------------------------------------------
+
+function DraggableCard({ job }: { job: JobListItem }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({
+      id: job._id,
+      data: { fromStatus: job.status },
+    });
+
+  const style = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
+    : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      className={isDragging ? "opacity-50" : ""}
+    >
+      <Link href={`/jobs/${job._id}`}>
+        <Card className="hover:bg-muted/50 cursor-grab active:cursor-grabbing transition-colors">
+          <CardContent className="p-3 space-y-1">
+            <p className="font-semibold text-sm leading-tight">{job.company}</p>
+            <p className="text-sm text-muted-foreground leading-tight">
+              {job.role}
+            </p>
+            {job.location && (
+              <p className="text-xs text-muted-foreground">{job.location}</p>
+            )}
+            <p className="text-xs text-muted-foreground pt-1">
+              {formatDistanceToNow(new Date(job.updatedAt), {
+                addSuffix: true,
+              })}
+            </p>
+          </CardContent>
+        </Card>
+      </Link>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// DroppableColumn
+// ---------------------------------------------------------------------------
+
+function DroppableColumn({
+  status,
+  label,
+  jobs,
+}: {
+  status: JobStatus;
+  label: string;
+  jobs: JobListItem[];
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `column-${status}`,
+    data: { status },
+  });
+
+  return (
+    <div className="w-72 flex-shrink-0 flex flex-col gap-2">
+      {/* Column header */}
+      <div className="flex items-center justify-between px-1">
+        <span className="text-sm font-semibold">{label}</span>
+        <Badge variant="secondary" className="text-xs">
+          {jobs.length}
+        </Badge>
+      </div>
+
+      {/* Column body — droppable area */}
+      <div
+        ref={setNodeRef}
+        className={`flex flex-col gap-2 min-h-24 rounded-lg p-2 transition-colors ${
+          isOver ? "bg-muted" : "bg-muted/30"
+        }`}
+      >
+        {jobs.length === 0 ? (
+          <div className="flex items-center justify-center min-h-16">
+            <p className="text-xs text-muted-foreground">No jobs</p>
+          </div>
+        ) : (
+          jobs.map((job) => <DraggableCard key={job._id} job={job} />)
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// JobsPipelineView
+// ---------------------------------------------------------------------------
+
 type Props = {
   jobs: JobListItem[];
 };
 
 export function JobsPipelineView({ jobs }: Props) {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
+  const [activeCard, setActiveCard] = useState<JobListItem | null>(null);
+
+  const [optimisticJobs, applyOptimistic] = useOptimistic(
+    jobs,
+    optimisticReducer
+  );
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+
+  // Build grouped map from optimistic state
   const grouped = new Map<JobStatus, JobListItem[]>();
   for (const col of COLUMNS) grouped.set(col.status, []);
-  for (const job of jobs) {
+  for (const job of optimisticJobs) {
     const list = grouped.get(job.status);
     if (list) list.push(job);
   }
@@ -32,58 +175,82 @@ export function JobsPipelineView({ jobs }: Props) {
     list.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }
 
-  return (
-    <div className="overflow-x-auto pb-4">
-      <div className="flex gap-4 min-w-max">
-        {COLUMNS.map((col) => {
-          const colJobs = grouped.get(col.status) ?? [];
-          return (
-            <div key={col.status} className="w-72 flex flex-col gap-2">
-              {/* Column header */}
-              <div className="flex items-center justify-between px-1">
-                <span className="text-sm font-semibold">{col.label}</span>
-                <Badge variant="secondary" className="text-xs">
-                  {colJobs.length}
-                </Badge>
-              </div>
+  function handleDragStart(event: DragStartEvent) {
+    const job = optimisticJobs.find((j) => j._id === event.active.id);
+    setActiveCard(job ?? null);
+  }
 
-              {/* Column body */}
-              <div className="flex flex-col gap-2 min-h-24">
-                {colJobs.length === 0 ? (
-                  <div className="rounded-md border border-dashed flex items-center justify-center min-h-24">
-                    <p className="text-xs text-muted-foreground">No jobs</p>
-                  </div>
-                ) : (
-                  colJobs.map((job) => (
-                    <Link key={job._id} href={`/jobs/${job._id}`}>
-                      <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
-                        <CardContent className="p-3 space-y-1">
-                          <p className="font-semibold text-sm leading-tight">
-                            {job.company}
-                          </p>
-                          <p className="text-sm text-muted-foreground leading-tight">
-                            {job.role}
-                          </p>
-                          {job.location && (
-                            <p className="text-xs text-muted-foreground">
-                              {job.location}
-                            </p>
-                          )}
-                          <p className="text-xs text-muted-foreground pt-1">
-                            {formatDistanceToNow(new Date(job.updatedAt), {
-                              addSuffix: true,
-                            })}
-                          </p>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  ))
-                )}
-              </div>
-            </div>
-          );
-        })}
+  function handleDragEnd(event: DragEndEvent) {
+    setActiveCard(null);
+    const { active, over } = event;
+    if (!over) return;
+
+    const jobId = String(active.id);
+    const overId = String(over.id);
+
+    if (!overId.startsWith("column-")) return;
+    const toStatusRaw = overId.slice("column-".length);
+
+    if (!VALID_STATUSES.includes(toStatusRaw as JobStatus)) return;
+    const toStatus = toStatusRaw as JobStatus;
+
+    const job = optimisticJobs.find((j) => j._id === jobId);
+    if (!job) return;
+    if (job.status === toStatus) return;
+
+    startTransition(async () => {
+      applyOptimistic({ type: "move", jobId, toStatus });
+
+      const result = await setJobStatus({ jobId, status: toStatus });
+
+      if (!result.ok) {
+        toast.error(result.error.message);
+        return;
+      }
+
+      router.refresh();
+    });
+  }
+
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="overflow-x-auto pb-4">
+        <div className="flex gap-4 min-w-max">
+          {COLUMNS.map((col) => (
+            <DroppableColumn
+              key={col.status}
+              status={col.status}
+              label={col.label}
+              jobs={grouped.get(col.status) ?? []}
+            />
+          ))}
+        </div>
       </div>
-    </div>
+
+      <DragOverlay>
+        {activeCard ? (
+          <Card className="cursor-grabbing shadow-lg w-72">
+            <CardContent className="p-3 space-y-1">
+              <p className="font-semibold text-sm leading-tight">
+                {activeCard.company}
+              </p>
+              <p className="text-sm text-muted-foreground leading-tight">
+                {activeCard.role}
+              </p>
+              {activeCard.location && (
+                <p className="text-xs text-muted-foreground">
+                  {activeCard.location}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 }
