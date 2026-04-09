@@ -36,17 +36,21 @@ export default async function ResumePage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-gray-900">Resumes</h1>
-        <div className="flex flex-col items-end gap-1">
-          <Button asChild disabled={atLimit}>
-            <Link href={atLimit ? "#" : "/resume/new"}>New resume</Link>
+        {!atLimit && (
+          <Button asChild>
+            <Link href="/resume/new">New resume</Link>
           </Button>
-          {atLimit && (
-            <p className="text-xs text-muted-foreground">
-              You have reached your resume limit ({count} of {maxResumes}).
-            </p>
-          )}
-        </div>
+        )}
       </div>
+
+      {atLimit && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <p className="font-medium">Resume limit reached ({count} of {maxResumes})</p>
+          <p className="mt-0.5 text-amber-700">
+            Delete an existing resume to add a new one.
+          </p>
+        </div>
+      )}
 
       {resumeList.length === 0 ? (
         <Card>
@@ -114,11 +118,11 @@ export default async function ResumePage() {
         </Table>
       )}
 
-      <p className="text-sm text-muted-foreground">
-        {maxResumes !== -1
-          ? `Resumes used: ${count} of ${maxResumes}`
-          : `Resumes: ${count}`}
-      </p>
+      {!atLimit && maxResumes !== -1 && (
+        <p className="text-sm text-muted-foreground">
+          Resumes used: {count} of {maxResumes}
+        </p>
+      )}
     </div>
   );
 }
