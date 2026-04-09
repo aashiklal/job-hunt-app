@@ -86,7 +86,16 @@ src/
     (dashboard)/                   # Route group; layout enforces requireApprovedUserWithPlan()
       layout.tsx                   # Calls requireApprovedUserWithPlan(), renders DashboardShell
       DashboardShell.tsx           # Sidebar nav (client component)
-      jobs/ resume/ tracker/       # Core dashboard pages
+      jobs/                          # Job tracker
+        page.tsx                   # List view
+        new/page.tsx               # Create form
+        [id]/page.tsx              # Detail view
+        [id]/edit/page.tsx         # Edit form
+        [id]/_components/          # Components scoped to the detail view
+        trash/page.tsx             # Soft-deleted jobs
+        _actions.ts                # createJob, updateJob, setJobStatus, softDeleteJob, hardDeleteJob, restoreJob
+        _components/job-form.tsx   # Shared create/edit form (client component)
+      resume/ tracker/             # Core dashboard pages
       analyze/ cover-letter/ email/ settings/
       admin/
         layout.tsx                 # Calls requireAdminWithPlan() (notFound() if not admin)
@@ -157,6 +166,10 @@ Each repository file calls `connectDB()` internally, so callers never need to.
 
 Use `returnDocument: "after"` for all `findOneAndUpdate` / `findByIdAndUpdate` calls — not `{ new: true }` (that's the Mongoose v5 option; this project uses the MongoDB driver option).
 
+### Soft Delete Pattern
+
+Models that support soft delete use a `deletedAt: Date | null` field. Active-record queries always filter `deletedAt: null`; trash queries filter `deletedAt: { $ne: null }`. Hard delete (`findOneAndDelete`) is only permitted on documents already in the trash (enforce this in the repository layer). Restore sets `deletedAt: null`.
+
 ## Plan / Subscription / Usage
 
 Plans are seeded via `npm run seed:plans` and define feature limits by `key` (e.g. `"personal"`). Each approved user gets one `Subscription` (upserted in `subscriptions.ensureForUser()`). `Usage` tracks AI generation counts per month via a `period` field (`"YYYY-MM"` UTC format).
@@ -188,6 +201,6 @@ Admins can override per-user limits via `subscriptions.setCustomLimit()` / `subs
 - Anthropic SDK is only ever imported in server code. Client is instantiated in `src/lib/anthropic.ts`.
 - Use Server Actions for mutations; use route handlers (`route.ts`) only for streaming responses or third-party inbound POSTs (e.g. Clerk webhooks).
 - shadcn components are added via `npx shadcn@latest add <name>`. Do not hand-write components that shadcn already provides.
-- Forms use `react-hook-form` + `zod` + `@hookform/resolvers`. Validation schemas live next to the form in a `schema.ts` file.
+- Forms use `react-hook-form` + `zod` + `@hookform/resolvers`. Zod schemas for server-side validation live in `_actions.ts`; client-side schemas are defined inline in the form component. Do not create a separate `schema.ts` file.
 - Environment variables required: `MONGODB_URI`, `ANTHROPIC_API_KEY`, `CLERK_SECRET_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_WEBHOOK_SIGNING_SECRET`.
 - Server Components inside `src/app/(dashboard)/**` can assume the user is approved (layout enforces this). Routes outside that group must call `requireApprovedUserWithPlan()` or `requireAdminWithPlan()` themselves.
