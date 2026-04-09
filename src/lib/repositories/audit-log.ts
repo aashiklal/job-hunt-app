@@ -1,6 +1,8 @@
 import connectDB from "@/lib/db/connect";
 import AuditLog, { IAuditLog, AuditAction } from "@/lib/models/AuditLog";
 
+export type { AuditAction };
+
 export type CreateAuditLogInput = {
   adminId: string;
   adminEmail: string;

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { requireAdminWithPlan } from "@/lib/auth-helpers";
 import * as usersRepo from "@/lib/repositories/users";
@@ -55,7 +56,11 @@ function UserTable({
               : "—";
           return (
             <TableRow key={id}>
-              <TableCell>{user.email}</TableCell>
+              <TableCell>
+                <Link href={`/admin/${id}`} className="hover:underline">
+                  {user.email}
+                </Link>
+              </TableCell>
               <TableCell>{name}</TableCell>
               <TableCell className="text-gray-500">
                 {formatDistanceToNow(new Date(user.createdAt), {
@@ -96,11 +101,19 @@ export default async function AdminPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-gray-900">User Access</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Approve or reject sign-up requests.
-        </p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">User Access</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Approve or reject sign-up requests.
+          </p>
+        </div>
+        <Link
+          href="/admin/audit"
+          className="text-sm text-muted-foreground hover:text-foreground"
+        >
+          View audit log →
+        </Link>
       </div>
 
       <Tabs defaultValue="pending">

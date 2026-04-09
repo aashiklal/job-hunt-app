@@ -1,0 +1,23 @@
+import type { AuditAction } from "@/lib/repositories/audit-log";
+
+export function formatAuditAction(
+  action: AuditAction,
+  details: Record<string, unknown> | null
+): string {
+  switch (action) {
+    case "user.approved":
+      return "Approved";
+    case "user.rejected":
+      return "Rejected";
+    case "user.admin_granted":
+      return "Granted admin";
+    case "user.admin_revoked":
+      return "Revoked admin";
+    case "user.custom_limit_set":
+      return `Set custom limit to ${details?.aiGenerationsPerMonth ?? "?"}`;
+    case "user.custom_limit_cleared":
+      return "Cleared custom limit";
+    default:
+      return action;
+  }
+}
