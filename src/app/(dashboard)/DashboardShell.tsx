@@ -79,9 +79,11 @@ function NavLinks({
 function SidebarContent({
   onNavigate,
   isAdmin,
+  usageWidget,
 }: {
   onNavigate?: () => void;
   isAdmin?: boolean;
+  usageWidget?: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col h-full px-3 py-4">
@@ -93,6 +95,11 @@ function SidebarContent({
         <span className="font-semibold text-gray-900 text-base">Job Hunt</span>
       </Link>
       <NavLinks onNavigate={onNavigate} isAdmin={isAdmin} />
+      {usageWidget && (
+        <div className="mt-2 mb-1 border-t border-gray-100 pt-2">
+          {usageWidget}
+        </div>
+      )}
       <div className="pt-4 border-t border-gray-200 px-1">
         <UserButton showName />
       </div>
@@ -103,9 +110,11 @@ function SidebarContent({
 export default function DashboardShell({
   children,
   isAdmin,
+  usageWidget,
 }: {
   children: React.ReactNode;
   isAdmin?: boolean;
+  usageWidget?: React.ReactNode;
 }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -113,7 +122,7 @@ export default function DashboardShell({
     <div className="flex min-h-screen bg-gray-50">
       {/* Desktop sidebar */}
       <aside className="hidden md:flex flex-col w-60 shrink-0 bg-white border-r border-gray-200 fixed inset-y-0 left-0">
-        <SidebarContent isAdmin={isAdmin} />
+        <SidebarContent isAdmin={isAdmin} usageWidget={usageWidget} />
       </aside>
 
       {/* Mobile top bar */}
@@ -145,7 +154,11 @@ export default function DashboardShell({
           <SheetHeader className="sr-only">
             <SheetTitle>Navigation</SheetTitle>
           </SheetHeader>
-          <SidebarContent onNavigate={() => setDrawerOpen(false)} isAdmin={isAdmin} />
+          <SidebarContent
+            onNavigate={() => setDrawerOpen(false)}
+            isAdmin={isAdmin}
+            usageWidget={usageWidget}
+          />
         </SheetContent>
       </Sheet>
 

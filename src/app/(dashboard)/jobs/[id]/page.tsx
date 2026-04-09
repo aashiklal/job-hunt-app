@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DeleteJobButton } from "./_components/delete-job-button";
 import { GeneratePanel } from "./_components/generate-panel";
+import { JDAnalysisPanel } from "./_components/jd-analysis-panel";
 
 export const metadata: Metadata = {
   title: "Job Detail — Job Hunt",
@@ -57,13 +58,23 @@ export default async function JobDetailPage({
   const job = await jobs.getById(userIdStr, id);
   if (!job) notFound();
 
-  const [resumeList, latestResumeDoc, latestCoverLetterDoc] = await Promise.all(
-    [
+  const [resumeList, latestResumeDoc, latestCoverLetterDoc, latestJDDoc] =
+    await Promise.all([
       resumes.list(userIdStr),
       documents.getLatestForJob(userIdStr, id, "resume"),
       documents.getLatestForJob(userIdStr, id, "cover_letter"),
-    ]
-  );
+      documents.getLatestForJob(userIdStr, id, "jd_analysis"),
+    ]);
+
+  const initialAnalysis = latestJDDoc
+    ? (() => {
+        try {
+          return JSON.parse(latestJDDoc.content);
+        } catch {
+          return null;
+        }
+      })()
+    : null;
 
   const resumeOptions = resumeList.map((r) => ({
     _id: (r._id as { toString(): string }).toString(),
@@ -184,7 +195,13 @@ export default async function JobDetailPage({
             latestCoverLetterDoc?.resumeIdUsed?.toString() ?? null
           }
         />
-        {/* Phase 6.3: JD analysis panel will go here */}
+        <JDAnalysisPanel
+          jobId={id}
+          hasJobDescription={
+            !!job.jobDescription && job.jobDescription.trim().length >= 50
+          }
+          initialAnalysis={initialAnalysis}
+        />
       </div>
     </div>
   );
