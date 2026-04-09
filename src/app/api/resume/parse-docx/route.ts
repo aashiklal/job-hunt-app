@@ -37,12 +37,16 @@ export async function POST(req: NextRequest) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // Try HTML conversion first then strip tags (preserves structure better
-    // than raw text), falling back to raw text extraction
+    // convertToMarkdown preserves headings and bullets — better for AI tailoring.
+    // The type declaration omits it (stale types), so cast through unknown to call it.
+    // Fallback to raw text if markdown conversion fails on a malformed docx.
+    const mammothAny = mammoth as unknown as {
+      convertToMarkdown: (input: { buffer: Buffer }) => Promise<{ value: string }>;
+    };
     let text: string;
     try {
-      const result = await mammoth.convertToHtml({ buffer });
-      text = result.value.replace(/<[^>]+>/g, " ").replace(/\s{2,}/g, "\n").trim();
+      const result = await mammothAny.convertToMarkdown({ buffer });
+      text = result.value;
     } catch {
       const result = await mammoth.extractRawText({ buffer });
       text = result.value;
