@@ -6,10 +6,13 @@ import { ExternalLink } from "lucide-react";
 import { requireApprovedUserWithPlan } from "@/lib/auth-helpers";
 import * as jobs from "@/lib/repositories/jobs";
 import type { JobStatus } from "@/lib/repositories/jobs";
+import * as resumes from "@/lib/repositories/resumes";
+import * as documents from "@/lib/repositories/documents";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DeleteJobButton } from "./_components/delete-job-button";
+import { GeneratePanel } from "./_components/generate-panel";
 
 export const metadata: Metadata = {
   title: "Job Detail — Job Hunt",
@@ -49,9 +52,24 @@ export default async function JobDetailPage({
 }) {
   const { id } = await params;
   const { user } = await requireApprovedUserWithPlan();
+  const userIdStr = user._id.toString();
 
-  const job = await jobs.getById(user._id.toString(), id);
+  const job = await jobs.getById(userIdStr, id);
   if (!job) notFound();
+
+  const [resumeList, latestResumeDoc, latestCoverLetterDoc] = await Promise.all(
+    [
+      resumes.list(userIdStr),
+      documents.getLatestForJob(userIdStr, id, "resume"),
+      documents.getLatestForJob(userIdStr, id, "cover_letter"),
+    ]
+  );
+
+  const resumeOptions = resumeList.map((r) => ({
+    _id: (r._id as { toString(): string }).toString(),
+    title: r.title,
+    isDefault: r.isDefault,
+  }));
 
   const jobLabel = `${job.role} at ${job.company}`;
 
@@ -144,6 +162,30 @@ export default async function JobDetailPage({
           )}
         </CardContent>
       </Card>
+
+      {/* AI Generation */}
+      <div className="space-y-4">
+        <h2 className="text-base font-semibold text-gray-900">AI Generation</h2>
+        <GeneratePanel
+          type="resume"
+          jobId={id}
+          resumes={resumeOptions}
+          initialContent={latestResumeDoc?.content ?? null}
+          initialResumeId={
+            latestResumeDoc?.resumeIdUsed?.toString() ?? null
+          }
+        />
+        <GeneratePanel
+          type="cover_letter"
+          jobId={id}
+          resumes={resumeOptions}
+          initialContent={latestCoverLetterDoc?.content ?? null}
+          initialResumeId={
+            latestCoverLetterDoc?.resumeIdUsed?.toString() ?? null
+          }
+        />
+        {/* Phase 6.3: JD analysis panel will go here */}
+      </div>
     </div>
   );
 }
