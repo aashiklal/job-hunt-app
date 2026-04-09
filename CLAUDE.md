@@ -30,6 +30,9 @@ No test runner is configured yet.
 - **Clerk** (`@clerk/nextjs` v7) — authentication
 - **Mongoose** — MongoDB ODM for data persistence
 - **Anthropic SDK** (`@anthropic-ai/sdk`) — AI features
+- **@dnd-kit/core** — drag-and-drop (used in the kanban pipeline view); use `useDraggable`/`useDroppable` directly, not the sortable package, for column-based drag-and-drop
+- **sonner** — toast notifications; import `toast` from `"sonner"` and ensure `<Toaster />` is in the root layout
+- **date-fns** — date formatting utilities
 
 ## Next.js 16 Breaking Changes
 
@@ -94,7 +97,9 @@ src/
         [id]/_components/          # Components scoped to the detail view
         trash/page.tsx             # Soft-deleted jobs
         _actions.ts                # createJob, updateJob, setJobStatus, softDeleteJob, hardDeleteJob, restoreJob
-        _components/job-form.tsx   # Shared create/edit form (client component)
+        _components/job-form.tsx           # Shared create/edit form (client component)
+        _components/jobs-list-view.tsx     # Table/list view
+        _components/jobs-pipeline-view.tsx # Kanban view with optimistic drag-and-drop (useOptimistic)
       resume/ tracker/             # Core dashboard pages
       analyze/ cover-letter/ email/ settings/
       admin/
@@ -196,6 +201,7 @@ Admins can override per-user limits via `subscriptions.setCustomLimit()` / `subs
 ## Project Conventions
 
 - MongoDB connection: import `connectDB` from `@/lib/db/connect` (not `@/lib/db`). Both files exist; `db/connect.ts` is the canonical one.
+- `JobStatus` is the source-of-truth type in `src/lib/models/Job.ts`; `JobListItem` (the lean projection for list/kanban views) is defined in `src/lib/repositories/jobs.ts`.
 - MongoDB models live in `src/lib/models/`. Use the singleton pattern (`mongoose.models.X ?? mongoose.model(...)`) to avoid recompilation in dev.
 - Every API route handler must call `auth()` from `@clerk/nextjs/server` and return 401 if no `userId`. Server Actions use `defineAction`/`defineAdminAction` instead — never call `auth()` directly in actions. All Mongo queries must filter by `userId`.
 - Anthropic SDK is only ever imported in server code. Client is instantiated in `src/lib/anthropic.ts`.
