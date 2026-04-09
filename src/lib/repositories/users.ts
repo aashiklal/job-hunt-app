@@ -3,6 +3,30 @@ import User, { IUser } from "@/lib/models/User";
 
 export type { IUser };
 
+export type UserListItem = {
+  _id: string;
+  clerkId: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  status: "pending" | "approved" | "rejected";
+  isAdmin: boolean;
+  createdAt: string;
+};
+
+export function toUserListItem(doc: IUser): UserListItem {
+  return {
+    _id: (doc._id as { toString(): string }).toString(),
+    clerkId: doc.clerkId,
+    email: doc.email,
+    firstName: doc.firstName ?? null,
+    lastName: doc.lastName ?? null,
+    status: doc.status,
+    isAdmin: doc.isAdmin,
+    createdAt: doc.createdAt.toISOString(),
+  };
+}
+
 export async function getById(id: string): Promise<IUser | null> {
   await connectDB();
   return User.findById(id);
