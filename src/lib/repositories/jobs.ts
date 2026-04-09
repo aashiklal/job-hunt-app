@@ -1,6 +1,8 @@
 import connectDB from "@/lib/db/connect";
 import Job, { IJob, JobStatus } from "@/lib/models/Job";
 
+export type { JobStatus };
+
 export type JobCreateInput = {
   company: string;
   role: string;
@@ -35,6 +37,11 @@ export async function list(
     filter.deletedAt = null;
   }
   return Job.find(filter).sort({ updatedAt: -1 });
+}
+
+export async function listDeleted(userId: string): Promise<IJob[]> {
+  await connectDB();
+  return Job.find({ userId, deletedAt: { $ne: null } }).sort({ deletedAt: -1 });
 }
 
 export async function listByStatus(
@@ -131,6 +138,19 @@ export async function softDelete(
     { $set: { deletedAt: new Date() } },
     { returnDocument: "after" }
   );
+}
+
+export async function hardDelete(
+  userId: string,
+  jobId: string
+): Promise<boolean> {
+  await connectDB();
+  const result = await Job.findOneAndDelete({
+    _id: jobId,
+    userId,
+    deletedAt: { $ne: null },
+  });
+  return result !== null;
 }
 
 export async function restore(

@@ -88,6 +88,18 @@ export const softDeleteJob = defineAction(
   }
 );
 
+export const hardDeleteJob = defineAction(
+  async (ctx, input: z.infer<typeof jobIdSchema>) => {
+    const { jobId } = jobIdSchema.parse(input);
+    const deleted = await jobs.hardDelete(ctx.user._id.toString(), jobId);
+    if (!deleted) {
+      throw new Error("Job not found in trash");
+    }
+    revalidatePath("/jobs/trash");
+    return { jobId };
+  }
+);
+
 export const restoreJob = defineAction(
   async (ctx, input: z.infer<typeof jobIdSchema>) => {
     const { jobId } = jobIdSchema.parse(input);
