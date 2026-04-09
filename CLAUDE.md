@@ -96,7 +96,7 @@ src/
         new/page.tsx               # Create form
         [id]/page.tsx              # Detail view
         [id]/edit/page.tsx         # Edit form
-        [id]/_components/          # Components scoped to the detail view
+        [id]/_components/          # delete-job-button.tsx, generate-panel.tsx, jd-analysis-panel.tsx
         trash/page.tsx             # Soft-deleted jobs
         _actions.ts                # createJob, updateJob, setJobStatus, softDeleteJob, hardDeleteJob, restoreJob
         _components/job-form.tsx           # Shared create/edit form (client component)
@@ -121,6 +121,7 @@ src/
       webhooks/clerk/route.ts      # Clerk user.created/updated/deleted webhook
       resume/parse-pdf/route.ts    # POST — parse PDF, return extracted text (auth-gated, parse-and-discard)
       resume/parse-docx/route.ts   # POST — parse DOCX via mammoth, return extracted text (auth-gated, parse-and-discard)
+      generate/route.ts            # POST — AI generation endpoint (streaming + non-streaming); uses route handler (not Server Action) because it streams
     sign-in/ sign-up/              # Clerk hosted UI catch-all routes
     pending/ rejected/             # Holding pages for non-approved users
     unauthorised/
@@ -129,10 +130,12 @@ src/
     actions.ts                     # defineAction() / defineAdminAction() wrappers + ActionResult type
     usage.ts                       # checkAndIncrementUsage(), decrementUsage(), getCurrentUsage(), QuotaExceededError
     anthropic.ts                   # Anthropic SDK singleton (server-only)
+    prompts.ts                     # buildResumeTailorPrompt(), buildCoverLetterPrompt(), buildJDAnalysisPrompt() — all prompt builders live here
     db/
       connect.ts                   # MongoDB connection singleton (import this, not db.ts)
     models/                        # Mongoose models: User, Job, Resume, Document, Plan, Subscription, Usage
     repositories/                  # One file per model; all Mongo access goes through here
+                                   # documents.ts: stores AI-generated output (resume, cover_letter, jd_analysis) linked to a job
 ```
 
 ## Access Control Flow
@@ -218,6 +221,17 @@ Non-AI resource limits (e.g. `plan.maxResumes`) are enforced in two places inten
 2. **The action** (`_actions.ts`) — throws if at limit, guarding against direct API calls that bypass the UI.
 
 `-1` means unlimited. Always check `maxX !== -1 && count >= maxX` before throwing.
+
+## AI Generation Flow
+
+`POST /api/generate` handles all three generation types in one route handler (not a Server Action — streaming requires a raw `Response`):
+
+- **`resume` / `cover_letter`** — streams text deltas via `ReadableStream`; saves a `Document` record after the stream closes
+- **`jd_analysis`** — non-streaming; returns structured JSON; retries once if the model returns non-JSON
+
+Quota is incremented **before** the Anthropic call and refunded on error or client disconnect (stream `cancel()`). All prompt builders live in `src/lib/prompts.ts`; add new types there and branch in `route.ts`.
+
+The `Document` model stores every AI output with `type`, `content`, `jobId`, `resumeIdUsed`, and token counts. Use `documents.getLatestForJob()` to retrieve the most recent output for a given type.
 
 ## Project Conventions
 
