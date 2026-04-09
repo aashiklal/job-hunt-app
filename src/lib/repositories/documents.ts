@@ -1,5 +1,17 @@
 import connectDB from "@/lib/db/connect";
-import Doc, { IDocument } from "@/lib/models/Document";
+import Doc, { IDocument, DocumentType } from "@/lib/models/Document";
+
+export type { DocumentType };
+
+export type CreateDocumentInput = {
+  jobId: string;
+  type: DocumentType;
+  content: string;
+  aiModel: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  resumeIdUsed?: string;
+};
 
 export async function list(
   userId: string,
@@ -14,7 +26,7 @@ export async function list(
 export async function getLatestForJob(
   userId: string,
   jobId: string,
-  type: "resume" | "cover_letter" | "jd_analysis"
+  type: DocumentType
 ): Promise<IDocument | null> {
   await connectDB();
   return Doc.findOne({ userId, jobId, type }).sort({ createdAt: -1 });
@@ -22,16 +34,17 @@ export async function getLatestForJob(
 
 export async function create(
   userId: string,
-  data: {
-    jobId: string;
-    type: string;
-    content: string;
-    aiModel: string;
-    inputTokens?: number;
-    outputTokens?: number;
-    resumeIdUsed?: string;
-  }
+  data: CreateDocumentInput
 ): Promise<IDocument> {
   await connectDB();
-  return Doc.create({ ...data, userId });
+  return Doc.create({
+    userId,
+    jobId: data.jobId,
+    type: data.type,
+    content: data.content,
+    aiModel: data.aiModel,
+    inputTokens: data.inputTokens,
+    outputTokens: data.outputTokens,
+    resumeIdUsed: data.resumeIdUsed,
+  });
 }
