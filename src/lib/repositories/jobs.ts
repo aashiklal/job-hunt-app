@@ -3,6 +3,42 @@ import Job, { IJob, JobStatus } from "@/lib/models/Job";
 
 export type { JobStatus };
 
+export type JobListItem = {
+  _id: string;
+  userId: string;
+  company: string;
+  role: string;
+  location: string | null;
+  status: JobStatus;
+  url: string | null;
+  salary: string | null;
+  jobDescription: string | null;
+  notes: string | null;
+  appliedAt: string | null;
+  deletedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export function toJobListItem(doc: IJob): JobListItem {
+  return {
+    _id: (doc._id as { toString(): string }).toString(),
+    userId: (doc.userId as unknown as { toString(): string }).toString(),
+    company: doc.company,
+    role: doc.role,
+    location: doc.location ?? null,
+    status: doc.status,
+    url: doc.url ?? null,
+    salary: doc.salary ?? null,
+    jobDescription: doc.jobDescription ?? null,
+    notes: doc.notes ?? null,
+    appliedAt: doc.appliedAt ? doc.appliedAt.toISOString() : null,
+    deletedAt: doc.deletedAt ? doc.deletedAt.toISOString() : null,
+    createdAt: doc.createdAt.toISOString(),
+    updatedAt: doc.updatedAt.toISOString(),
+  };
+}
+
 export type JobCreateInput = {
   company: string;
   role: string;

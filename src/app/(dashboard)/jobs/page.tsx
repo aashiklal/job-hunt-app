@@ -1,45 +1,23 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { formatDistanceToNow } from "date-fns";
 import { requireApprovedUserWithPlan } from "@/lib/auth-helpers";
 import * as jobs from "@/lib/repositories/jobs";
+import { toJobListItem } from "@/lib/repositories/jobs";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
-import type { JobStatus } from "@/lib/repositories/jobs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { JobsListView } from "./_components/jobs-list-view";
+import { JobsPipelineView } from "./_components/jobs-pipeline-view";
 
 export const metadata: Metadata = {
   title: "Jobs — Job Hunt",
   description: "Browse and manage your job applications.",
 };
 
-function StatusBadge({ status }: { status: JobStatus }) {
-  if (status === "offer") {
-    return (
-      <Badge className="bg-green-600 hover:bg-green-700">{status}</Badge>
-    );
-  }
-  if (status === "rejected" || status === "withdrawn") {
-    return <Badge variant="destructive">{status}</Badge>;
-  }
-  if (status === "saved") {
-    return <Badge variant="secondary">{status}</Badge>;
-  }
-  // applied, screening, interview, assessment
-  return <Badge>{status}</Badge>;
-}
-
 export default async function JobsPage() {
   const { user } = await requireApprovedUserWithPlan();
-  const jobList = await jobs.list(user._id.toString());
+  const rawJobs = await jobs.list(user._id.toString());
+  const jobList = rawJobs.map(toJobListItem);
 
   return (
     <div className="space-y-6">
@@ -63,57 +41,25 @@ export default async function JobsPage() {
           </CardContent>
         </Card>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Company</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Location</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Updated</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {jobList.map((job) => {
-              const id = (job._id as { toString(): string }).toString();
-              return (
-                <TableRow key={id}>
-                  <TableCell>
-                    <Link href={`/jobs/${id}`} className="hover:underline">
-                      {job.company}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    <Link href={`/jobs/${id}`} className="hover:underline">
-                      {job.role}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    <Link href={`/jobs/${id}`} className="block">
-                      {job.location ?? "—"}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    <Link href={`/jobs/${id}`} className="block">
-                      <StatusBadge status={job.status} />
-                    </Link>
-                  </TableCell>
-                  <TableCell className="text-gray-500">
-                    <Link href={`/jobs/${id}`} className="block">
-                      {formatDistanceToNow(new Date(job.updatedAt), {
-                        addSuffix: true,
-                      })}
-                    </Link>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+        <Tabs defaultValue="list">
+          <TabsList>
+            <TabsTrigger value="list">List</TabsTrigger>
+            <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
+          </TabsList>
+          <TabsContent value="list" className="mt-4">
+            <JobsListView jobs={jobList} />
+          </TabsContent>
+          <TabsContent value="pipeline" className="mt-4">
+            <JobsPipelineView jobs={jobList} />
+          </TabsContent>
+        </Tabs>
       )}
 
       <div className="text-center">
-        <Link href="/jobs/trash" className="text-sm text-muted-foreground hover:underline">
+        <Link
+          href="/jobs/trash"
+          className="text-sm text-muted-foreground hover:underline"
+        >
           View trash
         </Link>
       </div>
