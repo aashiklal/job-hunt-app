@@ -35,6 +35,8 @@ No test runner is configured yet.
 - **date-fns** — date formatting utilities
 - **unpdf** — server-side PDF text extraction (no native deps, Vercel-compatible); API: `getDocumentProxy(new Uint8Array(buffer))` then `extractText(pdf, { mergePages: true })`
 - **mammoth** — server-side DOCX text extraction; prefer `convertToMarkdown` (preserves headings/bullets for AI) over `extractRawText`. Note: `convertToMarkdown` is missing from mammoth's type declaration — cast through `unknown` to call it: `(mammoth as unknown as { convertToMarkdown: ... })`
+- **@react-pdf/renderer** — server-side PDF generation (`renderToBuffer`); used in `src/lib/export/to-pdf.tsx`
+- **docx** — server-side DOCX generation (`Packer`, `Document`, `Paragraph`, etc.); used in `src/lib/export/to-docx.ts` and `from-template.ts`
 
 ## Next.js 16 Breaking Changes
 
@@ -125,6 +127,9 @@ src/
       resume/parse-pdf/route.ts    # POST — parse PDF, return extracted text (auth-gated, parse-and-discard)
       resume/parse-docx/route.ts   # POST — parse DOCX via mammoth, return extracted text (auth-gated, parse-and-discard)
       generate/route.ts            # POST — AI generation endpoint (streaming + non-streaming); uses route handler (not Server Action) because it streams
+      generate/export/route.ts     # POST — export AI content as PDF or DOCX; resolves user → admin → generic template priority
+      jobs/parse/route.ts          # POST — quick import: paste job posting text, AI extracts company/role/location/salary/description; quota-gated
+      admin/templates/route.ts     # POST (upload/replace) + DELETE — manage global DOCX templates (admin-only)
     sign-in/ sign-up/              # Clerk hosted UI catch-all routes
     pending/ rejected/             # Holding pages for non-approved users
     unauthorised/
@@ -136,10 +141,18 @@ src/
     prompts.ts                     # buildResumeTailorPrompt(), buildCoverLetterPrompt(), buildJDAnalysisPrompt() — all prompt builders live here
     db/
       connect.ts                   # MongoDB connection singleton (import this, not db.ts)
-    models/                        # Mongoose models: User, Job, Resume, Document, Plan, Subscription, Usage, AuditLog
+    models/                        # Mongoose models: User, Job, Resume, Document, Plan, Subscription, Usage, AuditLog, Template
     repositories/                  # One file per model; all Mongo access goes through here
                                    # documents.ts: stores AI-generated output (resume, cover_letter, jd_analysis) linked to a job
                                    # audit-log.ts: append-only log of admin actions (approve/reject, plan changes, toggle admin)
+                                   # templates.ts: upsert/getForUser/getAdmin/resolve/deleteTemplate/listForUser/listAdmin
+    export/                        # PDF/DOCX export pipeline
+                                   # to-pdf.tsx: generatePDF(markdown, hints?) — PDF via @react-pdf/renderer (note .tsx extension — uses JSX)
+                                   # to-docx.ts: generateDOCX(markdown) — generic DOCX from markdown (no template)
+                                   # from-template.ts: injectContent(buffer, content, type) / applyToTemplate(buffer, slotMap) — fill DOCX placeholders
+                                   # extract-styles.ts: extractDocxStyles(buffer) — derive StyleHints for PDF rendering from a DOCX template
+                                   # parse-markdown.ts: internal markdown parser for structured DOCX generation
+                                   # types.ts: StyleHints, DEFAULT_STYLE_HINTS
 ```
 
 ## Access Control Flow
@@ -225,6 +238,22 @@ Non-AI resource limits (e.g. `plan.maxResumes`) are enforced in two places inten
 2. **The action** (`_actions.ts`) — throws if at limit, guarding against direct API calls that bypass the UI.
 
 `-1` means unlimited. Always check `maxX !== -1 && count >= maxX` before throwing.
+
+## Export Flow (PDF / DOCX)
+
+`POST /api/generate/export` accepts `{ content, format, type, jobId?, resumeId?, filename? }` and returns the binary file.
+
+**Template priority** (DOCX): user template → admin (global) template → generic `generateDOCX()`. The `X-Template-Fallback` response header signals when a fallback was used (`"admin"` or `"generic"`).
+
+**PDF**: style hints are extracted from the resolved template via `extractDocxStyles()` and passed to `generatePDF(content, hints)`. No template slotting — PDF is always generated from scratch.
+
+**DOCX caching**: `Document.docxSlotCache` stores the last AI slot-fill output alongside the template ID and timestamp. On export, if the cache is fresh (newer than the template's `uploadedAt`), `applyToTemplate()` is called directly without an AI round-trip.
+
+**Adding export for a new document type**: add the type to the `type` enum in the export route schema, add a corresponding `TemplateType`, and handle it in `from-template.ts`.
+
+## Quick Import (Job Parse)
+
+`POST /api/jobs/parse` accepts `{ text }` (50–50 000 chars), calls `buildJobParsePrompt()` in `src/lib/prompts.ts`, and returns `{ fields: ParsedJobFields }` where fields are `company | role | location | salary | description` (all nullable). The call is quota-gated via `checkAndIncrementUsage` and decrements on failure. Retries once if the model returns non-JSON. The exported `ParsedJobFields` type lives in the route file — import it from there if needed client-side.
 
 ## AI Generation Flow
 
