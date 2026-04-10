@@ -110,13 +110,16 @@ src/
         _components/resume-form.tsx          # Shared create/edit form; PDF/DOCX upload toolbar populates content field
         _components/set-default-button.tsx   # Client component; router.refresh() on success
         _components/delete-resume-button.tsx # Hard delete with AlertDialog (no trash)
-      tracker/                     # Placeholder dashboard page
+      tracker/                     # Dashboard: application funnel, stat cards, weekly activity chart, stale applications, weekly goal widget
       analyze/ cover-letter/ email/ settings/
       admin/
         layout.tsx                 # Calls requireAdminWithPlan() (notFound() if not admin)
         page.tsx                   # User access management table
-        _actions.ts                # Server Actions: approve/reject users (defineAdminAction)
-        _components/               # Admin-only client components
+        [userId]/page.tsx          # User detail view with plan controls and audit log
+        audit/page.tsx             # Full audit log view (paginated)
+        _actions.ts                # Server Actions: approve/reject users, toggle admin, set/clear custom limit (defineAdminAction)
+        _components/               # Admin-only client components (set-custom-limit-dialog, toggle-admin-button, clear-custom-limit-button)
+        _lib/format-audit.ts       # Audit log entry formatter
     api/
       webhooks/clerk/route.ts      # Clerk user.created/updated/deleted webhook
       resume/parse-pdf/route.ts    # POST — parse PDF, return extracted text (auth-gated, parse-and-discard)
@@ -133,9 +136,10 @@ src/
     prompts.ts                     # buildResumeTailorPrompt(), buildCoverLetterPrompt(), buildJDAnalysisPrompt() — all prompt builders live here
     db/
       connect.ts                   # MongoDB connection singleton (import this, not db.ts)
-    models/                        # Mongoose models: User, Job, Resume, Document, Plan, Subscription, Usage
+    models/                        # Mongoose models: User, Job, Resume, Document, Plan, Subscription, Usage, AuditLog
     repositories/                  # One file per model; all Mongo access goes through here
                                    # documents.ts: stores AI-generated output (resume, cover_letter, jd_analysis) linked to a job
+                                   # audit-log.ts: append-only log of admin actions (approve/reject, plan changes, toggle admin)
 ```
 
 ## Access Control Flow
