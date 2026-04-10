@@ -1,3 +1,4 @@
+import { Types } from "mongoose";
 import connectDB from "@/lib/db/connect";
 import Job, { IJob, JobStatus } from "@/lib/models/Job";
 
@@ -199,4 +200,202 @@ export async function restore(
     { $set: { deletedAt: null } },
     { returnDocument: "after" }
   );
+}
+
+// ---------------------------------------------------------------------------
+// Tracker stats
+// ---------------------------------------------------------------------------
+
+const STALE_THRESHOLD_DAYS = 14;
+
+// Statuses that indicate the employer responded (moved past "applied")
+const RESPONDED_STATUSES: JobStatus[] = [
+  "screening",
+  "interview",
+  "assessment",
+  "offer",
+  "rejected",
+];
+
+export type TrackerStats = {
+  funnelCounts: Record<JobStatus, number>;
+  /** Percentage (0-100) of non-saved applications that got a response. null when there are no applications yet. */
+  responseRate: number | null;
+  /** Jobs sitting in "applied" status without any update for STALE_THRESHOLD_DAYS days. */
+  staleCount: number;
+};
+
+export async function getTrackerStats(userId: string): Promise<TrackerStats> {
+  await connectDB();
+
+  const staleCutoff = new Date(
+    Date.now() - STALE_THRESHOLD_DAYS * 24 * 60 * 60 * 1000
+  );
+
+  const [result] = await Job.aggregate([
+    { $match: { userId: new Types.ObjectId(userId), deletedAt: null } },
+    {
+      $facet: {
+        byStatus: [{ $group: { _id: "$status", count: { $sum: 1 } } }],
+        applications: [
+          { $match: { status: { $ne: "saved" } } },
+          {
+            $group: {
+              _id: null,
+              total: { $sum: 1 },
+              responded: {
+                $sum: {
+                  $cond: [{ $in: ["$status", RESPONDED_STATUSES] }, 1, 0],
+                },
+              },
+            },
+          },
+        ],
+        stale: [
+          {
+            $match: {
+              status: "applied",
+              updatedAt: { $lt: staleCutoff },
+            },
+          },
+          { $count: "count" },
+        ],
+      },
+    },
+  ]);
+
+  const allStatuses: JobStatus[] = [
+    "saved",
+    "applied",
+    "screening",
+    "interview",
+    "assessment",
+    "offer",
+    "rejected",
+    "withdrawn",
+  ];
+  const funnelCounts = Object.fromEntries(
+    allStatuses.map((s) => [s, 0])
+  ) as Record<JobStatus, number>;
+  for (const { _id, count } of result.byStatus) {
+    funnelCounts[_id as JobStatus] = count;
+  }
+
+  const appStats = result.applications[0] as
+    | { total: number; responded: number }
+    | undefined;
+  const responseRate =
+    appStats && appStats.total > 0
+      ? Math.round((appStats.responded / appStats.total) * 100)
+      : null;
+
+  const staleCount = (result.stale[0] as { count: number } | undefined)?.count ?? 0;
+
+  return { funnelCounts, responseRate, staleCount };
+}
+
+// ---------------------------------------------------------------------------
+// Stale jobs list
+// ---------------------------------------------------------------------------
+
+export type StaleJob = {
+  _id: string;
+  company: string;
+  role: string;
+  status: JobStatus;
+  updatedAt: string;
+  daysSinceUpdate: number;
+};
+
+export async function getStaleJobs(
+  userId: string,
+  thresholdDays: number = STALE_THRESHOLD_DAYS
+): Promise<StaleJob[]> {
+  await connectDB();
+
+  const cutoff = new Date(Date.now() - thresholdDays * 24 * 60 * 60 * 1000);
+  const now = Date.now();
+
+  const docs = await Job.find({
+    userId,
+    status: "applied",
+    updatedAt: { $lt: cutoff },
+    deletedAt: null,
+  })
+    .sort({ updatedAt: 1 }) // oldest first
+    .select("company role status updatedAt")
+    .lean();
+
+  return docs.map((doc) => ({
+    _id: (doc._id as { toString(): string }).toString(),
+    company: doc.company,
+    role: doc.role,
+    status: doc.status,
+    updatedAt: doc.updatedAt.toISOString(),
+    daysSinceUpdate: Math.floor(
+      (now - doc.updatedAt.getTime()) / (1000 * 60 * 60 * 24)
+    ),
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// Weekly applications (for activity chart)
+// ---------------------------------------------------------------------------
+
+export type WeeklyApplicationPoint = {
+  /** ISO date string (YYYY-MM-DD) of the Monday that starts this week. */
+  weekStart: string;
+  count: number;
+};
+
+export async function getWeeklyApplications(
+  userId: string,
+  weeksBack: number = 8
+): Promise<WeeklyApplicationPoint[]> {
+  await connectDB();
+
+  // Find the Monday of the current week (locale-independent)
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  const currentMonday = new Date(now);
+  currentMonday.setDate(now.getDate() - daysToMonday);
+  currentMonday.setHours(0, 0, 0, 0);
+
+  // Build the ordered list of week-start dates
+  const slots: Date[] = [];
+  for (let i = weeksBack - 1; i >= 0; i--) {
+    const d = new Date(currentMonday);
+    d.setDate(d.getDate() - i * 7);
+    slots.push(d);
+  }
+
+  const rangeStart = slots[0];
+
+  // Fetch only the appliedAt field for jobs applied since rangeStart
+  const docs = await Job.find({
+    userId,
+    appliedAt: { $gte: rangeStart },
+    deletedAt: null,
+  })
+    .select("appliedAt")
+    .lean();
+
+  // Bucket each job into the correct week slot
+  const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+  const counts = new Array<number>(weeksBack).fill(0);
+  for (const doc of docs) {
+    if (!doc.appliedAt) continue;
+    const weekIndex = Math.floor(
+      (doc.appliedAt.getTime() - rangeStart.getTime()) / msPerWeek
+    );
+    if (weekIndex >= 0 && weekIndex < weeksBack) {
+      counts[weekIndex]++;
+    }
+  }
+
+  return slots.map((weekStart, i) => ({
+    weekStart: weekStart.toISOString().split("T")[0],
+    count: counts[i],
+  }));
 }
