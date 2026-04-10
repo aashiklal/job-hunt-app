@@ -62,6 +62,55 @@ export async function generatePDF(
   const h2BorderColor =
     hints.h2Color === "000000" ? "#444444" : color(hints.h2Color);
 
+  // Detect date ranges at the end of a string (e.g. "Jan 2020 - Dec 2021", "2020 – Present")
+  const DATE_RANGE_RE =
+    /\s*(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+)?\d{4}\s*[-–—]\s*(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{4}|Present|\d{4})$/i;
+
+  // Split h3 segments into [titleSegments, dateText | null]
+  function splitH3Date(
+    segments: Segment[]
+  ): { titleSegments: Segment[]; dateText: string | null } {
+    const fullText = segments.map((s) => s.text).join("");
+    const m = DATE_RANGE_RE.exec(fullText);
+    if (!m) return { titleSegments: segments, dateText: null };
+    const dateText = m[0].trim();
+    const titleText = fullText.slice(0, m.index).trimEnd();
+    // Rebuild title segments from the original (preserving bold/italic up to the cut)
+    const rebuilt: Segment[] = [];
+    let remaining = titleText.length;
+    for (const seg of segments) {
+      if (remaining <= 0) break;
+      if (seg.text.length <= remaining) {
+        rebuilt.push(seg);
+        remaining -= seg.text.length;
+      } else {
+        rebuilt.push({ ...seg, text: seg.text.slice(0, remaining) });
+        remaining = 0;
+      }
+    }
+    return { titleSegments: rebuilt, dateText };
+  }
+
+  // For skill text lines: if a bold segment contains ":" (category colon pattern),
+  // un-bold everything after the first bold-colon segment.
+  function normalizeSkillSegments(segments: Segment[]): Segment[] {
+    let passedBoldColon = false;
+    return segments.flatMap((seg) => {
+      if (passedBoldColon) return [{ ...seg, bold: false }];
+      if (seg.bold && seg.text.includes(":")) {
+        passedBoldColon = true;
+        // The segment itself may be "Category: skills text" — split at first ":"
+        const colonIdx = seg.text.indexOf(":");
+        const boldPart = seg.text.slice(0, colonIdx + 1);
+        const rest = seg.text.slice(colonIdx + 1);
+        const out: Segment[] = [{ text: boldPart, bold: true, italic: seg.italic }];
+        if (rest) out.push({ text: rest, bold: false, italic: seg.italic });
+        return out;
+      }
+      return [seg];
+    });
+  }
+
   const styles = StyleSheet.create({
     page: {
       fontFamily: bodyPdf,
@@ -144,12 +193,26 @@ export async function generatePDF(
                 {renderSegments(line.segments, h2Pdf)}
               </Text>
             );
-          if (line.kind === "h3")
+          if (line.kind === "h3") {
+            const { titleSegments, dateText } = splitH3Date(line.segments);
+            if (dateText) {
+              return (
+                <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginTop: 5, marginBottom: 2 }}>
+                  <Text style={styles.h3}>
+                    {renderSegments(titleSegments, h3Pdf)}
+                  </Text>
+                  <Text style={{ fontFamily: h3Pdf, fontSize: hints.h3SizePt, color: color(hints.h3Color) }}>
+                    {dateText}
+                  </Text>
+                </View>
+              );
+            }
             return (
               <Text key={i} style={styles.h3}>
                 {renderSegments(line.segments, h3Pdf)}
               </Text>
             );
+          }
           if (line.kind === "bullet")
             return (
               <View key={i} style={styles.bulletRow}>
@@ -161,7 +224,7 @@ export async function generatePDF(
             );
           return (
             <Text key={i} style={styles.text}>
-              {renderSegments(line.segments, bodyPdf)}
+              {renderSegments(normalizeSkillSegments(line.segments), bodyPdf)}
             </Text>
           );
         })}

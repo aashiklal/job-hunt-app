@@ -6,6 +6,7 @@ import {
   TextRun,
   AlignmentType,
   BorderStyle,
+  TabStopType,
 } from "docx";
 import { parseMarkdown, type Segment } from "./parse-markdown";
 import { DEFAULT_STYLE_HINTS, type StyleHints } from "./types";
@@ -23,6 +24,51 @@ function twip(pt: number): number {
 // docx expects hex colors without the # prefix
 function docxColor(hex: string): string {
   return hex.replace(/^#/, "").toUpperCase();
+}
+
+// Detect date ranges at the end of a string (e.g. "Jan 2020 - Dec 2021", "2020 – Present")
+const DATE_RANGE_RE =
+  /\s*(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+)?\d{4}\s*[-–—]\s*(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{4}|Present|\d{4})$/i;
+
+function splitH3Date(
+  segments: Segment[]
+): { titleSegments: Segment[]; dateText: string | null } {
+  const fullText = segments.map((s) => s.text).join("");
+  const m = DATE_RANGE_RE.exec(fullText);
+  if (!m) return { titleSegments: segments, dateText: null };
+  const dateText = m[0].trim();
+  const titleText = fullText.slice(0, m.index).trimEnd();
+  const rebuilt: Segment[] = [];
+  let remaining = titleText.length;
+  for (const seg of segments) {
+    if (remaining <= 0) break;
+    if (seg.text.length <= remaining) {
+      rebuilt.push(seg);
+      remaining -= seg.text.length;
+    } else {
+      rebuilt.push({ ...seg, text: seg.text.slice(0, remaining) });
+      remaining = 0;
+    }
+  }
+  return { titleSegments: rebuilt, dateText };
+}
+
+// For skill text lines: un-bold everything after the first bold-colon segment.
+function normalizeSkillSegments(segments: Segment[]): Segment[] {
+  let passedBoldColon = false;
+  return segments.flatMap((seg) => {
+    if (passedBoldColon) return [{ ...seg, bold: false }];
+    if (seg.bold && seg.text.includes(":")) {
+      passedBoldColon = true;
+      const colonIdx = seg.text.indexOf(":");
+      const boldPart = seg.text.slice(0, colonIdx + 1);
+      const rest = seg.text.slice(colonIdx + 1);
+      const out: Segment[] = [{ text: boldPart, bold: true, italic: seg.italic }];
+      if (rest) out.push({ text: rest, bold: false, italic: seg.italic });
+      return out;
+    }
+    return [seg];
+  });
 }
 
 function makeRuns(
@@ -89,14 +135,29 @@ export async function generateDOCX(
     }
 
     if (line.kind === "h3") {
+      const { titleSegments, dateText } = splitH3Date(line.segments);
+      const h3RunOpts = {
+        font: hints.h3Font,
+        size: halfPt(hints.h3SizePt),
+        color: docxColor(hints.h3Color),
+        bold: true as const,
+      };
+      if (dateText) {
+        // A4 page = 595pt; right tab at text-area width in twips
+        const textWidthTwips = twip(595 - hints.marginLeftPt - hints.marginRightPt);
+        return new Paragraph({
+          spacing: { before: twip(5), after: twip(2) },
+          tabStops: [{ type: TabStopType.RIGHT, position: textWidthTwips }],
+          children: [
+            ...makeRuns(titleSegments, h3RunOpts),
+            new TextRun({ text: "\t", ...h3RunOpts }),
+            new TextRun({ text: dateText, ...h3RunOpts }),
+          ],
+        });
+      }
       return new Paragraph({
         spacing: { before: twip(5), after: twip(2) },
-        children: makeRuns(line.segments, {
-          font: hints.h3Font,
-          size: halfPt(hints.h3SizePt),
-          color: docxColor(hints.h3Color),
-          bold: true,
-        }),
+        children: makeRuns(line.segments, h3RunOpts),
       });
     }
 
@@ -116,7 +177,7 @@ export async function generateDOCX(
     // plain text
     return new Paragraph({
       spacing: { after: twip(2) },
-      children: makeRuns(line.segments, {
+      children: makeRuns(normalizeSkillSegments(line.segments), {
         font: hints.bodyFont,
         size: halfPt(hints.bodyFontSizePt),
         color: "000000",
