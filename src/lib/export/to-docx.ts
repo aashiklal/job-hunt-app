@@ -97,7 +97,16 @@ export async function generateDOCX(
   content: string,
   hints: StyleHints = DEFAULT_STYLE_HINTS
 ): Promise<Buffer> {
-  const lines = parseMarkdown(content);
+  const rawLines = parseMarkdown(content);
+
+  // Drop blank lines that immediately follow a heading — the heading already
+  // has built-in `after` spacing, and the extra empty paragraph creates a
+  // visible gap in the exported document.
+  const lines = rawLines.filter((line, i) => {
+    if (line.kind !== "blank") return true;
+    const prev = rawLines[i - 1];
+    return !prev || !["h1", "h2", "h3"].includes(prev.kind);
+  });
 
   const paragraphs: Paragraph[] = lines.map((line): Paragraph => {
     if (line.kind === "blank") {

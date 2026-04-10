@@ -65,7 +65,6 @@ export function GeneratePanel({
   const [content, setContent] = useState<string>(initialContent ?? "");
   const [isStreaming, setIsStreaming] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(initialContent !== null);
-  const [outputFormat, setOutputFormat] = useState<"pdf" | "docx">("pdf");
   const [isDownloading, setIsDownloading] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -177,7 +176,7 @@ export function GeneratePanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           content,
-          format: outputFormat,
+          format: "docx",
           type,
           jobId,
           resumeId: selectedResumeId || undefined,
@@ -196,7 +195,7 @@ export function GeneratePanel({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${FILENAMES[type]}.${outputFormat}`;
+      a.download = `${FILENAMES[type]}.docx`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -207,7 +206,7 @@ export function GeneratePanel({
       } else if (fallback === "generic") {
         toast.info("Your template didn't have enough structure — a clean default format was used instead.");
       } else {
-        toast.success(`Downloaded as ${outputFormat.toUpperCase()}`);
+        toast.success("Downloaded as DOCX");
       }
     } catch {
       toast.error("Download failed");
@@ -302,28 +301,14 @@ export function GeneratePanel({
             <Button onClick={handleCopy} variant="outline" size="sm">
               Copy
             </Button>
-            <div className="flex items-center gap-1.5">
-              <Select
-                value={outputFormat}
-                onValueChange={(v) => setOutputFormat(v as "pdf" | "docx")}
-              >
-                <SelectTrigger className="h-8 w-24 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pdf">PDF</SelectItem>
-                  <SelectItem value="docx">DOCX</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button
-                onClick={handleDownload}
-                variant="outline"
-                size="sm"
-                disabled={isDownloading}
-              >
-                {isDownloading ? "Preparing…" : "Download"}
-              </Button>
-            </div>
+            <Button
+              onClick={handleDownload}
+              variant="outline"
+              size="sm"
+              disabled={isDownloading}
+            >
+              {isDownloading ? "Preparing…" : "Download DOCX"}
+            </Button>
           </div>
         )}
       </CardContent>

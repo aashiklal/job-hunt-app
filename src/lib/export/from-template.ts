@@ -23,12 +23,23 @@ type TemplateParagraph = {
   hasSectPr: boolean;
 };
 
+function decodeXmlEntities(text: string): string {
+  return text
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'");
+}
+
 function getParaText(paraXml: string): string {
   const re = /<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g;
   const parts: string[] = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(paraXml)) !== null) parts.push(m[1]);
-  return parts.join("");
+  // Decode XML entities so the AI schema shows plain text (e.g. "&" not "&amp;"),
+  // and join with a space so multi-run paragraphs (e.g. title + date) don't concatenate.
+  return decodeXmlEntities(parts.join(" ").replace(/\s{2,}/g, " ").trim());
 }
 
 function isBulletPara(paraXml: string): boolean {
@@ -58,21 +69,88 @@ function extractParagraphs(docXml: string): TemplateParagraph[] {
 
 // ─── Text replacement ─────────────────────────────────────────────────────────
 
-function setParaText(paraXml: string, newText: string): string {
-  const escaped = escapeXml(newText);
-  const openTagMatch = /^<w:p(?:\s[^>]*)?>/.exec(paraXml);
-  const openTag = openTagMatch ? openTagMatch[0] : "<w:p>";
-  const pPrMatch = /<w:pPr>[\s\S]*?<\/w:pPr>/.exec(paraXml);
-  const pPr = pPrMatch ? pPrMatch[0] : "";
-  let rPr = "";
+// Matches a date range at the end of a string — same pattern as in to-docx.ts
+const H3_DATE_RE =
+  /\s*(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+)?\d{4}\s*[-–—]\s*(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{4}|Present|\d{4})$/i;
+
+// Inject a right-aligned tab stop into a pPr block if one isn't already present.
+function ensureRightTabStop(pPr: string): string {
+  if (pPr.includes("<w:tabs>")) return pPr;
+  const tabXml = '<w:tabs><w:tab w:val="right" w:pos="9020"/></w:tabs>';
+  if (!pPr) return `<w:pPr>${tabXml}</w:pPr>`;
+  return pPr.replace("</w:pPr>", `${tabXml}</w:pPr>`);
+}
+
+type RunTemplate = { rPr: string };
+
+// Extract all text-bearing runs from a template paragraph, preserving their rPr.
+function extractRunTemplates(paraXml: string): RunTemplate[] {
+  const runs: RunTemplate[] = [];
   const runRe = /<w:r\b[\s\S]*?<\/w:r>/g;
   let rm: RegExpExecArray | null;
   while ((rm = runRe.exec(paraXml)) !== null) {
     if (!rm[0].includes("<w:t")) continue;
     const rPrMatch = /<w:rPr>[\s\S]*?<\/w:rPr>/.exec(rm[0]);
-    if (rPrMatch) { rPr = rPrMatch[0]; break; }
+    runs.push({ rPr: rPrMatch ? rPrMatch[0] : "" });
   }
-  return `${openTag}${pPr}<w:r>${rPr}<w:t xml:space="preserve">${escaped}</w:t></w:r></w:p>`;
+  return runs;
+}
+
+/**
+ * Replace a template paragraph's text while preserving its run formatting.
+ *
+ * The template's run structure is the source of truth for styling — we never
+ * hard-code bold, color, or any other property. Instead:
+ *
+ * - 1 template run  → single replacement run with the same rPr
+ * - 2+ template runs, text has a date at the end (h3 job-title pattern)
+ *     → run[0].rPr for the title, run[last].rPr for the date (right-aligned)
+ * - 2+ template runs, text has "Label: value" (skill-line pattern)
+ *     → run[0].rPr for the label, run[last].rPr for the value
+ * - 2+ template runs, no pattern matched → all text into run[0].rPr
+ */
+function setParaText(paraXml: string, newText: string): string {
+  const openTagMatch = /^<w:p(?:\s[^>]*)?>/.exec(paraXml);
+  const openTag = openTagMatch ? openTagMatch[0] : "<w:p>";
+  const pPrMatch = /<w:pPr>[\s\S]*?<\/w:pPr>/.exec(paraXml);
+  const pPr = pPrMatch ? pPrMatch[0] : "";
+
+  const runs = extractRunTemplates(paraXml);
+  const firstRpr = runs[0]?.rPr ?? "";
+  const lastRpr = runs[runs.length - 1]?.rPr ?? firstRpr;
+
+  // Multi-run paragraphs: use the template's run formatting to drive the split
+  if (runs.length >= 2) {
+    // Date at end → title (run[0] rPr) + tab + date (run[last] rPr)
+    const dateMatch = H3_DATE_RE.exec(newText);
+    if (dateMatch && dateMatch.index > 0) {
+      const titleText = newText.slice(0, dateMatch.index).trimEnd();
+      const dateText = dateMatch[0].trim();
+      const pPrWithTab = ensureRightTabStop(pPr);
+      return (
+        `${openTag}${pPrWithTab}` +
+        `<w:r>${firstRpr}<w:t xml:space="preserve">${escapeXml(titleText)}</w:t></w:r>` +
+        `<w:r>${lastRpr}<w:t xml:space="preserve">\t${escapeXml(dateText)}</w:t></w:r>` +
+        `</w:p>`
+      );
+    }
+
+    // "Label: value" → label (run[0] rPr) + value (run[last] rPr)
+    const colonIdx = newText.indexOf(": ");
+    if (colonIdx > 0 && colonIdx < newText.length - 2) {
+      const labelEscaped = escapeXml(newText.slice(0, colonIdx + 1));
+      const valueEscaped = escapeXml(newText.slice(colonIdx + 1));
+      return (
+        `${openTag}${pPr}` +
+        `<w:r>${firstRpr}<w:t xml:space="preserve">${labelEscaped}</w:t></w:r>` +
+        `<w:r>${lastRpr}<w:t xml:space="preserve">${valueEscaped}</w:t></w:r>` +
+        `</w:p>`
+      );
+    }
+  }
+
+  // Single run or no pattern matched — one run with the first rPr
+  return `${openTag}${pPr}<w:r>${firstRpr}<w:t xml:space="preserve">${escapeXml(newText)}</w:t></w:r></w:p>`;
 }
 
 // ─── ZIP helpers ──────────────────────────────────────────────────────────────
