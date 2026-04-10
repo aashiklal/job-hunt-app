@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ export function JDAnalysisPanel({
   hasJobDescription,
   initialAnalysis,
 }: Props) {
+  const router = useRouter();
   const [analysis, setAnalysis] = useState<Analysis | null>(initialAnalysis);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -59,6 +61,7 @@ export function JDAnalysisPanel({
       }
       setAnalysis(data.analysis);
       toast.success("Analysis complete");
+      router.refresh();
     } catch (err) {
       console.error(err);
       toast.error("Network error during analysis");

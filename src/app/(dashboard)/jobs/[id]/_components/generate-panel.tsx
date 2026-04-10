@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -57,6 +58,7 @@ export function GeneratePanel({
     resumes[0]?._id ??
     "";
 
+  const router = useRouter();
   const [selectedResumeId, setSelectedResumeId] = useState(defaultId);
   const [content, setContent] = useState<string>(initialContent ?? "");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -137,6 +139,7 @@ export function GeneratePanel({
       toast.success(
         type === "resume" ? "Resume tailored" : "Cover letter ready"
       );
+      router.refresh();
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") {
         toast.info("Generation cancelled");

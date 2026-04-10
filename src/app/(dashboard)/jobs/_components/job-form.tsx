@@ -115,6 +115,7 @@ export function JobForm({ mode, initialValues, jobId }: Props) {
       toast.success("Fields filled — review and edit before saving.");
       setImportOpen(false);
       setImportText("");
+      router.refresh();
     } catch {
       toast.error("Something went wrong. Please try again.");
     } finally {
