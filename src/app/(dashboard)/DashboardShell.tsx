@@ -8,7 +8,6 @@ import {
   Briefcase,
   ClipboardList,
   Menu,
-  Settings,
   FileText,
   ShieldCheck,
 } from "lucide-react";
@@ -23,7 +22,6 @@ const navItems = [
   { label: "Jobs", href: "/jobs", icon: Briefcase },
   { label: "Resume", href: "/resume", icon: FileText },
   { label: "Tracker", href: "/tracker", icon: ClipboardList },
-  { label: "Settings", href: "/settings", icon: Settings },
 ] as const;
 
 function NavLinks({

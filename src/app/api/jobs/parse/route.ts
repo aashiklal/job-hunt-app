@@ -74,36 +74,45 @@ export async function POST(req: NextRequest) {
 
   let parsed: ParsedJobFields | null = null;
 
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const response = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: MAX_TOKENS,
-      system:
-        attempt === 0
-          ? system
-          : `${system}\n\nIMPORTANT: Your previous response was not valid JSON. Respond with ONLY the JSON object.`,
-      messages: [{ role: "user", content: userMessage }],
-    });
+  try {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const response = await anthropic.messages.create({
+        model: MODEL,
+        max_tokens: MAX_TOKENS,
+        system:
+          attempt === 0
+            ? system
+            : `${system}\n\nIMPORTANT: Your previous response was not valid JSON. Respond with ONLY the JSON object.`,
+        messages: [{ role: "user", content: userMessage }],
+      });
 
-    const textBlock = response.content.find((c) => c.type === "text");
-    if (!textBlock || textBlock.type !== "text") continue;
+      const textBlock = response.content.find((c) => c.type === "text");
+      if (!textBlock || textBlock.type !== "text") continue;
 
-    const cleaned = textBlock.text
-      .trim()
-      .replace(/^```json\s*/i, "")
-      .replace(/^```\s*/i, "")
-      .replace(/```\s*$/i, "");
+      const cleaned = textBlock.text
+        .trim()
+        .replace(/^```json\s*/i, "")
+        .replace(/^```\s*/i, "")
+        .replace(/```\s*$/i, "");
 
-    try {
-      const raw = JSON.parse(cleaned);
-      const validated = parsedSchema.safeParse(raw);
-      if (validated.success) {
-        parsed = validated.data;
-        break;
+      try {
+        const raw = JSON.parse(cleaned);
+        const validated = parsedSchema.safeParse(raw);
+        if (validated.success) {
+          parsed = validated.data;
+          break;
+        }
+      } catch {
+        continue;
       }
-    } catch {
-      continue;
     }
+  } catch (err) {
+    console.error("[jobs/parse] anthropic error:", err);
+    await decrementUsage(userIdStr, "aiGeneration").catch(() => {});
+    return NextResponse.json(
+      { error: "AI service error. Please try again." },
+      { status: 502 }
+    );
   }
 
   if (!parsed) {

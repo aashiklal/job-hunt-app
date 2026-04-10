@@ -6,7 +6,9 @@ export type AuditAction =
   | "user.admin_granted"
   | "user.admin_revoked"
   | "user.custom_limit_set"
-  | "user.custom_limit_cleared";
+  | "user.custom_limit_cleared"
+  | "template.uploaded"
+  | "template.deleted";
 
 export type IAuditLog = {
   adminId: Types.ObjectId;
@@ -33,6 +35,8 @@ const AuditLogSchema = new Schema<IAuditLog>(
         "user.admin_revoked",
         "user.custom_limit_set",
         "user.custom_limit_cleared",
+        "template.uploaded",
+        "template.deleted",
       ],
       required: true,
     },

@@ -1,6 +1,7 @@
 import { Types } from "mongoose";
 import connectDB from "@/lib/db/connect";
 import Job, { IJob, JobStatus } from "@/lib/models/Job";
+import Doc from "@/lib/models/Document";
 
 export type { JobStatus };
 
@@ -187,6 +188,9 @@ export async function hardDelete(
     userId,
     deletedAt: { $ne: null },
   });
+  if (result) {
+    await Doc.deleteMany({ userId, jobId });
+  }
   return result !== null;
 }
 

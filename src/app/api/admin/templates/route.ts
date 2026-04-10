@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import * as users from "@/lib/repositories/users";
 import * as templates from "@/lib/repositories/templates";
+import * as auditLog from "@/lib/repositories/audit-log";
 import type { TemplateType } from "@/lib/repositories/templates";
 
 const DOCX_MIME =
@@ -57,7 +58,21 @@ export async function POST(req: NextRequest) {
     );
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  await templates.upsert(null, type as TemplateType, buffer, file.name);
+  await templates.upsert(type as TemplateType, buffer, file.name);
+
+  const adminIdStr = (admin._id as { toString(): string }).toString();
+  await auditLog.create({
+    adminId: adminIdStr,
+    adminEmail: admin.email,
+    targetUserId: adminIdStr,
+    targetUserEmail: admin.email,
+    action: "template.uploaded",
+    details: {
+      templateType: type,
+      fileName: file.name,
+      fileSize: file.size,
+    },
+  });
 
   return NextResponse.json({ ok: true });
 }
@@ -79,7 +94,17 @@ export async function DELETE(req: NextRequest) {
       { status: 400 }
     );
 
-  await templates.deleteTemplate(null, type);
+  await templates.deleteTemplate(type);
+
+  const adminIdStr = (admin._id as { toString(): string }).toString();
+  await auditLog.create({
+    adminId: adminIdStr,
+    adminEmail: admin.email,
+    targetUserId: adminIdStr,
+    targetUserEmail: admin.email,
+    action: "template.deleted",
+    details: { templateType: type },
+  });
 
   return NextResponse.json({ ok: true });
 }

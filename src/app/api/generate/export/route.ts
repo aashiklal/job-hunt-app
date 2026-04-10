@@ -9,6 +9,7 @@ import type { TemplateType } from "@/lib/repositories/templates";
 import type { DocumentType } from "@/lib/repositories/documents";
 import { applyToTemplate, injectContent } from "@/lib/export/from-template";
 import { generateDOCX } from "@/lib/export/to-docx";
+import { checkAndIncrementUsage, decrementUsage, QuotaExceededError } from "@/lib/usage";
 
 const schema = z.object({
   content: z.string().min(1).max(100000),
@@ -44,87 +45,92 @@ export async function POST(req: NextRequest) {
   const userIdStr = (user._id as { toString(): string }).toString();
   const docType = type as TemplateType;
 
-  // Fetch user template, admin template, and (if jobId provided) the stored document in parallel
-  const [userTemplate, adminTemplate, storedDoc] = await Promise.all([
-    templates.getForUser(userIdStr, docType),
-    templates.getAdmin(docType),
+  const [adminTemplate, storedDoc] = await Promise.all([
+    templates.get(docType),
     jobId
       ? documents.getLatestForJob(userIdStr, jobId, type as DocumentType)
       : Promise.resolve(null),
   ]);
 
-  try {
-    let buffer: Buffer;
-    let fallback: "none" | "admin" | "generic" = "none";
+  // ── Try cache first ──────────────────────────────────────────────────────
+  const cache = storedDoc?.docxSlotCache;
+  if (cache && adminTemplate && adminTemplate._id?.toString() === cache.templateId) {
+    if (cache.cachedAt >= adminTemplate.uploadedAt) {
+      try {
+        const buffer = await applyToTemplate(adminTemplate.fileData as Buffer, cache.output);
+        return new Response(new Uint8Array(buffer), {
+          headers: {
+            "Content-Type":
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "Content-Disposition": `attachment; filename="${filename}.docx"`,
+            "Cache-Control": "no-store",
+          },
+        });
+      } catch (err) {
+        console.error("[generate/export] cache hit apply failed:", err);
+        // Fall through to fresh generation below
+      }
+    }
+  }
 
-    // ── Try cache first ──────────────────────────────────────────────────────
-    const cache = storedDoc?.docxSlotCache;
-    if (cache) {
-      const cachedTemplate =
-        userTemplate?._id?.toString() === cache.templateId
-          ? userTemplate
-          : adminTemplate?._id?.toString() === cache.templateId
-          ? adminTemplate
-          : null;
-
-      if (cachedTemplate && cache.cachedAt >= cachedTemplate.uploadedAt) {
-        buffer = await applyToTemplate(cachedTemplate.fileData as Buffer, cache.output);
-        if (cachedTemplate === adminTemplate && userTemplate) fallback = "admin";
-
-        const headers: Record<string, string> = {
+  // ── Cache miss ────────────────────────────────────────────────────────────
+  if (!adminTemplate) {
+    // No template at all — generic DOCX, no AI call, no quota
+    try {
+      const buffer = await generateDOCX(content);
+      return new Response(new Uint8Array(buffer), {
+        headers: {
           "Content-Type":
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
           "Content-Disposition": `attachment; filename="${filename}.docx"`,
           "Cache-Control": "no-store",
-        };
-        if (fallback !== "none") headers["X-Template-Fallback"] = fallback;
-        return new Response(new Uint8Array(buffer), { headers });
-      }
+          "X-Template-Fallback": "generic",
+        },
+      });
+    } catch (err) {
+      console.error("[generate/export] generateDOCX failed:", err);
+      return NextResponse.json({ error: "Export failed" }, { status: 500 });
     }
+  }
 
-    // ── Cache miss — compute fresh ───────────────────────────────────────────
-    if (userTemplate) {
-      const result = await injectContent(
-        userTemplate.fileData as Buffer,
-        content,
-        type as "resume" | "cover_letter"
-      );
-
-      if (result.valid) {
-        buffer = result.buffer;
-      } else if (adminTemplate) {
-        const adminResult = await injectContent(
-          adminTemplate.fileData as Buffer,
-          content,
-          type as "resume" | "cover_letter"
-        );
-        buffer = adminResult.buffer;
-        fallback = "admin";
-      } else {
-        buffer = await generateDOCX(content);
-        fallback = "generic";
-      }
-    } else if (adminTemplate) {
-      const result = await injectContent(
-        adminTemplate.fileData as Buffer,
-        content,
-        type as "resume" | "cover_letter"
-      );
-      buffer = result.buffer;
-    } else {
-      buffer = await generateDOCX(content);
-    }
-
-    const headers: Record<string, string> = {
-      "Content-Type":
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "Content-Disposition": `attachment; filename="${filename}.docx"`,
-      "Cache-Control": "no-store",
-    };
-    if (fallback !== "none") headers["X-Template-Fallback"] = fallback;
-    return new Response(new Uint8Array(buffer), { headers });
+  // Admin template exists — this path calls Anthropic; gate behind quota
+  try {
+    await checkAndIncrementUsage(userIdStr, "aiGeneration");
   } catch (err) {
-    console.error("[generate/export]", err);
+    if (err instanceof QuotaExceededError) {
+      return NextResponse.json(
+        {
+          error: "QUOTA_EXCEEDED",
+          message: err.message,
+          limit: err.limit,
+          used: err.used,
+          periodEndsAt: err.periodEndsAt.toISOString(),
+        },
+        { status: 429 }
+      );
+    }
+    console.error("[generate/export] usage check failed:", err);
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+  }
+
+  try {
+    const result = await injectContent(
+      adminTemplate.fileData as Buffer,
+      content,
+      type as "resume" | "cover_letter"
+    );
+    const buffer = result.buffer;
+    return new Response(new Uint8Array(buffer), {
+      headers: {
+        "Content-Type":
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "Content-Disposition": `attachment; filename="${filename}.docx"`,
+        "Cache-Control": "no-store",
+      },
+    });
+  } catch (err) {
+    await decrementUsage(userIdStr, "aiGeneration").catch(() => {});
+    console.error("[generate/export] injectContent failed:", err);
     return NextResponse.json({ error: "Export failed" }, { status: 500 });
   }
 }

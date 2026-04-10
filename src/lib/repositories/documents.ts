@@ -45,19 +45,27 @@ export async function setDocxCache(
   });
 }
 
-export async function create(
+export async function upsert(
   userId: string,
   data: CreateDocumentInput
 ): Promise<IDocument> {
   await connectDB();
-  return Doc.create({
-    userId,
-    jobId: data.jobId,
-    type: data.type,
-    content: data.content,
-    aiModel: data.aiModel,
-    inputTokens: data.inputTokens,
-    outputTokens: data.outputTokens,
-    resumeIdUsed: data.resumeIdUsed,
-  });
+  return Doc.findOneAndUpdate(
+    { userId, jobId: data.jobId, type: data.type },
+    {
+      $set: {
+        content: data.content,
+        aiModel: data.aiModel,
+        inputTokens: data.inputTokens,
+        outputTokens: data.outputTokens,
+        resumeIdUsed: data.resumeIdUsed,
+      },
+      $setOnInsert: {
+        userId,
+        jobId: data.jobId,
+        type: data.type,
+      },
+    },
+    { upsert: true, returnDocument: "after" }
+  ) as Promise<IDocument>;
 }

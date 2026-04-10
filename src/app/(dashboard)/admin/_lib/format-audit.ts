@@ -17,6 +17,10 @@ export function formatAuditAction(
       return `Set custom limit to ${details?.aiGenerationsPerMonth ?? "?"}`;
     case "user.custom_limit_cleared":
       return "Cleared custom limit";
+    case "template.uploaded":
+      return `Uploaded ${details?.templateType ?? "template"} template`;
+    case "template.deleted":
+      return `Deleted ${details?.templateType ?? "template"} template`;
     default:
       return action;
   }

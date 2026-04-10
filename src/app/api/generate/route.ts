@@ -219,7 +219,7 @@ async function handleJDAnalysis(args: {
   }
 
   // Save the document
-  await documents.create(userIdStr, {
+  await documents.upsert(userIdStr, {
     jobId,
     type: "jd_analysis" as DocumentType,
     content: JSON.stringify(parsed),
@@ -298,7 +298,7 @@ async function handleStreamingGeneration(args: {
         const finalOutputTokens = finalMessage.usage.output_tokens;
 
         // Save the document AFTER streaming completes
-        const savedDoc = await documents.create(userIdStr, {
+        const savedDoc = await documents.upsert(userIdStr, {
           jobId,
           type,
           content: fullText,
@@ -357,33 +357,19 @@ async function handleStreamingGeneration(args: {
 async function precomputeDocxCache(
   docId: string,
   content: string,
-  userId: string,
+  _userId: string,
   type: TemplateType
 ): Promise<void> {
-  const [userTemplate, adminTemplate] = await Promise.all([
-    templates.getForUser(userId, type),
-    templates.getAdmin(type),
-  ]);
-
-  // Determine which template to pre-compute against (same priority as export)
-  let targetTemplate = userTemplate ?? adminTemplate;
-  if (!targetTemplate) return;
+  const adminTemplate = await templates.get(type);
+  if (!adminTemplate) return;
 
   const docType = type as "resume" | "cover_letter";
-
-  let result = await computeSlotFill(targetTemplate.fileData as Buffer, content, docType);
-
-  // If user template was invalid and admin exists, fall back to admin
-  if (!result.valid && userTemplate && adminTemplate) {
-    result = await computeSlotFill(adminTemplate.fileData as Buffer, content, docType);
-    targetTemplate = adminTemplate;
-  }
-
+  const result = await computeSlotFill(adminTemplate.fileData as Buffer, content, docType);
   if (!result.valid) return;
 
   await documents.setDocxCache(
     docId,
-    (targetTemplate._id as { toString(): string }).toString(),
+    (adminTemplate._id as { toString(): string }).toString(),
     result.output
   );
 }

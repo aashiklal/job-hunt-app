@@ -24,7 +24,7 @@ export type IDocument = {
 
 const DocumentSchema = new Schema<IDocument>(
   {
-    userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     jobId: { type: Schema.Types.ObjectId, ref: "Job", required: true, index: true },
     type: {
       type: String,
@@ -40,6 +40,9 @@ const DocumentSchema = new Schema<IDocument>(
   },
   { timestamps: true }
 );
+
+// One row per (user, job, type) — new generations overwrite previous ones via upsert
+DocumentSchema.index({ userId: 1, jobId: 1, type: 1 }, { unique: true });
 
 const Doc: Model<IDocument> =
   mongoose.models.Document ??

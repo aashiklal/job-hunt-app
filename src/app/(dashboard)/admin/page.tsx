@@ -4,7 +4,7 @@ import { requireAdminWithPlan } from "@/lib/auth-helpers";
 import * as usersRepo from "@/lib/repositories/users";
 import { type IUser } from "@/lib/repositories/users";
 import * as templates from "@/lib/repositories/templates";
-import { TemplateManager } from "../resume/_components/template-manager";
+import { TemplateManager } from "./_components/template-manager";
 import { Badge } from "@/components/ui/badge";
 import {
   Tabs,
@@ -96,7 +96,7 @@ export default async function AdminPage() {
   const adminId = (admin._id as { toString(): string }).toString();
 
   const allUsers = await usersRepo.listAll();
-  const adminTemplateList = await templates.listAdmin();
+  const adminTemplateList = await templates.list();
   const currentAdminTemplates = Object.fromEntries(
     adminTemplateList.map((t) => [t.type, { fileName: t.fileName }])
   ) as Partial<Record<"resume" | "cover_letter", { fileName: string }>>;
