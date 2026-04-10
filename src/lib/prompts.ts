@@ -76,6 +76,37 @@ Now write the cover letter. Output only the letter in markdown.`;
   return { system, userMessage };
 }
 
+export function buildJobParsePrompt(args: { text: string }) {
+  const system = `You are a job posting parser. Extract structured details from a raw job posting.
+
+Respond with ONLY a JSON object matching this exact schema — no preamble, no commentary, no markdown code fences:
+
+{
+  "company": "string or null",
+  "role": "string or null",
+  "location": "string or null",
+  "salary": "string or null",
+  "description": "string or null"
+}
+
+Rules:
+- "company": the hiring company's name. null if not found.
+- "role": the job title. null if not found.
+- "location": city, region, remote status, or a combination. null if not found.
+- "salary": any salary or compensation range mentioned. null if not found.
+- "description": the full job description text, lightly cleaned (remove excessive whitespace/repeated lines). null if the input is too short to be a real job posting.
+
+Respond with ONLY the JSON object.`;
+
+  const userMessage = `Job posting:
+
+${args.text}
+
+Return the JSON.`;
+
+  return { system, userMessage };
+}
+
 export function buildJDAnalysisPrompt(args: { jobDescription: string }) {
   const { jobDescription } = args;
   const system = `You are an expert job description analyzer helping a job applicant understand a role before applying.

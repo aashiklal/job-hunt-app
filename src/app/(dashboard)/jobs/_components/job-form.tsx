@@ -1,12 +1,13 @@
 "use client";
 
-import { useTransition } from "react";
+import { useTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import Link from "next/link";
+import { ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,6 +64,9 @@ type Props = {
 export function JobForm({ mode, initialValues, jobId }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [importOpen, setImportOpen] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [isExtracting, setIsExtracting] = useState(false);
 
   const form = useForm<JobFormValues>({
     resolver: zodResolver(jobFormSchema),
@@ -79,6 +83,44 @@ export function JobForm({ mode, initialValues, jobId }: Props) {
       ...initialValues,
     },
   });
+
+  async function handleExtract() {
+    if (!importText.trim()) return;
+    setIsExtracting(true);
+    try {
+      const res = await fetch("/api/jobs/parse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: importText }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? "Failed to extract job details.");
+        return;
+      }
+      const { fields } = data as {
+        fields: {
+          company: string | null;
+          role: string | null;
+          location: string | null;
+          salary: string | null;
+          description: string | null;
+        };
+      };
+      if (fields.company) form.setValue("company", fields.company, { shouldDirty: true });
+      if (fields.role) form.setValue("role", fields.role, { shouldDirty: true });
+      if (fields.location) form.setValue("location", fields.location, { shouldDirty: true });
+      if (fields.salary) form.setValue("salary", fields.salary, { shouldDirty: true });
+      if (fields.description) form.setValue("jobDescription", fields.description, { shouldDirty: true });
+      toast.success("Fields filled — review and edit before saving.");
+      setImportOpen(false);
+      setImportText("");
+    } catch {
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setIsExtracting(false);
+    }
+  }
 
   function onSubmit(values: JobFormValues) {
     startTransition(async () => {
@@ -111,6 +153,43 @@ export function JobForm({ mode, initialValues, jobId }: Props) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {/* Quick import */}
+        <div className="rounded-lg border border-dashed">
+          <button
+            type="button"
+            onClick={() => setImportOpen((o) => !o)}
+            className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4" />
+              Quick import from job posting
+            </span>
+            {importOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+          {importOpen && (
+            <div className="border-t px-4 pb-4 pt-3 space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Paste the full job description and we&apos;ll fill in the fields for you.
+              </p>
+              <Textarea
+                placeholder="Paste the job posting here…"
+                rows={6}
+                value={importText}
+                onChange={(e) => setImportText(e.target.value)}
+                disabled={isExtracting}
+              />
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleExtract}
+                disabled={isExtracting || !importText.trim()}
+              >
+                {isExtracting ? "Extracting…" : "Extract details"}
+              </Button>
+            </div>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
           <FormField
             control={form.control}
