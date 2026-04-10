@@ -42,6 +42,11 @@ const DESCRIPTIONS = {
     "Generate a concise, personalized cover letter for this role.",
 };
 
+const FILENAMES = {
+  resume: "tailored-resume",
+  cover_letter: "cover-letter",
+};
+
 export function GeneratePanel({
   type,
   jobId,
@@ -49,9 +54,6 @@ export function GeneratePanel({
   initialContent,
   initialResumeId,
 }: Props) {
-  // Pick the default resume on first render: prefer initialResumeId (the
-  // one used last time for this job+type), otherwise fall back to the
-  // user's marked-default resume, otherwise the first resume in the list.
   const defaultId =
     initialResumeId ??
     resumes.find((r) => r.isDefault)?._id ??
@@ -63,6 +65,8 @@ export function GeneratePanel({
   const [content, setContent] = useState<string>(initialContent ?? "");
   const [isStreaming, setIsStreaming] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(initialContent !== null);
+  const [outputFormat, setOutputFormat] = useState<"pdf" | "docx">("pdf");
+  const [isDownloading, setIsDownloading] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const noResumes = resumes.length === 0;
@@ -94,7 +98,6 @@ export function GeneratePanel({
       });
 
       if (!res.ok) {
-        // Error responses are always JSON, even from this normally-streaming route
         const errBody = await res.json().catch(() => null);
         if (res.status === 429 && errBody?.error === "QUOTA_EXCEEDED") {
           toast.error(
@@ -127,7 +130,6 @@ export function GeneratePanel({
         setContent(accumulated);
       }
 
-      // Final flush
       const flushed = decoder.decode();
       if (flushed) {
         accumulated += flushed;
@@ -166,6 +168,54 @@ export function GeneratePanel({
     }
   }
 
+  async function handleDownload() {
+    if (!content) return;
+    setIsDownloading(true);
+    try {
+      const res = await fetch("/api/generate/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content,
+          format: outputFormat,
+          type,
+          jobId,
+          resumeId: selectedResumeId || undefined,
+          filename: FILENAMES[type],
+        }),
+      });
+
+      if (!res.ok) {
+        toast.error("Export failed");
+        return;
+      }
+
+      const fallback = res.headers.get("X-Template-Fallback");
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${FILENAMES[type]}.${outputFormat}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      if (fallback === "admin") {
+        toast.info("Your template didn't have enough structure — the default template was used instead.");
+      } else if (fallback === "generic") {
+        toast.info("Your template didn't have enough structure — a clean default format was used instead.");
+      } else {
+        toast.success(`Downloaded as ${outputFormat.toUpperCase()}`);
+      }
+    } catch {
+      toast.error("Download failed");
+    } finally {
+      setIsDownloading(false);
+    }
+  }
+
   // Empty state: no resumes saved at all
   if (noResumes) {
     return (
@@ -192,7 +242,7 @@ export function GeneratePanel({
         <p className="text-sm text-muted-foreground">{DESCRIPTIONS[type]}</p>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Resume picker */}
+        {/* Resume picker + Generate */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <div className="flex-1">
             <label className="text-xs font-medium text-muted-foreground mb-1 block">
@@ -246,12 +296,34 @@ export function GeneratePanel({
           </div>
         )}
 
-        {/* Action buttons after generation */}
+        {/* Post-generation actions */}
         {hasGenerated && !isStreaming && content && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button onClick={handleCopy} variant="outline" size="sm">
               Copy
             </Button>
+            <div className="flex items-center gap-1.5">
+              <Select
+                value={outputFormat}
+                onValueChange={(v) => setOutputFormat(v as "pdf" | "docx")}
+              >
+                <SelectTrigger className="h-8 w-24 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pdf">PDF</SelectItem>
+                  <SelectItem value="docx">DOCX</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={handleDownload}
+                variant="outline"
+                size="sm"
+                disabled={isDownloading}
+              >
+                {isDownloading ? "Preparing…" : "Download"}
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>

@@ -3,6 +3,8 @@ import { formatDistanceToNow } from "date-fns";
 import { requireAdminWithPlan } from "@/lib/auth-helpers";
 import * as usersRepo from "@/lib/repositories/users";
 import { type IUser } from "@/lib/repositories/users";
+import * as templates from "@/lib/repositories/templates";
+import { TemplateManager } from "../resume/_components/template-manager";
 import { Badge } from "@/components/ui/badge";
 import {
   Tabs,
@@ -94,6 +96,10 @@ export default async function AdminPage() {
   const adminId = (admin._id as { toString(): string }).toString();
 
   const allUsers = await usersRepo.listAll();
+  const adminTemplateList = await templates.listAdmin();
+  const currentAdminTemplates = Object.fromEntries(
+    adminTemplateList.map((t) => [t.type, { fileName: t.fileName }])
+  ) as Partial<Record<"resume" | "cover_letter", { fileName: string }>>;
 
   const pending = allUsers.filter((u) => u.status === "pending");
   const approved = allUsers.filter((u) => u.status === "approved");
@@ -171,6 +177,13 @@ export default async function AdminPage() {
           />
         </TabsContent>
       </Tabs>
+
+      <TemplateManager
+        current={currentAdminTemplates}
+        apiBase="/api/admin/templates"
+        title="Default Export Templates"
+        description="These templates are used for all users who have not uploaded their own. Upload a styled .docx file for each document type."
+      />
     </div>
   );
 }

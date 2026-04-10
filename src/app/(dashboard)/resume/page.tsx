@@ -25,7 +25,8 @@ export const metadata: Metadata = {
 
 export default async function ResumePage() {
   const { user, plan } = await requireApprovedUserWithPlan();
-  const rawResumes = await resumes.list(user._id.toString());
+  const userId = user._id.toString();
+  const rawResumes = await resumes.list(userId);
   const resumeList = rawResumes.map(toResumeListItem);
 
   const count = resumeList.length;
@@ -123,6 +124,7 @@ export default async function ResumePage() {
           Resumes used: {count} of {maxResumes}
         </p>
       )}
+
     </div>
   );
 }

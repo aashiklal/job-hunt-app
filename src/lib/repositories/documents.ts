@@ -32,6 +32,19 @@ export async function getLatestForJob(
   return Doc.findOne({ userId, jobId, type }).sort({ createdAt: -1 });
 }
 
+export async function setDocxCache(
+  docId: string,
+  templateId: string,
+  output: Array<[number, string | null]>
+): Promise<void> {
+  await connectDB();
+  await Doc.findByIdAndUpdate(docId, {
+    $set: {
+      docxSlotCache: { templateId, cachedAt: new Date(), output },
+    },
+  });
+}
+
 export async function create(
   userId: string,
   data: CreateDocumentInput

@@ -8,6 +8,9 @@ import * as jobs from "@/lib/repositories/jobs";
 import * as resumes from "@/lib/repositories/resumes";
 import * as documents from "@/lib/repositories/documents";
 import type { DocumentType } from "@/lib/repositories/documents";
+import * as templates from "@/lib/repositories/templates";
+import type { TemplateType } from "@/lib/repositories/templates";
+import { computeSlotFill } from "@/lib/export/from-template";
 import {
   checkAndIncrementUsage,
   decrementUsage,
@@ -295,7 +298,7 @@ async function handleStreamingGeneration(args: {
         const finalOutputTokens = finalMessage.usage.output_tokens;
 
         // Save the document AFTER streaming completes
-        await documents.create(userIdStr, {
+        const savedDoc = await documents.create(userIdStr, {
           jobId,
           type,
           content: fullText,
@@ -304,6 +307,17 @@ async function handleStreamingGeneration(args: {
           outputTokens: finalOutputTokens,
           resumeIdUsed: resumeIdStr,
         });
+
+        // Fire-and-forget: pre-compute DOCX slot-fill while user reads the preview.
+        // When the user clicks Download the cache will already be ready — zero AI latency.
+        precomputeDocxCache(
+          (savedDoc._id as { toString(): string }).toString(),
+          fullText,
+          userIdStr,
+          type as TemplateType
+        ).catch((err) =>
+          console.error("[generate] slot-fill pre-compute failed:", err)
+        );
 
         controller.close();
       } catch (err) {
@@ -331,4 +345,45 @@ async function handleStreamingGeneration(args: {
       "X-Content-Type-Options": "nosniff",
     },
   });
+}
+
+// ─── DOCX slot-fill pre-computation ──────────────────────────────────────────
+
+/**
+ * Runs in the background after generation completes.
+ * Computes the DOCX slot-fill output (haiku call) and stores it on the Document
+ * so the export route can apply it instantly without another AI call.
+ */
+async function precomputeDocxCache(
+  docId: string,
+  content: string,
+  userId: string,
+  type: TemplateType
+): Promise<void> {
+  const [userTemplate, adminTemplate] = await Promise.all([
+    templates.getForUser(userId, type),
+    templates.getAdmin(type),
+  ]);
+
+  // Determine which template to pre-compute against (same priority as export)
+  let targetTemplate = userTemplate ?? adminTemplate;
+  if (!targetTemplate) return;
+
+  const docType = type as "resume" | "cover_letter";
+
+  let result = await computeSlotFill(targetTemplate.fileData as Buffer, content, docType);
+
+  // If user template was invalid and admin exists, fall back to admin
+  if (!result.valid && userTemplate && adminTemplate) {
+    result = await computeSlotFill(adminTemplate.fileData as Buffer, content, docType);
+    targetTemplate = adminTemplate;
+  }
+
+  if (!result.valid) return;
+
+  await documents.setDocxCache(
+    docId,
+    (targetTemplate._id as { toString(): string }).toString(),
+    result.output
+  );
 }

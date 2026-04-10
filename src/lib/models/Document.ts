@@ -2,6 +2,12 @@ import mongoose, { Document, Model, Schema, Types } from "mongoose";
 
 export type DocumentType = "resume" | "cover_letter" | "jd_analysis";
 
+export type DocxSlotCache = {
+  templateId: string;
+  cachedAt: Date;
+  output: Array<[number, string | null]>;
+};
+
 export type IDocument = {
   userId: Types.ObjectId;
   jobId: Types.ObjectId;
@@ -11,6 +17,7 @@ export type IDocument = {
   inputTokens?: number;
   outputTokens?: number;
   resumeIdUsed?: Types.ObjectId;
+  docxSlotCache?: DocxSlotCache;
   createdAt: Date;
   updatedAt: Date;
 } & Document;
@@ -29,6 +36,7 @@ const DocumentSchema = new Schema<IDocument>(
     inputTokens: { type: Number },
     outputTokens: { type: Number },
     resumeIdUsed: { type: Schema.Types.ObjectId, ref: "Resume" },
+    docxSlotCache: { type: Schema.Types.Mixed },
   },
   { timestamps: true }
 );
