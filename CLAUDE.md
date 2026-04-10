@@ -35,7 +35,6 @@ No test runner is configured yet.
 - **date-fns** — date formatting utilities
 - **unpdf** — server-side PDF text extraction (no native deps, Vercel-compatible); API: `getDocumentProxy(new Uint8Array(buffer))` then `extractText(pdf, { mergePages: true })`
 - **mammoth** — server-side DOCX text extraction; prefer `convertToMarkdown` (preserves headings/bullets for AI) over `extractRawText`. Note: `convertToMarkdown` is missing from mammoth's type declaration — cast through `unknown` to call it: `(mammoth as unknown as { convertToMarkdown: ... })`
-- **@react-pdf/renderer** — server-side PDF generation (`renderToBuffer`); used in `src/lib/export/to-pdf.tsx`
 - **docx** — server-side DOCX generation (`Packer`, `Document`, `Paragraph`, etc.); used in `src/lib/export/to-docx.ts` and `from-template.ts`
 
 ## Next.js 16 Breaking Changes
@@ -127,7 +126,7 @@ src/
       resume/parse-pdf/route.ts    # POST — parse PDF, return extracted text (auth-gated, parse-and-discard)
       resume/parse-docx/route.ts   # POST — parse DOCX via mammoth, return extracted text (auth-gated, parse-and-discard)
       generate/route.ts            # POST — AI generation endpoint (streaming + non-streaming); uses route handler (not Server Action) because it streams
-      generate/export/route.ts     # POST — export AI content as PDF or DOCX; resolves user → admin → generic template priority
+      generate/export/route.ts     # POST — export AI content as DOCX; resolves user → admin → generic template priority
       jobs/parse/route.ts          # POST — quick import: paste job posting text, AI extracts company/role/location/salary/description; quota-gated
       admin/templates/route.ts     # POST (upload/replace) + DELETE — manage global DOCX templates (admin-only)
     sign-in/ sign-up/              # Clerk hosted UI catch-all routes
@@ -146,11 +145,9 @@ src/
                                    # documents.ts: stores AI-generated output (resume, cover_letter, jd_analysis) linked to a job
                                    # audit-log.ts: append-only log of admin actions (approve/reject, plan changes, toggle admin)
                                    # templates.ts: upsert/getForUser/getAdmin/resolve/deleteTemplate/listForUser/listAdmin
-    export/                        # PDF/DOCX export pipeline
-                                   # to-pdf.tsx: generatePDF(markdown, hints?) — PDF via @react-pdf/renderer (note .tsx extension — uses JSX)
-                                   # to-docx.ts: generateDOCX(markdown) — generic DOCX from markdown (no template)
-                                   # from-template.ts: injectContent(buffer, content, type) / applyToTemplate(buffer, slotMap) — fill DOCX placeholders
-                                   # extract-styles.ts: extractDocxStyles(buffer) — derive StyleHints for PDF rendering from a DOCX template
+    export/                        # DOCX export pipeline
+                                   # to-docx.ts: generateDOCX(markdown, hints?) — generic DOCX from markdown (no template)
+                                   # from-template.ts: injectContent(buffer, content, type) / applyToTemplate(buffer, slotMap) — fill DOCX template slots
                                    # parse-markdown.ts: internal markdown parser for structured DOCX generation
                                    # types.ts: StyleHints, DEFAULT_STYLE_HINTS
 ```
@@ -239,15 +236,15 @@ Non-AI resource limits (e.g. `plan.maxResumes`) are enforced in two places inten
 
 `-1` means unlimited. Always check `maxX !== -1 && count >= maxX` before throwing.
 
-## Export Flow (PDF / DOCX)
+## Export Flow (DOCX only)
 
-`POST /api/generate/export` accepts `{ content, format, type, jobId?, resumeId?, filename? }` and returns the binary file.
+`POST /api/generate/export` accepts `{ content, type, jobId?, resumeId?, filename? }` and returns a DOCX binary. PDF export has been removed.
 
-**Template priority** (DOCX): user template → admin (global) template → generic `generateDOCX()`. The `X-Template-Fallback` response header signals when a fallback was used (`"admin"` or `"generic"`).
+**Template priority**: user template → admin (global) template → generic `generateDOCX()`. The `X-Template-Fallback` response header signals when a fallback was used (`"admin"` or `"generic"`).
 
-**PDF**: style hints are extracted from the resolved template via `extractDocxStyles()` and passed to `generatePDF(content, hints)`. No template slotting — PDF is always generated from scratch.
+**Template-driven formatting**: `from-template.ts` preserves each template paragraph's run structure (`rPr`) as the source of truth. `setParaText` distributes new text across the template's existing runs — skill lines split at `": "` using run[0]/run[last] `rPr`, h3 job-title lines detect a trailing date and right-align it with a tab stop. No formatting is hard-coded.
 
-**DOCX caching**: `Document.docxSlotCache` stores the last AI slot-fill output alongside the template ID and timestamp. On export, if the cache is fresh (newer than the template's `uploadedAt`), `applyToTemplate()` is called directly without an AI round-trip.
+**DOCX caching**: `Document.docxSlotCache` stores the last AI slot-fill output alongside the template ID and timestamp. On export, if the cache is fresh (newer than the template's `uploadedAt`), `applyToTemplate()` is called directly without an AI round-trip. Uploading a new template automatically busts the cache on next export.
 
 **Adding export for a new document type**: add the type to the `type` enum in the export route schema, add a corresponding `TemplateType`, and handle it in `from-template.ts`.
 
