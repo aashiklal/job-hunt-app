@@ -4,6 +4,7 @@ import { requireAdminWithPlan } from "@/lib/auth-helpers";
 import * as usersRepo from "@/lib/repositories/users";
 import { type IUser } from "@/lib/repositories/users";
 import * as templates from "@/lib/repositories/templates";
+import * as auditLog from "@/lib/repositories/audit-log";
 import { TemplateManager } from "./_components/template-manager";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -21,6 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { UserActionButton } from "./_components/user-actions";
+import { formatAuditAction } from "./_lib/format-audit";
 
 export const metadata = {
   title: "Admin — Job Hunt",
@@ -95,8 +97,12 @@ export default async function AdminPage() {
   const { user: admin } = await requireAdminWithPlan();
   const adminId = (admin._id as { toString(): string }).toString();
 
-  const allUsers = await usersRepo.listAll();
-  const adminTemplateList = await templates.list();
+  const [allUsers, adminTemplateList, auditEntries] = await Promise.all([
+    usersRepo.listAll(),
+    templates.list(),
+    auditLog.listRecent(100),
+  ]);
+
   const currentAdminTemplates = Object.fromEntries(
     adminTemplateList.map((t) => [t.type, { fileName: t.fileName }])
   ) as Partial<Record<"resume" | "cover_letter", { fileName: string }>>;
@@ -104,86 +110,156 @@ export default async function AdminPage() {
   const pending = allUsers.filter((u) => u.status === "pending");
   const approved = allUsers.filter((u) => u.status === "approved");
   const rejected = allUsers.filter((u) => u.status === "rejected");
+  const entries = auditEntries.map(auditLog.toAuditLogItem);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900">User Access</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Approve or reject sign-up requests.
-          </p>
-        </div>
-        <Link
-          href="/admin/audit"
-          className="text-sm text-muted-foreground hover:text-foreground"
-        >
-          View audit log →
-        </Link>
-      </div>
+      <h1 className="text-xl font-semibold text-gray-900">Admin</h1>
 
-      <Tabs defaultValue="pending">
+      <Tabs defaultValue="users">
         <TabsList>
-          <TabsTrigger value="pending">
-            Pending
-            <Badge className="ml-1.5 text-xs px-1.5 py-0 h-4">
-              {pending.length}
-            </Badge>
+          <TabsTrigger value="users">
+            Users
+            {pending.length > 0 && (
+              <Badge className="ml-1.5 text-xs px-1.5 py-0 h-4">
+                {pending.length}
+              </Badge>
+            )}
           </TabsTrigger>
-          <TabsTrigger value="approved">
-            Approved
-            <Badge className="ml-1.5 text-xs px-1.5 py-0 h-4">
-              {approved.length}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="rejected">
-            Rejected
-            <Badge className="ml-1.5 text-xs px-1.5 py-0 h-4">
-              {rejected.length}
-            </Badge>
-          </TabsTrigger>
+          <TabsTrigger value="templates">Templates</TabsTrigger>
+          <TabsTrigger value="audit">Audit Log</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="pending" className="mt-4">
-          {pending.length === 0 ? (
-            <div className="flex items-center justify-center py-16 text-gray-400 text-sm">
-              No pending requests. You&apos;re all caught up.
-            </div>
+        <TabsContent value="users" className="mt-6 space-y-4">
+          <div>
+            <h2 className="text-base font-medium text-gray-900">User Access</h2>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Approve or reject sign-up requests.
+            </p>
+          </div>
+
+          <Tabs defaultValue="pending">
+            <TabsList>
+              <TabsTrigger value="pending">
+                Pending
+                <Badge className="ml-1.5 text-xs px-1.5 py-0 h-4">
+                  {pending.length}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="approved">
+                Approved
+                <Badge className="ml-1.5 text-xs px-1.5 py-0 h-4">
+                  {approved.length}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="rejected">
+                Rejected
+                <Badge className="ml-1.5 text-xs px-1.5 py-0 h-4">
+                  {rejected.length}
+                </Badge>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="pending" className="mt-4">
+              {pending.length === 0 ? (
+                <div className="flex items-center justify-center py-16 text-gray-400 text-sm">
+                  No pending requests. You&apos;re all caught up.
+                </div>
+              ) : (
+                <UserTable
+                  users={pending}
+                  adminId={adminId}
+                  showApprove
+                  showReject
+                />
+              )}
+            </TabsContent>
+
+            <TabsContent value="approved" className="mt-4">
+              <UserTable
+                users={approved}
+                adminId={adminId}
+                showApprove={false}
+                showReject
+              />
+            </TabsContent>
+
+            <TabsContent value="rejected" className="mt-4">
+              <UserTable
+                users={rejected}
+                adminId={adminId}
+                showApprove
+                showReject={false}
+              />
+            </TabsContent>
+          </Tabs>
+        </TabsContent>
+
+        <TabsContent value="templates" className="mt-6">
+          <TemplateManager
+            current={currentAdminTemplates}
+            apiBase="/api/admin/templates"
+            title="Default Export Templates"
+            description="These templates are used for all users who have not uploaded their own. Upload a styled .docx file for each document type."
+          />
+        </TabsContent>
+
+        <TabsContent value="audit" className="mt-6 space-y-4">
+          <div>
+            <h2 className="text-base font-medium text-gray-900">Audit Log</h2>
+            <p className="text-sm text-gray-500 mt-0.5">
+              All admin actions — last 100 entries, last 90 days.
+            </p>
+          </div>
+
+          {entries.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">
+              No admin actions logged yet.
+            </p>
           ) : (
-            <UserTable
-              users={pending}
-              adminId={adminId}
-              showApprove
-              showReject
-            />
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="whitespace-nowrap">When</TableHead>
+                    <TableHead>Action</TableHead>
+                    <TableHead>Target user</TableHead>
+                    <TableHead>By</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {entries.map((entry) => (
+                    <TableRow key={entry._id}>
+                      <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                        {formatDistanceToNow(new Date(entry.createdAt), {
+                          addSuffix: true,
+                        })}
+                      </TableCell>
+                      <TableCell className="text-sm font-medium">
+                        {formatAuditAction(entry.action, entry.details)}
+                      </TableCell>
+                      <TableCell className="text-sm max-w-[200px] truncate">
+                        <Link
+                          href={`/admin/${entry.targetUserId}`}
+                          className="hover:underline"
+                        >
+                          {entry.targetUserEmail}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground max-w-[160px] truncate">
+                        {entry.adminEmail}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
-        </TabsContent>
-
-        <TabsContent value="approved" className="mt-4">
-          <UserTable
-            users={approved}
-            adminId={adminId}
-            showApprove={false}
-            showReject
-          />
-        </TabsContent>
-
-        <TabsContent value="rejected" className="mt-4">
-          <UserTable
-            users={rejected}
-            adminId={adminId}
-            showApprove
-            showReject={false}
-          />
+          <p className="text-xs text-muted-foreground">
+            Audit entries are retained for 90 days, then automatically deleted.
+          </p>
         </TabsContent>
       </Tabs>
-
-      <TemplateManager
-        current={currentAdminTemplates}
-        apiBase="/api/admin/templates"
-        title="Default Export Templates"
-        description="These templates are used for all users who have not uploaded their own. Upload a styled .docx file for each document type."
-      />
     </div>
   );
 }
