@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -29,6 +29,20 @@ import {
 
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  // Render a stable placeholder until the client knows the resolved theme,
+  // preventing a server/client HTML mismatch (hydration error).
+  if (!mounted) {
+    return (
+      <div className="-mx-2 flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground">
+        <Moon className="size-4 shrink-0" strokeWidth={1.75} />
+        <span>Dark mode</span>
+      </div>
+    );
+  }
+
   const isDark = resolvedTheme === "dark";
   return (
     <button
