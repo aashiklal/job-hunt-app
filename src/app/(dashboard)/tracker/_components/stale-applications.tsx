@@ -25,7 +25,7 @@ export function StaleApplications({ jobs }: Props) {
             No status update in 14+ days — worth a follow-up?
           </p>
         </div>
-        <span className="shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
           {jobs.length} stuck
         </span>
       </div>
@@ -57,7 +57,7 @@ export function StaleApplications({ jobs }: Props) {
                   className={`tabular-nums font-medium ${
                     job.daysSinceUpdate >= 30
                       ? "text-destructive"
-                      : "text-amber-600"
+                      : "text-foreground"
                   }`}
                 >
                   {job.daysSinceUpdate}d

@@ -35,7 +35,7 @@ export function WeeklyActivity({ data }: Props) {
           No applications logged yet
         </div>
       ) : (
-        <div className="flex items-end gap-1.5" style={{ height: "8rem" }}>
+        <div className="flex items-end gap-1.5 h-32">
           {data.map((week) => {
             const heightPct = (week.count / maxCount) * 100;
             const isCurrentWeek = week === data[data.length - 1];
@@ -43,8 +43,7 @@ export function WeeklyActivity({ data }: Props) {
             return (
               <div
                 key={week.weekStart}
-                className="group relative flex flex-1 flex-col items-center justify-end gap-1"
-                style={{ height: "100%" }}
+                className="group relative flex flex-1 flex-col items-center justify-end gap-1 h-full"
               >
                 {/* Count label — visible on hover or when non-zero */}
                 {week.count > 0 && (

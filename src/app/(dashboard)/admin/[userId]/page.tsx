@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { requireAdminWithPlan } from "@/lib/auth-helpers";
 import * as users from "@/lib/repositories/users";
@@ -44,10 +45,11 @@ export default async function Page({
   const [subscription, usage, auditEntries] = await Promise.all([
     subscriptions.getByUserId(userId),
     getCurrentUsage(userId),
-    auditLog.listForTargetUser(userId).then((docs) => docs.map(auditLog.toAuditLogItem)),
+    auditLog
+      .listForTargetUser(userId)
+      .then((docs) => docs.map(auditLog.toAuditLogItem)),
   ]);
 
-  // Resolve plan default for the target user's subscription (in USD)
   let planDefault = ctx.plan.aiSpendLimitUSD ?? 5.0;
   if (subscription?.planKey) {
     const plan = await plans.getByKey(subscription.planKey);
@@ -70,48 +72,46 @@ export default async function Page({
   const customLimit = subscription?.customLimits?.aiSpendLimitUSD;
   const hasCustomLimit = typeof customLimit === "number";
 
-  const percentUsed = usage.limit > 0 ? Math.min(100, (usage.used / usage.limit) * 100) : 0;
+  const percentUsed =
+    usage.limit > 0 ? Math.min(100, (usage.used / usage.limit) * 100) : 0;
   const remaining = Math.max(0, usage.limit - usage.used);
   const isOut = remaining <= 0 && usage.limit > 0;
-  const isLow = !isOut && remaining < 1.00 && usage.limit > 0;
+  const isLow = !isOut && remaining < 1.0 && usage.limit > 0;
   const fmtUSD = (n: number) => `$${n.toFixed(2)}`;
 
-  const barColor = isOut
-    ? "bg-destructive"
-    : isLow
-      ? "bg-yellow-500"
-      : "bg-primary";
-
+  // Map to design tokens only: destructive for over-limit, muted-foreground for low, primary for normal
+  const barColor = isOut ? "bg-destructive" : "bg-primary";
   const countColor = isOut
     ? "font-semibold text-destructive"
     : isLow
-      ? "font-semibold text-yellow-600"
-      : "font-medium";
+      ? "font-semibold text-foreground"
+      : "font-medium text-foreground";
 
   return (
-    <div className="space-y-6">
-      {/* Back link */}
+    <div className="mx-auto max-w-2xl space-y-8 px-4 md:px-6 lg:px-8 py-6 md:py-10 md:space-y-10">
       <Link
         href="/admin"
-        className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors duration-200 ease-[var(--ease-out-expo)] hover:text-foreground"
       >
-        ← Back to admin
+        <ChevronLeft className="size-4" strokeWidth={1.75} />
+        Back to admin
       </Link>
 
       {/* Identity card */}
-      <Card>
+      <Card className="border border-border/60 shadow-xs transition-shadow duration-200 ease-[var(--ease-out-expo)] hover:shadow-sm">
         <CardHeader className="pb-3">
-          <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-1">
-              <CardTitle className="text-lg">
+              <CardTitle className="text-lg font-semibold tracking-tight">
                 {displayName ?? target.email}
               </CardTitle>
               {displayName && (
                 <p className="text-sm text-muted-foreground">{target.email}</p>
               )}
-              <div className="flex items-center gap-2 flex-wrap pt-1">
+              <div className="flex flex-wrap items-center gap-2 pt-1">
                 <Badge variant={statusBadgeVariant}>
-                  {target.status.charAt(0).toUpperCase() + target.status.slice(1)}
+                  {target.status.charAt(0).toUpperCase() +
+                    target.status.slice(1)}
                 </Badge>
                 {target.isAdmin && <Badge variant="default">Admin</Badge>}
                 <span className="text-xs text-muted-foreground">
@@ -131,7 +131,7 @@ export default async function Page({
               Cannot edit your own account.
             </p>
           ) : (
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex flex-wrap items-center gap-2">
               {target.status === "pending" && (
                 <>
                   <UserActionButton userId={targetId} variant="approve" />
@@ -155,9 +155,11 @@ export default async function Page({
       </Card>
 
       {/* Usage card */}
-      <Card>
+      <Card className="border border-border/60 shadow-xs transition-shadow duration-200 ease-[var(--ease-out-expo)] hover:shadow-sm">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">AI spend this month</CardTitle>
+          <CardTitle className="text-lg font-medium">
+            AI spend this month
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {usage.limit === 0 ? (
@@ -166,15 +168,15 @@ export default async function Page({
             </p>
           ) : (
             <>
-              <div className="flex justify-between items-center text-sm">
+              <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Spent</span>
                 <span className={countColor}>
                   {fmtUSD(usage.used)} of {fmtUSD(usage.limit)}
                 </span>
               </div>
-              <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
                 <div
-                  className={`h-full ${barColor} transition-all`}
+                  className={`h-full transition-all ${barColor}`}
                   style={{ width: `${percentUsed}%` }}
                 />
               </div>
@@ -189,8 +191,8 @@ export default async function Page({
               <Separator />
               {hasCustomLimit ? (
                 <div className="space-y-1.5">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-medium">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium text-foreground">
                       Custom budget: {fmtUSD(customLimit!)}
                     </span>
                     <ClearCustomLimitButton userId={targetId} />
@@ -202,7 +204,9 @@ export default async function Page({
               ) : (
                 <p className="text-xs text-muted-foreground">
                   Budget from plan:{" "}
-                  <span className="font-medium">{usage.planKey ?? "—"}</span>{" "}
+                  <span className="font-medium text-foreground">
+                    {usage.planKey ?? "—"}
+                  </span>{" "}
                   ({fmtUSD(planDefault)} / month)
                 </p>
               )}
@@ -219,50 +223,54 @@ export default async function Page({
       </Card>
 
       {/* Audit log card */}
-      <Card>
+      <Card className="border border-border/60 shadow-xs transition-shadow duration-200 ease-[var(--ease-out-expo)] hover:shadow-sm">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Recent activity for this user</CardTitle>
+          <CardTitle className="text-lg font-medium">
+            Recent activity
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {auditEntries.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">
+            <p className="py-4 text-center text-sm text-muted-foreground">
               No admin actions logged yet.
             </p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>When</TableHead>
-                  <TableHead>Action</TableHead>
-                  <TableHead>Admin</TableHead>
-                  <TableHead>Details</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {auditEntries.map((entry) => (
-                  <TableRow key={entry._id}>
-                    <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
-                      {formatDistanceToNow(new Date(entry.createdAt), {
-                        addSuffix: true,
-                      })}
-                    </TableCell>
-                    <TableCell className="text-sm font-medium">
-                      {formatAuditAction(entry.action, entry.details)}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {entry.adminEmail}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {entry.details
-                        ? Object.entries(entry.details)
-                            .map(([k, v]) => `${k}: ${v}`)
-                            .join(", ")
-                        : "—"}
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>When</TableHead>
+                    <TableHead>Action</TableHead>
+                    <TableHead>Admin</TableHead>
+                    <TableHead>Details</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {auditEntries.map((entry) => (
+                    <TableRow key={entry._id}>
+                      <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                        {formatDistanceToNow(new Date(entry.createdAt), {
+                          addSuffix: true,
+                        })}
+                      </TableCell>
+                      <TableCell className="text-sm font-medium text-foreground">
+                        {formatAuditAction(entry.action, entry.details)}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {entry.adminEmail}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {entry.details
+                          ? Object.entries(entry.details)
+                              .map(([k, v]) => `${k}: ${v}`)
+                              .join(", ")
+                          : "—"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

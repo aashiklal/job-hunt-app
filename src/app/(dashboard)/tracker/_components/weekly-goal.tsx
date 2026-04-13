@@ -28,7 +28,7 @@ export function WeeklyGoal({ weeklyData }: Props) {
 
       <div className="mt-4 flex items-center gap-6">
         {/* Circular progress ring */}
-        <div className="relative shrink-0" style={{ width: 88, height: 88 }}>
+        <div className="relative shrink-0 size-22">
           <svg
             width="88"
             height="88"
@@ -56,7 +56,7 @@ export function WeeklyGoal({ weeklyData }: Props) {
               strokeDasharray={circumference}
               strokeDashoffset={strokeDashoffset}
               transform="rotate(-90 44 44)"
-              className={achieved ? "text-emerald-500" : "text-primary"}
+              className={achieved ? "text-primary" : "text-primary"}
               style={{ transition: "stroke-dashoffset 0.4s ease" }}
             />
           </svg>
@@ -75,7 +75,7 @@ export function WeeklyGoal({ weeklyData }: Props) {
         <div className="min-w-0">
           {achieved ? (
             <>
-              <p className="text-sm font-semibold text-emerald-600">
+              <p className="text-sm font-semibold text-foreground">
                 Goal reached!
               </p>
               <p className="mt-1 text-xs text-muted-foreground">

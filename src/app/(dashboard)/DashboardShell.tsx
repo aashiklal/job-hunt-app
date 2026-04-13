@@ -3,13 +3,16 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTheme } from "next-themes";
 import { UserButton } from "@clerk/nextjs";
 import {
   Briefcase,
   ClipboardList,
   Menu,
   FileText,
+  Moon,
   ShieldCheck,
+  Sun,
 } from "lucide-react";
 import {
   Sheet,
@@ -17,6 +20,35 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+
+// ---------------------------------------------------------------------------
+// ThemeToggle — styled as a full-width nav-item button so it sits naturally
+// in the stacked sidebar footer. Shows the icon + label for the *next* state
+// (Vercel convention: "Dark mode" when light, "Light mode" when dark).
+// ---------------------------------------------------------------------------
+
+function ThemeToggle() {
+  const { resolvedTheme, setTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+  return (
+    <button
+      onClick={() => setTheme(isDark ? "light" : "dark")}
+      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      className="-mx-2 flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-[color,background-color] duration-200 ease-[var(--ease-out-expo)] hover:bg-accent hover:text-accent-foreground active:bg-accent/80"
+    >
+      {isDark ? (
+        <Sun className="size-4 shrink-0" strokeWidth={1.75} />
+      ) : (
+        <Moon className="size-4 shrink-0" strokeWidth={1.75} />
+      )}
+      <span>{isDark ? "Light mode" : "Dark mode"}</span>
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Nav
+// ---------------------------------------------------------------------------
 
 const navItems = [
   { label: "Jobs", href: "/jobs", icon: Briefcase },
@@ -34,7 +66,7 @@ function NavLinks({
   const pathname = usePathname();
 
   return (
-    <nav className="flex flex-col gap-1 flex-1">
+    <nav className="flex flex-col gap-0.5 flex-1">
       {navItems.map(({ label, href, icon: Icon }) => {
         const active = pathname === href;
         return (
@@ -42,30 +74,43 @@ function NavLinks({
             key={href}
             href={href}
             onClick={onNavigate}
-            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+            className={`-mx-2 flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-[color,background-color] duration-200 ease-[var(--ease-out-expo)] active:bg-accent/80 ${
               active
-                ? "bg-gray-100 text-gray-900 font-medium"
-                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                ? "bg-accent text-accent-foreground font-medium"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             }`}
           >
-            <Icon className="w-4 h-4 shrink-0" strokeWidth={1.75} />
+            <Icon
+              className={`size-4 shrink-0 transition-colors duration-200 ease-[var(--ease-out-expo)] ${
+                active ? "text-foreground" : "text-muted-foreground"
+              }`}
+              strokeWidth={1.75}
+            />
             {label}
           </Link>
         );
       })}
+
       {isAdmin && (
         <>
-          <div className="my-2 border-t border-gray-100" />
+          <div className="my-1.5 border-t border-border" />
           <Link
             href="/admin"
             onClick={onNavigate}
-            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+            className={`-mx-2 flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-[color,background-color] duration-200 ease-[var(--ease-out-expo)] active:bg-accent/80 ${
               pathname.startsWith("/admin")
-                ? "bg-gray-100 text-gray-900 font-medium"
-                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                ? "bg-accent text-accent-foreground font-medium"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             }`}
           >
-            <ShieldCheck className="w-4 h-4 shrink-0" strokeWidth={1.75} />
+            <ShieldCheck
+              className={`size-4 shrink-0 transition-colors duration-200 ease-[var(--ease-out-expo)] ${
+                pathname.startsWith("/admin")
+                  ? "text-foreground"
+                  : "text-muted-foreground"
+              }`}
+              strokeWidth={1.75}
+            />
             Admin
           </Link>
         </>
@@ -73,6 +118,10 @@ function NavLinks({
     </nav>
   );
 }
+
+// ---------------------------------------------------------------------------
+// SidebarContent — shared between the fixed desktop sidebar and mobile Sheet
+// ---------------------------------------------------------------------------
 
 function SidebarContent({
   onNavigate,
@@ -85,25 +134,43 @@ function SidebarContent({
 }) {
   return (
     <div className="flex flex-col h-full px-3 py-4">
+      {/* Logo */}
       <Link
         href="/"
-        className="flex items-center gap-2 px-3 mb-6 hover:opacity-75 transition-opacity"
+        className="mb-5 flex items-center gap-2 px-1 transition-opacity duration-200 ease-[var(--ease-out-expo)] hover:opacity-70"
       >
-        <Briefcase className="w-5 h-5 text-gray-800" strokeWidth={1.75} />
-        <span className="font-semibold text-gray-900 text-base">Job Hunt</span>
+        <Briefcase className="size-5 text-foreground" strokeWidth={1.75} />
+        <span className="text-base font-semibold tracking-tight text-foreground">
+          Job Hunt
+        </span>
       </Link>
+
+      {/* Nav — grows to fill space above footer */}
       <NavLinks onNavigate={onNavigate} isAdmin={isAdmin} />
-      {usageWidget && (
-        <div className="mt-2 mb-1 border-t border-gray-100 pt-2">
-          {usageWidget}
+
+      {/* Footer — UsageWidget → ThemeToggle → UserButton, each separated */}
+      <div className="mt-2 flex flex-col">
+        {usageWidget && (
+          <div className="border-t border-border pb-1 pt-2">
+            {usageWidget}
+          </div>
+        )}
+
+        <div className="border-t border-border py-1">
+          <ThemeToggle />
         </div>
-      )}
-      <div className="pt-4 border-t border-gray-200 px-1">
-        <UserButton showName />
+
+        <div className="border-t border-border pb-1 pt-3">
+          <UserButton showName />
+        </div>
       </div>
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Shell
+// ---------------------------------------------------------------------------
 
 export default function DashboardShell({
   children,
@@ -117,36 +184,39 @@ export default function DashboardShell({
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      {/* Desktop sidebar */}
-      <aside className="hidden md:flex flex-col w-60 shrink-0 bg-white border-r border-gray-200 fixed inset-y-0 left-0">
+    // flex-col on mobile so the sticky header is in normal flow (no pt-14 needed);
+    // flex-row on md+ so sidebar and main sit side-by-side.
+    <div className="flex min-h-screen flex-col bg-background md:flex-row">
+
+      {/* Desktop sidebar — frosted glass, soft right-cast shadow */}
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 shrink-0 flex-col border-r border-border bg-background/80 shadow-[2px_0_12px_rgba(0,0,0,0.04)] backdrop-blur-xl md:flex">
         <SidebarContent isAdmin={isAdmin} usageWidget={usageWidget} />
       </aside>
 
-      {/* Mobile top bar */}
-      <div className="md:hidden fixed top-0 inset-x-0 z-20 flex items-center justify-between px-4 h-14 bg-white border-b border-gray-200">
+      {/* Mobile top bar — sticky (in flow), frosted glass */}
+      <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-xl md:hidden">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setDrawerOpen(true)}
             aria-label="Open menu"
-            className="p-1 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+            className="-ml-1.5 rounded-md p-1.5 text-muted-foreground transition-[color,background-color] duration-200 ease-[var(--ease-out-expo)] hover:bg-accent hover:text-accent-foreground active:bg-accent/80"
           >
-            <Menu className="w-5 h-5" />
+            <Menu className="size-5" />
           </button>
           <Link
             href="/"
-            className="flex items-center gap-2 hover:opacity-75 transition-opacity"
+            className="flex items-center gap-2 transition-opacity duration-200 ease-[var(--ease-out-expo)] hover:opacity-70"
           >
-            <Briefcase className="w-4 h-4 text-gray-800" strokeWidth={1.75} />
-            <span className="font-semibold text-gray-900 text-sm">
+            <Briefcase className="size-4 text-foreground" strokeWidth={1.75} />
+            <span className="text-sm font-semibold tracking-tight text-foreground">
               Job Hunt
             </span>
           </Link>
         </div>
         <UserButton />
-      </div>
+      </header>
 
-      {/* Mobile drawer (shadcn Sheet) */}
+      {/* Mobile drawer — Sheet behaviour unchanged */}
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
         <SheetContent side="left" className="w-64 p-0">
           <SheetHeader className="sr-only">
@@ -160,8 +230,8 @@ export default function DashboardShell({
         </SheetContent>
       </Sheet>
 
-      {/* Main content */}
-      <main className="flex-1 md:ml-60 pt-14 md:pt-0 p-6 md:p-8">
+      {/* Main content — offset by sidebar width on desktop */}
+      <main className="flex-1 p-6 md:ml-60 md:p-8">
         {children}
       </main>
     </div>

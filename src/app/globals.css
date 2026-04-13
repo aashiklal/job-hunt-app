@@ -1,3 +1,41 @@
+/*
+ * Design token decisions — globals.css
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * COLOUR STRATEGY — Vercel / Linear approach
+ *   All colours are expressed in oklch (perceptual lightness, chroma, hue).
+ *   The palette is intentionally neutral: no chromatic brand hue. "Brand"
+ *   colour is expressed purely through value contrast — near-black on light,
+ *   near-white on dark — which reads as decisive and professional without
+ *   introducing a hue that ages or clashes with content.
+ *
+ *   --primary (light)  oklch(0.20 0 0)  ≈ #1a1a1a  — near-black
+ *   --primary (dark)   oklch(0.93 0 0)  ≈ #ededed  — near-white
+ *   Both values sit just inside their respective ends of the lightness scale
+ *   so they retain a hint of depth rather than being flat black / pure white.
+ *
+ * SHADOWS — Apple HIG layered approach
+ *   Each shadow token stacks two box-shadow layers:
+ *     1. A tight ambient shadow (small blur, low spread, low opacity) that
+ *        defines the object edge.
+ *     2. A diffuse fill shadow (larger blur, negative spread, slightly higher
+ *        opacity) that gives depth and lift.
+ *   Opacity is kept low (0.04–0.24) so shadows read on both white and tinted
+ *   surfaces. All shadows use colour(display-p3 0 0 0 / α) for wide-gamut
+ *   screens; browsers that don't support display-p3 fall back to rgba(0,0,0,α)
+ *   via the cascade (no separate fallback needed — oklch/p3 support is the
+ *   same browser set).
+ *
+ * EASING — Expo out
+ *   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1)
+ *   Fast initial movement that decelerates sharply to rest. Matches the easing
+ *   used in Linear, Vercel dashboard, and Apple's spring animations. Feels
+ *   snappy and intentional rather than the generic CSS ease-in-out.
+ *
+ * UNCHANGED — Geist sans/mono, 0.625rem base radius, spacing scale.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -6,40 +44,40 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* Colours — mapped from CSS custom properties */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Radius — unchanged */
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -47,75 +85,186 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Fonts — unchanged */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-geist-sans);
+
+  /* Shadows */
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+  --shadow-2xl: var(--shadow-2xl);
+
+  /* Easing */
+  --ease-out-expo: var(--ease-out-expo);
 }
 
 :root {
+  /* ── Neutrals ─────────────────────────────── */
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
+
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
+
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+
+  /* ── Primary — near-black (Vercel approach) ── */
+  --primary: oklch(0.20 0 0);
   --primary-foreground: oklch(0.985 0 0);
+
+  /* ── Secondary / muted / accent ──────────── */
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
+
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
+
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
+
+  /* ── Semantic ─────────────────────────────── */
   --destructive: oklch(0.577 0.245 27.325);
+
+  /* ── Chrome ───────────────────────────────── */
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
+
+  /* ── Charts — greyscale ramp ──────────────── */
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
+
+  /* ── Radius ───────────────────────────────── */
   --radius: 0.625rem;
+
+  /* ── Sidebar ──────────────────────────────── */
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary: oklch(0.20 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* ── Shadows — Apple-style layered ───────────
+   *  Layer 1: tight ambient (defines edge)
+   *  Layer 2: diffuse fill (adds lift)
+   * ───────────────────────────────────────── */
+  --shadow-xs:
+    0 1px 2px color(display-p3 0 0 0 / 0.04),
+    0 1px 4px color(display-p3 0 0 0 / 0.04);
+
+  --shadow-sm:
+    0 1px 3px color(display-p3 0 0 0 / 0.06),
+    0 2px 8px color(display-p3 0 0 0 / 0.06);
+
+  --shadow-md:
+    0 2px 6px color(display-p3 0 0 0 / 0.07),
+    0 4px 16px color(display-p3 0 0 0 / 0.08);
+
+  --shadow-lg:
+    0 4px 10px color(display-p3 0 0 0 / 0.08),
+    0 8px 28px color(display-p3 0 0 0 / 0.10);
+
+  --shadow-xl:
+    0 6px 16px color(display-p3 0 0 0 / 0.10),
+    0 16px 48px color(display-p3 0 0 0 / 0.12);
+
+  --shadow-2xl:
+    0 12px 28px color(display-p3 0 0 0 / 0.14),
+    0 32px 80px color(display-p3 0 0 0 / 0.18);
+
+  /* ── Easing ───────────────────────────────── */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .dark {
+  /* ── Neutrals ─────────────────────────────── */
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
+
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);
+
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
+
+  /* ── Primary — near-white (flipped) ─────── */
+  --primary: oklch(0.93 0 0);
+  --primary-foreground: oklch(0.20 0 0);
+
+  /* ── Secondary / muted / accent ──────────── */
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
+
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
+
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
+
+  /* ── Semantic ─────────────────────────────── */
   --destructive: oklch(0.704 0.191 22.216);
+
+  /* ── Chrome ───────────────────────────────── */
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
+
+  /* ── Charts — same greyscale ramp ────────── */
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
+
+  /* ── Sidebar ──────────────────────────────── */
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.93 0 0);
+  --sidebar-primary-foreground: oklch(0.20 0 0);
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  /* ── Shadows — lighter on dark surfaces ─────
+   *  Shadows are nearly invisible on dark backgrounds so we raise opacity
+   *  slightly and shift toward highlight rings in components.
+   * ───────────────────────────────────────── */
+  --shadow-xs:
+    0 1px 2px color(display-p3 0 0 0 / 0.16),
+    0 1px 4px color(display-p3 0 0 0 / 0.16);
+
+  --shadow-sm:
+    0 1px 3px color(display-p3 0 0 0 / 0.22),
+    0 2px 8px color(display-p3 0 0 0 / 0.20);
+
+  --shadow-md:
+    0 2px 6px color(display-p3 0 0 0 / 0.26),
+    0 4px 16px color(display-p3 0 0 0 / 0.24);
+
+  --shadow-lg:
+    0 4px 10px color(display-p3 0 0 0 / 0.30),
+    0 8px 28px color(display-p3 0 0 0 / 0.28);
+
+  --shadow-xl:
+    0 6px 16px color(display-p3 0 0 0 / 0.36),
+    0 16px 48px color(display-p3 0 0 0 / 0.32);
+
+  --shadow-2xl:
+    0 12px 28px color(display-p3 0 0 0 / 0.44),
+    0 32px 80px color(display-p3 0 0 0 / 0.40);
 }
 
 @layer base {

@@ -18,6 +18,13 @@ import {
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { JobListItem, JobStatus } from "@/lib/repositories/jobs";
 import { setJobStatus } from "@/app/(dashboard)/jobs/_actions";
 
@@ -51,7 +58,7 @@ function optimisticReducer(
 }
 
 // ---------------------------------------------------------------------------
-// DraggableCard
+// DraggableCard — desktop only
 // ---------------------------------------------------------------------------
 
 function DraggableCard({ job }: { job: JobListItem }) {
@@ -96,7 +103,7 @@ function DraggableCard({ job }: { job: JobListItem }) {
 }
 
 // ---------------------------------------------------------------------------
-// DroppableColumn
+// DroppableColumn — desktop only
 // ---------------------------------------------------------------------------
 
 function DroppableColumn({
@@ -143,6 +150,54 @@ function DroppableColumn({
 }
 
 // ---------------------------------------------------------------------------
+// MobileCard — mobile only; status changed via Select, no drag
+// ---------------------------------------------------------------------------
+
+function MobileCard({
+  job,
+  onMove,
+}: {
+  job: JobListItem;
+  onMove: (toStatus: JobStatus) => void;
+}) {
+  return (
+    <Card>
+      <CardContent className="p-3 space-y-2">
+        {/* Tappable content area navigates to detail */}
+        <Link href={`/jobs/${job._id}`} className="block space-y-1">
+          <p className="font-semibold text-sm leading-tight">{job.company}</p>
+          <p className="text-sm text-muted-foreground leading-tight">
+            {job.role}
+          </p>
+          {job.location && (
+            <p className="text-xs text-muted-foreground">{job.location}</p>
+          )}
+          <p className="text-xs text-muted-foreground pt-0.5">
+            {formatDistanceToNow(new Date(job.updatedAt), { addSuffix: true })}
+          </p>
+        </Link>
+        {/* Status picker — sits outside the Link so taps don't navigate */}
+        <Select
+          value={job.status}
+          onValueChange={(v) => onMove(v as JobStatus)}
+        >
+          <SelectTrigger className="h-7 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {COLUMNS.map((c) => (
+              <SelectItem key={c.status} value={c.status} className="text-xs">
+                {c.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // JobsPipelineView
 // ---------------------------------------------------------------------------
 
@@ -154,6 +209,8 @@ export function JobsPipelineView({ jobs }: Props) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [activeCard, setActiveCard] = useState<JobListItem | null>(null);
+  // Mobile: which column is currently visible
+  const [mobileStatus, setMobileStatus] = useState<JobStatus>("applied");
 
   const [optimisticJobs, applyOptimistic] = useOptimistic(
     jobs,
@@ -164,7 +221,7 @@ export function JobsPipelineView({ jobs }: Props) {
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
-  // Build grouped map from optimistic state
+  // Build grouped map from optimistic state — used by both views
   const grouped = new Map<JobStatus, JobListItem[]>();
   for (const col of COLUMNS) grouped.set(col.status, []);
   for (const job of optimisticJobs) {
@@ -173,6 +230,22 @@ export function JobsPipelineView({ jobs }: Props) {
   }
   for (const list of grouped.values()) {
     list.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  }
+
+  // Shared move handler — called by mobile Select onChange and desktop DnD
+  function handleMove(jobId: string, toStatus: JobStatus) {
+    const job = optimisticJobs.find((j) => j._id === jobId);
+    if (!job || job.status === toStatus) return;
+
+    startTransition(async () => {
+      applyOptimistic({ type: "move", jobId, toStatus });
+      const result = await setJobStatus({ jobId, status: toStatus });
+      if (!result.ok) {
+        toast.error(result.error.message);
+        return;
+      }
+      router.refresh();
+    });
   }
 
   function handleDragStart(event: DragStartEvent) {
@@ -192,65 +265,95 @@ export function JobsPipelineView({ jobs }: Props) {
     const toStatusRaw = overId.slice("column-".length);
 
     if (!VALID_STATUSES.includes(toStatusRaw as JobStatus)) return;
-    const toStatus = toStatusRaw as JobStatus;
-
-    const job = optimisticJobs.find((j) => j._id === jobId);
-    if (!job) return;
-    if (job.status === toStatus) return;
-
-    startTransition(async () => {
-      applyOptimistic({ type: "move", jobId, toStatus });
-
-      const result = await setJobStatus({ jobId, status: toStatus });
-
-      if (!result.ok) {
-        toast.error(result.error.message);
-        return;
-      }
-
-      router.refresh();
-    });
+    handleMove(jobId, toStatusRaw as JobStatus);
   }
 
+  const mobileJobs = grouped.get(mobileStatus) ?? [];
+
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-    >
-      <div className="overflow-x-auto pb-4">
-        <div className="flex gap-4 min-w-max">
-          {COLUMNS.map((col) => (
-            <DroppableColumn
-              key={col.status}
-              status={col.status}
-              label={col.label}
-              jobs={grouped.get(col.status) ?? []}
-            />
-          ))}
-        </div>
+    <>
+      {/* ── Mobile view (< md) ─────────────────────────────────────────── */}
+      <div className="md:hidden space-y-3">
+        {/* Column selector */}
+        <Select
+          value={mobileStatus}
+          onValueChange={(v) => setMobileStatus(v as JobStatus)}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {COLUMNS.map((col) => {
+              const count = grouped.get(col.status)?.length ?? 0;
+              return (
+                <SelectItem key={col.status} value={col.status}>
+                  {col.label} ({count})
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
+
+        {/* Cards for the selected column */}
+        {mobileJobs.length === 0 ? (
+          <div className="flex items-center justify-center py-12">
+            <p className="text-sm text-muted-foreground">No jobs here</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {mobileJobs.map((job) => (
+              <MobileCard
+                key={job._id}
+                job={job}
+                onMove={(toStatus) => handleMove(job._id, toStatus)}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
-      <DragOverlay>
-        {activeCard ? (
-          <Card className="cursor-grabbing shadow-lg w-72">
-            <CardContent className="p-3 space-y-1">
-              <p className="font-semibold text-sm leading-tight">
-                {activeCard.company}
-              </p>
-              <p className="text-sm text-muted-foreground leading-tight">
-                {activeCard.role}
-              </p>
-              {activeCard.location && (
-                <p className="text-xs text-muted-foreground">
-                  {activeCard.location}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        ) : null}
-      </DragOverlay>
-    </DndContext>
+      {/* ── Desktop view (≥ md) ────────────────────────────────────────── */}
+      <div className="hidden md:block">
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="overflow-x-auto pb-4">
+            <div className="flex gap-4 min-w-max">
+              {COLUMNS.map((col) => (
+                <DroppableColumn
+                  key={col.status}
+                  status={col.status}
+                  label={col.label}
+                  jobs={grouped.get(col.status) ?? []}
+                />
+              ))}
+            </div>
+          </div>
+
+          <DragOverlay>
+            {activeCard ? (
+              <Card className="cursor-grabbing shadow-lg w-72">
+                <CardContent className="p-3 space-y-1">
+                  <p className="font-semibold text-sm leading-tight">
+                    {activeCard.company}
+                  </p>
+                  <p className="text-sm text-muted-foreground leading-tight">
+                    {activeCard.role}
+                  </p>
+                  {activeCard.location && (
+                    <p className="text-xs text-muted-foreground">
+                      {activeCard.location}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      </div>
+    </>
   );
 }

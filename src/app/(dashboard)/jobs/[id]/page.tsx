@@ -2,44 +2,36 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { formatDistanceToNow, format } from "date-fns";
-import { ExternalLink } from "lucide-react";
+import { ChevronLeft, ExternalLink } from "lucide-react";
 import { requireApprovedUserWithPlan } from "@/lib/auth-helpers";
 import * as jobs from "@/lib/repositories/jobs";
-import type { JobStatus } from "@/lib/repositories/jobs";
 import * as resumes from "@/lib/repositories/resumes";
 import * as documents from "@/lib/repositories/documents";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DeleteJobButton } from "./_components/delete-job-button";
 import { GeneratePanel } from "./_components/generate-panel";
 import { JDAnalysisPanel } from "./_components/jd-analysis-panel";
+import { StatusBadge } from "@/app/(dashboard)/jobs/_components/status-badge";
 
 export const metadata: Metadata = {
   title: "Job Detail — Job Hunt",
   description: "View your job application details.",
 };
 
-function StatusBadge({ status }: { status: JobStatus }) {
-  if (status === "offer") {
-    return <Badge className="bg-green-600 hover:bg-green-700">{status}</Badge>;
-  }
-  if (status === "rejected" || status === "withdrawn") {
-    return <Badge variant="destructive">{status}</Badge>;
-  }
-  if (status === "saved") {
-    return <Badge variant="secondary">{status}</Badge>;
-  }
-  return <Badge>{status}</Badge>;
-}
-
-function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+function DetailRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div>
-      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+      <p className="mb-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
         {label}
       </p>
-      <div className="text-sm text-gray-900">{children}</div>
+      <div className="text-sm text-foreground">{children}</div>
     </div>
   );
 }
@@ -85,17 +77,20 @@ export default async function JobDetailPage({
   const jobLabel = `${job.role} at ${job.company}`;
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="mx-auto max-w-3xl space-y-8 px-4 md:px-6 lg:px-8 py-6 md:py-10 md:space-y-10">
       <Link
         href="/jobs"
-        className="text-sm text-muted-foreground hover:underline"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors duration-200 ease-[var(--ease-out-expo)] hover:text-foreground"
       >
-        ← Back to jobs
+        <ChevronLeft className="size-4" strokeWidth={1.75} />
+        Back to jobs
       </Link>
 
       <div className="flex items-start justify-between gap-4">
-        <h1 className="text-xl font-semibold text-gray-900">{jobLabel}</h1>
-        <div className="flex items-center gap-2 shrink-0">
+        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+          {jobLabel}
+        </h1>
+        <div className="flex shrink-0 items-center gap-2">
           <Button asChild size="sm" variant="outline">
             <Link href={`/jobs/${id}/edit`}>Edit</Link>
           </Button>
@@ -103,14 +98,13 @@ export default async function JobDetailPage({
         </div>
       </div>
 
-      <Card>
+      {/* Details */}
+      <Card className="border border-border/60 shadow-xs transition-shadow duration-200 ease-[var(--ease-out-expo)] hover:shadow-sm">
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <DetailRow label="Company">{job.company}</DetailRow>
             <DetailRow label="Role">{job.role}</DetailRow>
-            <DetailRow label="Location">
-              {job.location ?? <Dash />}
-            </DetailRow>
+            <DetailRow label="Location">{job.location ?? <Dash />}</DetailRow>
             <DetailRow label="Status">
               <StatusBadge status={job.status} />
             </DetailRow>
@@ -120,52 +114,58 @@ export default async function JobDetailPage({
                   href={job.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-blue-600 hover:underline break-all"
+                  className="inline-flex items-center gap-1 break-all underline underline-offset-4 transition-opacity duration-200 hover:opacity-70"
                 >
                   {job.url}
-                  <ExternalLink className="h-3 w-3 shrink-0" />
+                  <ExternalLink className="size-3 shrink-0" />
                 </a>
               ) : (
                 <Dash />
               )}
             </DetailRow>
-            <DetailRow label="Salary">
-              {job.salary ?? <Dash />}
-            </DetailRow>
+            <DetailRow label="Salary">{job.salary ?? <Dash />}</DetailRow>
             <DetailRow label="Applied at">
-              {job.appliedAt
-                ? format(new Date(job.appliedAt), "PPP")
-                : <span className="text-muted-foreground">Not yet</span>}
+              {job.appliedAt ? (
+                format(new Date(job.appliedAt), "PPP")
+              ) : (
+                <span className="text-muted-foreground">Not yet</span>
+              )}
             </DetailRow>
             <DetailRow label="Added">
-              {formatDistanceToNow(new Date(job.createdAt), { addSuffix: true })}
+              {formatDistanceToNow(new Date(job.createdAt), {
+                addSuffix: true,
+              })}
             </DetailRow>
           </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Job description</CardTitle>
+      {/* Job description */}
+      <Card className="border border-border/60 shadow-xs transition-shadow duration-200 ease-[var(--ease-out-expo)] hover:shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg font-medium">Job description</CardTitle>
         </CardHeader>
         <CardContent>
           {job.jobDescription ? (
-            <pre className="whitespace-pre-wrap font-sans text-sm text-gray-800">
+            <pre className="whitespace-pre-wrap font-sans text-sm text-foreground">
               {job.jobDescription}
             </pre>
           ) : (
-            <p className="text-sm text-muted-foreground">No description saved.</p>
+            <p className="text-sm text-muted-foreground">
+              No description saved.
+            </p>
           )}
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Notes</CardTitle>
+      {/* Notes */}
+      <Card className="border border-border/60 shadow-xs transition-shadow duration-200 ease-[var(--ease-out-expo)] hover:shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg font-medium">Notes</CardTitle>
         </CardHeader>
         <CardContent>
           {job.notes ? (
-            <pre className="whitespace-pre-wrap font-sans text-sm text-gray-800">
+            <pre className="whitespace-pre-wrap font-sans text-sm text-foreground">
               {job.notes}
             </pre>
           ) : (
@@ -176,15 +176,13 @@ export default async function JobDetailPage({
 
       {/* AI Generation */}
       <div className="space-y-4">
-        <h2 className="text-base font-semibold text-gray-900">AI Generation</h2>
+        <h2 className="text-lg font-medium">AI Generation</h2>
         <GeneratePanel
           type="resume"
           jobId={id}
           resumes={resumeOptions}
           initialContent={latestResumeDoc?.content ?? null}
-          initialResumeId={
-            latestResumeDoc?.resumeIdUsed?.toString() ?? null
-          }
+          initialResumeId={latestResumeDoc?.resumeIdUsed?.toString() ?? null}
         />
         <GeneratePanel
           type="cover_letter"

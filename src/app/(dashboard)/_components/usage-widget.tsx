@@ -29,7 +29,7 @@ export async function UsageWidget() {
             isOut
               ? "font-semibold text-destructive"
               : isLow
-                ? "font-semibold text-yellow-600"
+                ? "font-semibold text-foreground"
                 : "font-medium"
           }
         >
@@ -43,7 +43,7 @@ export async function UsageWidget() {
               isOut
                 ? "h-full bg-destructive"
                 : isLow
-                  ? "h-full bg-yellow-500"
+                  ? "h-full bg-primary/60"
                   : "h-full bg-primary"
             }
             style={{ width: `${percentUsed}%` }}

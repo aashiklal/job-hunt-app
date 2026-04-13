@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AlertCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { requireApprovedUserWithPlan } from "@/lib/auth-helpers";
 import * as resumes from "@/lib/repositories/resumes";
@@ -34,9 +35,11 @@ export default async function ResumePage() {
   const atLimit = maxResumes !== -1 && count >= maxResumes;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 px-4 md:px-6 lg:px-8 py-6 md:py-10 md:space-y-10">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Resumes</h1>
+        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+          Resumes
+        </h1>
         {!atLimit && (
           <Button asChild>
             <Link href="/resume/new">New resume</Link>
@@ -45,18 +48,28 @@ export default async function ResumePage() {
       </div>
 
       {atLimit && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <p className="font-medium">Resume limit reached ({count} of {maxResumes})</p>
-          <p className="mt-0.5 text-amber-700">
-            Delete an existing resume to add a new one.
-          </p>
+        <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-muted/50 px-4 py-3">
+          <AlertCircle
+            className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+            strokeWidth={1.75}
+          />
+          <div>
+            <p className="text-sm font-medium text-foreground">
+              Resume limit reached ({count} of {maxResumes})
+            </p>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Delete an existing resume to add a new one.
+            </p>
+          </div>
         </div>
       )}
 
       {resumeList.length === 0 ? (
-        <Card>
+        <Card className="border border-border/60 shadow-xs">
           <CardContent className="flex flex-col items-center justify-center gap-3 py-20 text-center">
-            <p className="text-base font-semibold text-gray-900">No resumes yet</p>
+            <p className="text-base font-semibold text-foreground">
+              No resumes yet
+            </p>
             <p className="max-w-sm text-sm text-muted-foreground">
               Save your base resume here. JobHunt will use it when tailoring
               your resume for specific job applications.
@@ -67,56 +80,58 @@ export default async function ResumePage() {
           </CardContent>
         </Card>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Title</TableHead>
-              <TableHead>Default</TableHead>
-              <TableHead>Updated</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {resumeList.map((resume) => (
-              <TableRow key={resume._id}>
-                <TableCell>
-                  <Link
-                    href={`/resume/${resume._id}`}
-                    className="font-medium hover:underline"
-                  >
-                    {resume.title}
-                  </Link>
-                </TableCell>
-                <TableCell>
-                  {resume.isDefault ? (
-                    <Badge variant="secondary">Default</Badge>
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )}
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {formatDistanceToNow(new Date(resume.updatedAt), {
-                    addSuffix: true,
-                  })}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" asChild>
-                      <Link href={`/resume/${resume._id}`}>Edit</Link>
-                    </Button>
-                    {!resume.isDefault && (
-                      <SetDefaultButton resumeId={resume._id} />
-                    )}
-                    <DeleteResumeButton
-                      resumeId={resume._id}
-                      resumeTitle={resume.title}
-                    />
-                  </div>
-                </TableCell>
+        <div className="overflow-x-auto rounded-xl border border-border/60 shadow-xs">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Title</TableHead>
+                <TableHead>Default</TableHead>
+                <TableHead className="hidden md:table-cell">Updated</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {resumeList.map((resume) => (
+                <TableRow key={resume._id}>
+                  <TableCell>
+                    <Link
+                      href={`/resume/${resume._id}`}
+                      className="font-medium text-foreground underline-offset-4 hover:underline"
+                    >
+                      {resume.title}
+                    </Link>
+                  </TableCell>
+                  <TableCell>
+                    {resume.isDefault ? (
+                      <Badge variant="secondary">Default</Badge>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
+                    {formatDistanceToNow(new Date(resume.updatedAt), {
+                      addSuffix: true,
+                    })}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={`/resume/${resume._id}`}>Edit</Link>
+                      </Button>
+                      {!resume.isDefault && (
+                        <SetDefaultButton resumeId={resume._id} />
+                      )}
+                      <DeleteResumeButton
+                        resumeId={resume._id}
+                        resumeTitle={resume.title}
+                      />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
 
       {!atLimit && maxResumes !== -1 && (
@@ -124,7 +139,6 @@ export default async function ResumePage() {
           Resumes used: {count} of {maxResumes}
         </p>
       )}
-
     </div>
   );
 }

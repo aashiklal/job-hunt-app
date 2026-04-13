@@ -46,10 +46,12 @@ export default async function TrackerPage() {
 
   if (!hasAnyJobs) {
     return (
-      <div className="space-y-6">
-        <h1 className="text-xl font-semibold text-gray-900">Tracker</h1>
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-24 text-center">
-          <p className="text-base font-semibold text-gray-900">
+      <div className="space-y-8 px-4 md:px-6 lg:px-8 py-6 md:py-10">
+        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+          Tracker
+        </h1>
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-24 text-center">
+          <p className="text-base font-semibold text-foreground">
             Nothing to track yet
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -64,8 +66,10 @@ export default async function TrackerPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-xl font-semibold text-gray-900">Tracker</h1>
+    <div className="space-y-8 px-4 md:px-6 lg:px-8 py-6 md:py-10 md:space-y-10">
+      <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+        Tracker
+      </h1>
 
       {/* Funnel — full width */}
       <ApplicationFunnel funnelCounts={stats.funnelCounts} />

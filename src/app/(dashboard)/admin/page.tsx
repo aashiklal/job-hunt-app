@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { requireAdminWithPlan } from "@/lib/auth-helpers";
@@ -25,7 +26,7 @@ import {
 import { UserActionButton } from "./_components/user-actions";
 import { formatAuditAction } from "./_lib/format-audit";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Admin — Job Hunt",
   description: "Manage user access requests.",
 };
@@ -47,68 +48,87 @@ function UserTable({
 }) {
   const showSpend = !!spendMap;
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Email</TableHead>
-          <TableHead>Name</TableHead>
-          <TableHead>Signed up</TableHead>
-          {showSpend && <TableHead>Spend this month</TableHead>}
-          <TableHead>Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {users.map((user) => {
-          const id = (user._id as { toString(): string }).toString();
-          const isSelf = id === adminId;
-          const name =
-            user.firstName || user.lastName
-              ? [user.firstName, user.lastName].filter(Boolean).join(" ")
-              : "—";
-          const spent = spendMap?.[id] ?? 0;
-          return (
-            <TableRow key={id}>
-              <TableCell>
-                <Link href={`/admin/${id}`} className="hover:underline">
-                  {user.email}
-                </Link>
-              </TableCell>
-              <TableCell>{name}</TableCell>
-              <TableCell className="text-gray-500">
-                {formatDistanceToNow(new Date(user.createdAt), {
-                  addSuffix: true,
-                })}
-              </TableCell>
-              {showSpend && (
-                <TableCell className="text-sm tabular-nums">
-                  {user.isAdmin ? (
-                    <span className="text-muted-foreground">${spent.toFixed(2)} (no cap)</span>
+    <div className="overflow-x-auto rounded-xl border border-border/60 shadow-xs">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Email</TableHead>
+            <TableHead className="hidden md:table-cell">Name</TableHead>
+            <TableHead className="hidden md:table-cell">Signed up</TableHead>
+            {showSpend && (
+              <TableHead className="hidden md:table-cell">
+                Spend this month
+              </TableHead>
+            )}
+            <TableHead>Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {users.map((user) => {
+            const id = (user._id as { toString(): string }).toString();
+            const isSelf = id === adminId;
+            const name =
+              user.firstName || user.lastName
+                ? [user.firstName, user.lastName].filter(Boolean).join(" ")
+                : "—";
+            const spent = spendMap?.[id] ?? 0;
+            return (
+              <TableRow key={id}>
+                <TableCell>
+                  <Link
+                    href={`/admin/${id}`}
+                    className="text-foreground underline-offset-4 hover:underline"
+                  >
+                    {user.email}
+                  </Link>
+                </TableCell>
+                <TableCell className="hidden text-foreground md:table-cell">
+                  {name}
+                </TableCell>
+                <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
+                  {formatDistanceToNow(new Date(user.createdAt), {
+                    addSuffix: true,
+                  })}
+                </TableCell>
+                {showSpend && (
+                  <TableCell className="hidden text-sm tabular-nums md:table-cell">
+                    {user.isAdmin ? (
+                      <span className="text-muted-foreground">
+                        ${spent.toFixed(2)} (no cap)
+                      </span>
+                    ) : (
+                      <span
+                        className={
+                          spent >= (spendLimit ?? 5)
+                            ? "font-medium text-destructive"
+                            : "text-foreground"
+                        }
+                      >
+                        ${spent.toFixed(2)} / ${(spendLimit ?? 5).toFixed(2)}
+                      </span>
+                    )}
+                  </TableCell>
+                )}
+                <TableCell>
+                  {isSelf ? (
+                    <span className="text-sm text-muted-foreground">—</span>
                   ) : (
-                    <span className={spent >= (spendLimit ?? 5) ? "text-destructive font-medium" : ""}>
-                      ${spent.toFixed(2)} / ${(spendLimit ?? 5).toFixed(2)}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {showApprove && (
+                        <UserActionButton userId={id} variant="approve" />
+                      )}
+                      {showReject && (
+                        <UserActionButton userId={id} variant="reject" />
+                      )}
+                    </div>
                   )}
                 </TableCell>
-              )}
-              <TableCell>
-                {isSelf ? (
-                  <span className="text-gray-400 text-sm">—</span>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    {showApprove && (
-                      <UserActionButton userId={id} variant="approve" />
-                    )}
-                    {showReject && (
-                      <UserActionButton userId={id} variant="reject" />
-                    )}
-                  </div>
-                )}
-              </TableCell>
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
 
@@ -132,7 +152,6 @@ export default async function AdminPage() {
     adminTemplateList.map((t) => [t.type, { fileName: t.fileName }])
   ) as Partial<Record<"resume" | "cover_letter", { fileName: string }>>;
 
-  // Use the plan's spend limit as the reference for displaying user budgets in the table
   const planSpendLimit = plan.aiSpendLimitUSD ?? 5.0;
 
   const pending = allUsers.filter((u) => u.status === "pending");
@@ -141,27 +160,29 @@ export default async function AdminPage() {
   const entries = auditEntries.map(auditLog.toAuditLogItem);
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-xl font-semibold text-gray-900">Admin</h1>
+    <div className="space-y-8 px-4 md:px-6 lg:px-8 py-6 md:py-10 md:space-y-10">
+      <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+        Admin
+      </h1>
 
       <Tabs defaultValue="users">
         <TabsList>
           <TabsTrigger value="users">
             Users
             {pending.length > 0 && (
-              <Badge className="ml-1.5 text-xs px-1.5 py-0 h-4">
+              <Badge className="ml-1.5 h-4 px-1.5 py-0 text-xs">
                 {pending.length}
               </Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="templates">Templates</TabsTrigger>
-          <TabsTrigger value="audit">Audit Log</TabsTrigger>
+          <TabsTrigger value="audit">Audit log</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="users" className="mt-6 space-y-4">
+        <TabsContent value="users" className="mt-6 space-y-6">
           <div>
-            <h2 className="text-base font-medium text-gray-900">User Access</h2>
-            <p className="text-sm text-gray-500 mt-0.5">
+            <h2 className="text-lg font-medium text-foreground">User access</h2>
+            <p className="mt-0.5 text-sm text-muted-foreground">
               Approve or reject sign-up requests.
             </p>
           </div>
@@ -170,19 +191,19 @@ export default async function AdminPage() {
             <TabsList>
               <TabsTrigger value="pending">
                 Pending
-                <Badge className="ml-1.5 text-xs px-1.5 py-0 h-4">
+                <Badge className="ml-1.5 h-4 px-1.5 py-0 text-xs">
                   {pending.length}
                 </Badge>
               </TabsTrigger>
               <TabsTrigger value="approved">
                 Approved
-                <Badge className="ml-1.5 text-xs px-1.5 py-0 h-4">
+                <Badge className="ml-1.5 h-4 px-1.5 py-0 text-xs">
                   {approved.length}
                 </Badge>
               </TabsTrigger>
               <TabsTrigger value="rejected">
                 Rejected
-                <Badge className="ml-1.5 text-xs px-1.5 py-0 h-4">
+                <Badge className="ml-1.5 h-4 px-1.5 py-0 text-xs">
                   {rejected.length}
                 </Badge>
               </TabsTrigger>
@@ -190,7 +211,7 @@ export default async function AdminPage() {
 
             <TabsContent value="pending" className="mt-4">
               {pending.length === 0 ? (
-                <div className="flex items-center justify-center py-16 text-gray-400 text-sm">
+                <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
                   No pending requests. You&apos;re all caught up.
                 </div>
               ) : (
@@ -229,25 +250,25 @@ export default async function AdminPage() {
           <TemplateManager
             current={currentAdminTemplates}
             apiBase="/api/admin/templates"
-            title="Default Export Templates"
+            title="Default export templates"
             description="These templates are used for all users who have not uploaded their own. Upload a styled .docx file for each document type."
           />
         </TabsContent>
 
         <TabsContent value="audit" className="mt-6 space-y-4">
           <div>
-            <h2 className="text-base font-medium text-gray-900">Audit Log</h2>
-            <p className="text-sm text-gray-500 mt-0.5">
+            <h2 className="text-lg font-medium text-foreground">Audit log</h2>
+            <p className="mt-0.5 text-sm text-muted-foreground">
               All admin actions — last 100 entries, last 90 days.
             </p>
           </div>
 
           {entries.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">
+            <p className="py-8 text-center text-sm text-muted-foreground">
               No admin actions logged yet.
             </p>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-xl border border-border/60 shadow-xs">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -260,23 +281,23 @@ export default async function AdminPage() {
                 <TableBody>
                   {entries.map((entry) => (
                     <TableRow key={entry._id}>
-                      <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                      <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                         {formatDistanceToNow(new Date(entry.createdAt), {
                           addSuffix: true,
                         })}
                       </TableCell>
-                      <TableCell className="text-sm font-medium">
+                      <TableCell className="text-sm font-medium text-foreground">
                         {formatAuditAction(entry.action, entry.details)}
                       </TableCell>
-                      <TableCell className="text-sm max-w-[200px] truncate">
+                      <TableCell className="max-w-[200px] truncate text-sm">
                         <Link
                           href={`/admin/${entry.targetUserId}`}
-                          className="hover:underline"
+                          className="text-foreground underline-offset-4 hover:underline"
                         >
                           {entry.targetUserEmail}
                         </Link>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-[160px] truncate">
+                      <TableCell className="max-w-[160px] truncate text-sm text-muted-foreground">
                         {entry.adminEmail}
                       </TableCell>
                     </TableRow>

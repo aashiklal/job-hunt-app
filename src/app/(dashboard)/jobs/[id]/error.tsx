@@ -14,19 +14,27 @@ export default function JobDetailError({
   console.error("[dashboard error]", error.message);
 
   return (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <Card className="w-full max-w-md">
+    <div className="flex min-h-[60vh] items-center justify-center px-4">
+      <Card className="w-full max-w-md border border-border/60 shadow-xs">
         <CardHeader className="flex flex-row items-center gap-3 pb-2">
-          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" strokeWidth={1.75} />
-          <CardTitle className="text-base font-semibold text-gray-900">
+          <AlertTriangle
+            className="size-5 shrink-0 text-muted-foreground"
+            strokeWidth={1.75}
+          />
+          <CardTitle className="text-base font-semibold text-foreground">
             Something went wrong
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             An unexpected error occurred. Try again or refresh the page.
           </p>
-          <Button variant="outline" size="sm" onClick={reset} className="self-start">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={reset}
+            className="self-start"
+          >
             Try again
           </Button>
         </CardContent>
