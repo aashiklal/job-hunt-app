@@ -1,4 +1,6 @@
-import Link from "next/link";
+"use client";
+
+import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import {
   Table,
@@ -16,6 +18,8 @@ type Props = {
 };
 
 export function JobsListView({ jobs }: Props) {
+  const router = useRouter();
+
   return (
     <div className="w-full overflow-x-auto rounded-xl border border-border/60 shadow-xs">
       <Table>
@@ -30,33 +34,21 @@ export function JobsListView({ jobs }: Props) {
         </TableHeader>
         <TableBody>
           {jobs.map((job) => (
-            <TableRow key={job._id}>
+            <TableRow
+              key={job._id}
+              className="cursor-pointer transition-colors hover:bg-muted/50"
+              onClick={() => router.push(`/jobs/${job._id}`)}
+            >
+              <TableCell>{job.company}</TableCell>
+              <TableCell>{job.role}</TableCell>
+              <TableCell>{job.location ?? "—"}</TableCell>
               <TableCell>
-                <Link href={`/jobs/${job._id}`} className="hover:underline">
-                  {job.company}
-                </Link>
-              </TableCell>
-              <TableCell>
-                <Link href={`/jobs/${job._id}`} className="hover:underline">
-                  {job.role}
-                </Link>
-              </TableCell>
-              <TableCell>
-                <Link href={`/jobs/${job._id}`} className="block">
-                  {job.location ?? "—"}
-                </Link>
-              </TableCell>
-              <TableCell>
-                <Link href={`/jobs/${job._id}`} className="block">
-                  <StatusBadge status={job.status} />
-                </Link>
+                <StatusBadge status={job.status} />
               </TableCell>
               <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
-                <Link href={`/jobs/${job._id}`} className="block">
-                  {formatDistanceToNow(new Date(job.updatedAt), {
-                    addSuffix: true,
-                  })}
-                </Link>
+                {formatDistanceToNow(new Date(job.updatedAt), {
+                  addSuffix: true,
+                })}
               </TableCell>
             </TableRow>
           ))}

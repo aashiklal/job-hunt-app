@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function NewJobPage() {
   return (
-    <div className="mx-auto max-w-2xl space-y-6 px-4 md:px-6 lg:px-8 py-6 md:py-10">
+    <div className="space-y-6 px-4 md:px-6 lg:px-8 py-6 md:py-10">
       <Link
         href="/jobs"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors duration-200 ease-[var(--ease-out-expo)] hover:text-foreground"
