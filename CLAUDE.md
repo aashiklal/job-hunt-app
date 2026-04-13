@@ -135,7 +135,7 @@ src/
   lib/
     auth-helpers.ts                # requireApprovedUserWithPlan(), requireAdminWithPlan(), getCurrentUser()
     actions.ts                     # defineAction() / defineAdminAction() wrappers + ActionResult type
-    usage.ts                       # checkAndIncrementUsage(), decrementUsage(), getCurrentUsage(), QuotaExceededError
+    usage.ts                       # checkBudget(), addSpend(), calculateCost(), getCurrentUsage(), getBulkSpend(), QuotaExceededError
     anthropic.ts                   # Anthropic SDK singleton (server-only)
     prompts.ts                     # buildResumeTailorPrompt(), buildCoverLetterPrompt(), buildJDAnalysisPrompt() — all prompt builders live here
     db/
@@ -209,26 +209,30 @@ Use `returnDocument: "after"` for all `findOneAndUpdate` / `findByIdAndUpdate` c
 
 ## Plan / Subscription / Usage
 
-Plans are seeded via `npm run seed:plans` and define feature limits by `key` (e.g. `"personal"`). Each approved user gets one `Subscription` (upserted in `subscriptions.ensureForUser()`). `Usage` tracks AI generation counts per month via a `period` field (`"YYYY-MM"` UTC format).
+Plans are seeded via `npm run seed:plans` and define feature limits by `key` (e.g. `"personal"`). Each approved user gets one `Subscription` (upserted in `subscriptions.ensureForUser()`). `Usage` tracks monthly AI spend in USD via `aiSpendUSD` and a `period` field (`"YYYY-MM"` UTC format).
+
+**Quota is USD-based, not generation-count-based.** `Plan.aiSpendLimitUSD` sets the monthly budget. `calculateCost(model, inputTokens, outputTokens)` converts token counts to USD using the pricing table in `usage.ts` — update that table if Anthropic changes rates.
 
 To gate an AI feature behind the quota:
 
 ```ts
-import { checkAndIncrementUsage, decrementUsage } from "@/lib/usage";
+import { checkBudget, addSpend, calculateCost } from "@/lib/usage";
 
-// Throws QuotaExceededError if at limit; increments atomically if not
-const { used, limit } = await checkAndIncrementUsage(ctx.user._id, "aiGeneration");
+// Throws QuotaExceededError if user is at or over their monthly USD budget
+await checkBudget(ctx.user._id, "aiGeneration");
 try {
-  // ... Anthropic call ...
+  const response = await anthropic.messages.create({ ... });
+  const cost = calculateCost(model, response.usage.input_tokens, response.usage.output_tokens);
+  await addSpend(ctx.user._id, "aiGeneration", cost);
 } catch (err) {
-  await decrementUsage(ctx.user._id, "aiGeneration"); // refund on failure
+  // No decrement needed — spend is only recorded after a successful call
   throw err;
 }
 ```
 
 `QuotaExceededError` is handled automatically by `defineAction` — it surfaces as `{ ok: false, error: { code: "QUOTA_EXCEEDED", ... } }`.
 
-Admins can override per-user limits via `subscriptions.setCustomLimit()` / `subscriptions.clearCustomLimit()`.
+Admins bypass the budget check entirely. Admins can also override per-user limits via `subscriptions.setCustomLimit()` / `subscriptions.clearCustomLimit()` (stored as `customLimits.aiSpendLimitUSD` on the Subscription).
 
 Non-AI resource limits (e.g. `plan.maxResumes`) are enforced in two places intentionally:
 1. **The page** (`new/page.tsx`) — redirects to the list if at limit, so the user never sees a form they cannot submit.
@@ -250,7 +254,7 @@ Non-AI resource limits (e.g. `plan.maxResumes`) are enforced in two places inten
 
 ## Quick Import (Job Parse)
 
-`POST /api/jobs/parse` accepts `{ text }` (50–50 000 chars), calls `buildJobParsePrompt()` in `src/lib/prompts.ts`, and returns `{ fields: ParsedJobFields }` where fields are `company | role | location | salary | description` (all nullable). The call is quota-gated via `checkAndIncrementUsage` and decrements on failure. Retries once if the model returns non-JSON. The exported `ParsedJobFields` type lives in the route file — import it from there if needed client-side.
+`POST /api/jobs/parse` accepts `{ text }` (50–50 000 chars), calls `buildJobParsePrompt()` in `src/lib/prompts.ts`, and returns `{ fields: ParsedJobFields }` where fields are `company | role | location | salary | description` (all nullable). The call is quota-gated via `checkBudget`; spend is recorded with `addSpend` only on success. Retries once if the model returns non-JSON. The exported `ParsedJobFields` type lives in the route file — import it from there if needed client-side.
 
 ## AI Generation Flow
 
@@ -259,9 +263,23 @@ Non-AI resource limits (e.g. `plan.maxResumes`) are enforced in two places inten
 - **`resume` / `cover_letter`** — streams text deltas via `ReadableStream`; saves a `Document` record after the stream closes
 - **`jd_analysis`** — non-streaming; returns structured JSON; retries once if the model returns non-JSON
 
-Quota is incremented **before** the Anthropic call and refunded on error or client disconnect (stream `cancel()`). All prompt builders live in `src/lib/prompts.ts`; add new types there and branch in `route.ts`.
+`checkBudget` runs **before** the Anthropic call; `addSpend` runs **after** on success. For streaming routes, spend is recorded in the stream's `cancel()` / close handler using the token counts from the final `message_delta` event. All prompt builders live in `src/lib/prompts.ts`; add new types there and branch in `route.ts`.
 
 The `Document` model stores every AI output with `type`, `content`, `jobId`, `resumeIdUsed`, and token counts. Use `documents.getLatestForJob()` to retrieve the most recent output for a given type.
+
+## Admin Recovery
+
+If you ever get locked out of the admin panel (accidentally rejected yourself, DB wiped, etc.):
+
+```bash
+npx tsx scripts/bootstrap-admin.ts your@email.com
+```
+
+Sets `status: "approved"` and `isAdmin: true` for that email. Safe to run multiple times.
+
+## Clerk Webhook (Local Dev)
+
+The webhook at `/api/webhooks/clerk` syncs `user.created` / `user.updated` / `user.deleted` events into MongoDB. For local dev, use [ngrok](https://ngrok.com) to expose port 3000 and set the ngrok URL as the endpoint in the Clerk dashboard. Alternatively use Clerk's built-in webhook tester to send test events without a tunnel.
 
 ## Project Conventions
 
