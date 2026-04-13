@@ -5,7 +5,8 @@ export type ISubscription = {
   planKey: string;
   status: "active" | "canceled" | "past_due" | "trialing";
   customLimits?: {
-    aiGenerationsPerMonth?: number;
+    /** Admin-set per-user monthly AI budget override in USD. */
+    aiSpendLimitUSD?: number;
   };
   currentPeriodEnd?: Date | null;
   createdAt: Date;
@@ -23,7 +24,7 @@ const SubscriptionSchema = new Schema<ISubscription>(
     },
     customLimits: {
       type: new Schema(
-        { aiGenerationsPerMonth: { type: Number, required: false } },
+        { aiSpendLimitUSD: { type: Number, required: false } },
         { _id: false }
       ),
       required: false,

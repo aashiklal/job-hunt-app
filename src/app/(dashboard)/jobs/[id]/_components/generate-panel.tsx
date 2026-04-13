@@ -99,8 +99,10 @@ export function GeneratePanel({
       if (!res.ok) {
         const errBody = await res.json().catch(() => null);
         if (res.status === 429 && errBody?.error === "QUOTA_EXCEEDED") {
+          const spent = typeof errBody.used === "number" ? `$${errBody.used.toFixed(2)}` : "your full";
+          const limit = typeof errBody.limit === "number" ? `$${errBody.limit.toFixed(2)}` : "";
           toast.error(
-            `You have used ${errBody.used} of ${errBody.limit} AI generations this month. Quota resets soon.`
+            `Monthly AI budget reached (${spent} of ${limit} used). Quota resets soon.`
           );
         } else if (res.status === 400 && errBody?.error === "NO_RESUME") {
           toast.error(errBody.message ?? "No resume available");

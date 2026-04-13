@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import anthropic from "@/lib/anthropic";
 import * as users from "@/lib/repositories/users";
-import { checkAndIncrementUsage, decrementUsage, QuotaExceededError } from "@/lib/usage";
+import { checkBudget, addSpend, calculateCost, QuotaExceededError } from "@/lib/usage";
 import { buildJobParsePrompt } from "@/lib/prompts";
 
 const MODEL = "claude-sonnet-4-5";
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
   const userIdStr = (user._id as { toString(): string }).toString();
 
   try {
-    await checkAndIncrementUsage(userIdStr, "aiGeneration");
+    await checkBudget(userIdStr, "aiGeneration");
   } catch (err) {
     if (err instanceof QuotaExceededError) {
       return NextResponse.json(
@@ -73,6 +73,8 @@ export async function POST(req: NextRequest) {
   const { system, userMessage } = buildJobParsePrompt({ text });
 
   let parsed: ParsedJobFields | null = null;
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
 
   try {
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -85,6 +87,9 @@ export async function POST(req: NextRequest) {
             : `${system}\n\nIMPORTANT: Your previous response was not valid JSON. Respond with ONLY the JSON object.`,
         messages: [{ role: "user", content: userMessage }],
       });
+
+      totalInputTokens += response.usage.input_tokens;
+      totalOutputTokens += response.usage.output_tokens;
 
       const textBlock = response.content.find((c) => c.type === "text");
       if (!textBlock || textBlock.type !== "text") continue;
@@ -108,15 +113,20 @@ export async function POST(req: NextRequest) {
     }
   } catch (err) {
     console.error("[jobs/parse] anthropic error:", err);
-    await decrementUsage(userIdStr, "aiGeneration").catch(() => {});
+    // Record cost for any tokens already consumed before the error
+    const cost = calculateCost(MODEL, totalInputTokens, totalOutputTokens);
+    await addSpend(userIdStr, "aiGeneration", cost).catch((err) => console.error("[addSpend failed]", err));
     return NextResponse.json(
       { error: "AI service error. Please try again." },
       { status: 502 }
     );
   }
 
+  // Record cost for all tokens burned
+  const cost = calculateCost(MODEL, totalInputTokens, totalOutputTokens);
+  await addSpend(userIdStr, "aiGeneration", cost).catch((err) => console.error("[addSpend failed]", err));
+
   if (!parsed) {
-    await decrementUsage(userIdStr, "aiGeneration").catch(() => {});
     return NextResponse.json(
       { error: "Failed to parse the job posting. Please try again." },
       { status: 502 }

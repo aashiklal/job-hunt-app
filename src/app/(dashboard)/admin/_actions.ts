@@ -76,28 +76,28 @@ export const rejectUser = defineAdminAction(
 
 const setCustomLimitSchema = z.object({
   userId: z.string().min(1),
-  aiGenerationsPerMonth: z.number().int().min(0).max(10000),
+  aiSpendLimitUSD: z.number().min(0).max(500),
 });
 
 export const setUserCustomLimit = defineAdminAction(
   async (ctx, input: z.infer<typeof setCustomLimitSchema>) => {
-    const { userId, aiGenerationsPerMonth } = setCustomLimitSchema.parse(input);
+    const { userId, aiSpendLimitUSD } = setCustomLimitSchema.parse(input);
     const auditCtx = await getAuditContext(ctx, userId);
     if (!auditCtx) {
       throw new Error("Target user not found");
     }
-    const subscription = await subscriptions.setCustomLimit(userId, aiGenerationsPerMonth);
+    const subscription = await subscriptions.setCustomLimit(userId, aiSpendLimitUSD);
     if (!subscription) {
       throw new Error("User has no subscription. Approve them first.");
     }
     await auditLog.create({
       ...auditCtx,
       action: "user.custom_limit_set",
-      details: { aiGenerationsPerMonth },
+      details: { aiSpendLimitUSD },
     });
     revalidatePath("/admin");
     revalidatePath(`/admin/${userId}`);
-    return { userId, aiGenerationsPerMonth };
+    return { userId, aiSpendLimitUSD };
   }
 );
 

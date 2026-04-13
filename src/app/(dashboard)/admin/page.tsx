@@ -5,6 +5,7 @@ import * as usersRepo from "@/lib/repositories/users";
 import { type IUser } from "@/lib/repositories/users";
 import * as templates from "@/lib/repositories/templates";
 import * as auditLog from "@/lib/repositories/audit-log";
+import { getBulkSpend } from "@/lib/usage";
 import { TemplateManager } from "./_components/template-manager";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -34,12 +35,17 @@ function UserTable({
   adminId,
   showApprove,
   showReject,
+  spendMap,
+  spendLimit,
 }: {
   users: IUser[];
   adminId: string;
   showApprove: boolean;
   showReject: boolean;
+  spendMap?: Record<string, number>;
+  spendLimit?: number;
 }) {
+  const showSpend = !!spendMap;
   return (
     <Table>
       <TableHeader>
@@ -47,6 +53,7 @@ function UserTable({
           <TableHead>Email</TableHead>
           <TableHead>Name</TableHead>
           <TableHead>Signed up</TableHead>
+          {showSpend && <TableHead>Spend this month</TableHead>}
           <TableHead>Actions</TableHead>
         </TableRow>
       </TableHeader>
@@ -58,6 +65,7 @@ function UserTable({
             user.firstName || user.lastName
               ? [user.firstName, user.lastName].filter(Boolean).join(" ")
               : "—";
+          const spent = spendMap?.[id] ?? 0;
           return (
             <TableRow key={id}>
               <TableCell>
@@ -71,6 +79,17 @@ function UserTable({
                   addSuffix: true,
                 })}
               </TableCell>
+              {showSpend && (
+                <TableCell className="text-sm tabular-nums">
+                  {user.isAdmin ? (
+                    <span className="text-muted-foreground">${spent.toFixed(2)} (no cap)</span>
+                  ) : (
+                    <span className={spent >= (spendLimit ?? 5) ? "text-destructive font-medium" : ""}>
+                      ${spent.toFixed(2)} / ${(spendLimit ?? 5).toFixed(2)}
+                    </span>
+                  )}
+                </TableCell>
+              )}
               <TableCell>
                 {isSelf ? (
                   <span className="text-gray-400 text-sm">—</span>
@@ -94,7 +113,7 @@ function UserTable({
 }
 
 export default async function AdminPage() {
-  const { user: admin } = await requireAdminWithPlan();
+  const { user: admin, plan } = await requireAdminWithPlan();
   const adminId = (admin._id as { toString(): string }).toString();
 
   const [allUsers, adminTemplateList, auditEntries] = await Promise.all([
@@ -103,9 +122,18 @@ export default async function AdminPage() {
     auditLog.listRecent(100),
   ]);
 
+  const approvedUserIds = allUsers
+    .filter((u) => u.status === "approved")
+    .map((u) => (u._id as { toString(): string }).toString());
+
+  const approvedSpend = await getBulkSpend(approvedUserIds);
+
   const currentAdminTemplates = Object.fromEntries(
     adminTemplateList.map((t) => [t.type, { fileName: t.fileName }])
   ) as Partial<Record<"resume" | "cover_letter", { fileName: string }>>;
+
+  // Use the plan's spend limit as the reference for displaying user budgets in the table
+  const planSpendLimit = plan.aiSpendLimitUSD ?? 5.0;
 
   const pending = allUsers.filter((u) => u.status === "pending");
   const approved = allUsers.filter((u) => u.status === "approved");
@@ -181,6 +209,8 @@ export default async function AdminPage() {
                 adminId={adminId}
                 showApprove={false}
                 showReject
+                spendMap={approvedSpend}
+                spendLimit={planSpendLimit}
               />
             </TabsContent>
 

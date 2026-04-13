@@ -10,7 +10,7 @@ import Plan from "../src/lib/models/Plan";
 const planData = {
   key: "personal",
   name: "Personal",
-  aiGenerationsPerMonth: 50,
+  aiSpendLimitUSD: 5.0,
   maxResumes: 5,
   maxJobs: -1,
   pdfParsingEnabled: true,

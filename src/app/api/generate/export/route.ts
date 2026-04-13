@@ -9,7 +9,7 @@ import type { TemplateType } from "@/lib/repositories/templates";
 import type { DocumentType } from "@/lib/repositories/documents";
 import { applyToTemplate, injectContent } from "@/lib/export/from-template";
 import { generateDOCX } from "@/lib/export/to-docx";
-import { checkAndIncrementUsage, decrementUsage, QuotaExceededError } from "@/lib/usage";
+import { checkBudget, addSpend, calculateCost, QuotaExceededError } from "@/lib/usage";
 
 const schema = z.object({
   content: z.string().min(1).max(100000),
@@ -93,9 +93,9 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Admin template exists — this path calls Anthropic; gate behind quota
+  // Admin template exists — this path calls Anthropic (Haiku); gate behind budget
   try {
-    await checkAndIncrementUsage(userIdStr, "aiGeneration");
+    await checkBudget(userIdStr, "aiGeneration");
   } catch (err) {
     if (err instanceof QuotaExceededError) {
       return NextResponse.json(
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
         { status: 429 }
       );
     }
-    console.error("[generate/export] usage check failed:", err);
+    console.error("[generate/export] budget check failed:", err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 
@@ -119,6 +119,15 @@ export async function POST(req: NextRequest) {
       content,
       type as "resume" | "cover_letter"
     );
+
+    // Record cost for the Haiku call regardless of fill validity
+    const exportCost = calculateCost(
+      "claude-haiku-4-5-20251001",
+      result.inputTokens ?? 0,
+      result.outputTokens ?? 0
+    );
+    await addSpend(userIdStr, "aiGeneration", exportCost).catch((err) => console.error("[addSpend failed]", err));
+
     const buffer = result.buffer;
     return new Response(new Uint8Array(buffer), {
       headers: {
@@ -129,7 +138,6 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err) {
-    await decrementUsage(userIdStr, "aiGeneration").catch(() => {});
     console.error("[generate/export] injectContent failed:", err);
     return NextResponse.json({ error: "Export failed" }, { status: 500 });
   }

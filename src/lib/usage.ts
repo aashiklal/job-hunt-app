@@ -3,6 +3,30 @@ import connectDB from "@/lib/db/connect";
 import Plan, { IPlan } from "@/lib/models/Plan";
 import Subscription, { ISubscription } from "@/lib/models/Subscription";
 import Usage from "@/lib/models/Usage";
+import User from "@/lib/models/User";
+
+// ---------------------------------------------------------------------------
+// Pricing table — update if Anthropic changes rates
+// ---------------------------------------------------------------------------
+
+const MODEL_PRICING: Record<string, { inputPerMToken: number; outputPerMToken: number }> = {
+  "claude-sonnet-4-5":            { inputPerMToken: 3.00,  outputPerMToken: 15.00 },
+  "claude-sonnet-4-6":            { inputPerMToken: 3.00,  outputPerMToken: 15.00 },
+  "claude-haiku-4-5":             { inputPerMToken: 0.80,  outputPerMToken: 4.00  },
+  "claude-haiku-4-5-20251001":    { inputPerMToken: 0.80,  outputPerMToken: 4.00  },
+  "claude-opus-4-5":              { inputPerMToken: 15.00, outputPerMToken: 75.00 },
+  "claude-opus-4-6":              { inputPerMToken: 15.00, outputPerMToken: 75.00 },
+};
+
+/**
+ * Calculates the USD cost for an Anthropic API call from token counts.
+ * Falls back to Sonnet pricing for unknown models.
+ */
+export function calculateCost(model: string, inputTokens: number, outputTokens: number): number {
+  const pricing = MODEL_PRICING[model] ?? MODEL_PRICING["claude-sonnet-4-5"];
+  return (inputTokens / 1_000_000) * pricing.inputPerMToken
+       + (outputTokens / 1_000_000) * pricing.outputPerMToken;
+}
 
 // ---------------------------------------------------------------------------
 // Error class
@@ -21,7 +45,7 @@ export class QuotaExceededError extends Error {
     periodEndsAt: Date;
   }) {
     super(
-      `Quota exceeded for ${args.kind}: ${args.used}/${args.limit}. Resets ${args.periodEndsAt.toISOString()}.`
+      `Monthly AI budget exceeded ($${args.used.toFixed(4)} of $${args.limit.toFixed(2)} used). Resets ${args.periodEndsAt.toISOString()}.`
     );
     this.name = "QuotaExceededError";
     this.kind = args.kind;
@@ -51,21 +75,11 @@ function getPeriodEndsAt(): Date {
   );
 }
 
-/**
- * Returns the effective per-month limit for a given usage kind, honouring any
- * per-subscription custom overrides set by an admin.
- */
-function getEffectiveLimit(
-  plan: IPlan,
-  subscription: ISubscription,
-  kind: "aiGeneration"
-): number {
-  if (kind === "aiGeneration") {
-    const customLimit = subscription.customLimits?.aiGenerationsPerMonth;
-    if (typeof customLimit === "number") return customLimit;
-    return plan.aiGenerationsPerMonth;
-  }
-  throw new Error(`Unknown usage kind: ${kind}`);
+/** Returns the effective monthly spend limit in USD, honouring any admin override. */
+function getSpendLimit(plan: IPlan, subscription: ISubscription): number {
+  const customLimit = subscription.customLimits?.aiSpendLimitUSD;
+  if (typeof customLimit === "number") return customLimit;
+  return plan.aiSpendLimitUSD ?? 5.0;
 }
 
 // ---------------------------------------------------------------------------
@@ -73,26 +87,32 @@ function getEffectiveLimit(
 // ---------------------------------------------------------------------------
 
 /**
- * Atomically checks whether the user is within their monthly quota for `kind`
- * and, if so, increments the counter by 1.
+ * Reads the user's current spend and throws `QuotaExceededError` if they are
+ * at or over their monthly USD budget.
  *
- * The atomic guarantee comes from the conditional Mongo filter
- * `{ aiGenerations: { $lt: limit } }` inside the `findOneAndUpdate`. Two
- * parallel requests cannot both pass the limit because only one can land the
- * increment that brings the count to `limit` — the second request's filter
- * no longer matches.
+ * Admins always pass — they have no cap.
  *
- * @throws {QuotaExceededError} when the user is at or above their limit.
- * @throws {Error} when no subscription or plan is found.
+ * This is a read-only check — it does NOT increment anything. Call
+ * `addSpend()` after a successful API call to record the actual cost.
  *
- * @example
- * const { used, limit, periodEndsAt } = await checkAndIncrementUsage(userId, "aiGeneration");
+ * @throws {QuotaExceededError} when the user is at or above their budget.
  */
-export async function checkAndIncrementUsage(
+export async function checkBudget(
   userId: mongoose.Types.ObjectId | string,
   kind: "aiGeneration"
-): Promise<{ used: number; limit: number; periodEndsAt: Date }> {
+): Promise<{ spentUSD: number; limitUSD: number; periodEndsAt: Date }> {
+  if (kind !== "aiGeneration") throw new Error(`Unknown usage kind: ${kind}`);
   await connectDB();
+
+  const periodEndsAt = getPeriodEndsAt();
+
+  // Admins have no spending cap
+  const userDoc = await User.findById(userId).lean();
+  if (userDoc?.isAdmin) {
+    const period = getCurrentPeriod();
+    const usageDoc = await Usage.findOne({ userId, period }).lean();
+    return { spentUSD: (usageDoc as { aiSpendUSD?: number } | null)?.aiSpendUSD ?? 0, limitUSD: -1, periodEndsAt };
+  }
 
   const subscription = await Subscription.findOne({ userId });
   if (!subscription) {
@@ -101,102 +121,60 @@ export async function checkAndIncrementUsage(
     );
   }
 
-  const plan = await Plan.findOne({ key: subscription.planKey });
+  const plan = await Plan.findOne({ key: subscription.planKey }).lean();
   if (!plan) {
     throw new Error(`Plan not found: ${subscription.planKey}`);
   }
 
-  const limit = getEffectiveLimit(plan, subscription, kind);
+  const limitUSD = getSpendLimit(plan as IPlan, subscription);
   const period = getCurrentPeriod();
-  const periodEndsAt = getPeriodEndsAt();
 
-  try {
-    const result = await Usage.findOneAndUpdate(
-      {
-        userId,
-        period,
-        aiGenerations: { $lt: limit },
-      },
-      {
-        $inc: { aiGenerations: 1 },
-        $setOnInsert: { userId, period },
-      },
-      {
-        returnDocument: "after",
-        upsert: true,
-      }
-    );
+  const usageDoc = await Usage.findOne({ userId, period }).lean();
+  const spentUSD = (usageDoc as { aiSpendUSD?: number } | null)?.aiSpendUSD ?? 0;
 
-    // findOneAndUpdate with upsert returns null only in very old Mongo drivers;
-    // with `new: true` it always returns the updated/inserted doc.
-    // Non-null assertion is safe here because upsert guarantees a document.
-    return { used: result!.aiGenerations, limit, periodEndsAt };
-  } catch (err: unknown) {
-    // When the document already exists at `limit`, the conditional filter
-    // does not match, but upsert attempts to insert a new document. The
-    // compound unique index on (userId, period) rejects that insert with
-    // E11000. We catch it here and translate it into a QuotaExceededError.
-    if (
-      typeof err === "object" &&
-      err !== null &&
-      (err as { code?: number }).code === 11000
-    ) {
-      const existing = await Usage.findOne({ userId, period });
-      throw new QuotaExceededError({
-        kind,
-        used: existing?.aiGenerations ?? limit,
-        limit,
-        periodEndsAt,
-      });
-    }
-    throw err;
+  if (limitUSD !== -1 && spentUSD >= limitUSD) {
+    throw new QuotaExceededError({
+      kind,
+      used: spentUSD,
+      limit: limitUSD,
+      periodEndsAt,
+    });
   }
+
+  return { spentUSD, limitUSD, periodEndsAt };
 }
 
 /**
- * Decrements the usage counter by 1 for the current period. Call this to
- * refund a generation that failed **after** the increment already happened
- * (e.g. the Anthropic API call threw).
+ * Records actual API cost after a successful Anthropic call.
+ * Uses `$inc` so concurrent writes are safe.
  *
- * The `$gt: 0` guard prevents the counter from going negative.
- * Silently no-ops if there is nothing to decrement.
- *
- * @example
- * await decrementUsage(userId, "aiGeneration");
+ * `strict: false` ensures the write reaches MongoDB even when the Mongoose
+ * model cache (from hot-reload in dev) has a stale schema.
  */
-export async function decrementUsage(
+export async function addSpend(
   userId: mongoose.Types.ObjectId | string,
-  kind: "aiGeneration"
+  kind: "aiGeneration",
+  costUSD: number
 ): Promise<void> {
-  // Validate kind so callers get a clear error early rather than a silent no-op.
-  if (kind !== "aiGeneration") {
-    throw new Error(`Unknown usage kind: ${kind}`);
-  }
-
+  if (kind !== "aiGeneration") throw new Error(`Unknown usage kind: ${kind}`);
+  if (costUSD <= 0) return;
   await connectDB();
 
-  const result = await Usage.findOneAndUpdate(
-    { userId, period: getCurrentPeriod(), aiGenerations: { $gt: 0 } },
-    { $inc: { aiGenerations: -1 } },
-    { returnDocument: "after" }
+  const period = getCurrentPeriod();
+  await Usage.findOneAndUpdate(
+    { userId, period },
+    {
+      $inc: { aiSpendUSD: costUSD },
+      $setOnInsert: { userId, period },
+    },
+    { upsert: true, returnDocument: "after", strict: false }
   );
-
-  if (!result) {
-    console.warn(
-      `[usage] decrementUsage: nothing to decrement for userId=${userId} kind=${kind} period=${getCurrentPeriod()}`
-    );
-  }
 }
 
 /**
- * Returns the user's current usage for the active period without modifying
- * any counters. Safe to call from dashboard widgets.
- *
- * Never throws — returns zeroed-out data when the subscription or plan is
- * missing so the UI degrades gracefully.
- *
- * @example
- * const { used, limit, periodEndsAt, planKey } = await getCurrentUsage(userId);
+ * Returns the user's current USD spend and budget for the active period.
+ * Admins return limit = -1 (unlimited).
+ * Never throws — returns zeroed-out data when subscription or plan is missing.
  */
 export async function getCurrentUsage(
   userId: mongoose.Types.ObjectId | string
@@ -209,21 +187,49 @@ export async function getCurrentUsage(
   await connectDB();
 
   const periodEndsAt = getPeriodEndsAt();
+  const period = getCurrentPeriod();
+
+  // Admins are unlimited — show spend but no cap
+  const userDoc = await User.findById(userId).lean();
+  if (userDoc?.isAdmin) {
+    const usageDoc = await Usage.findOne({ userId, period }).lean();
+    return { used: (usageDoc as { aiSpendUSD?: number } | null)?.aiSpendUSD ?? 0, limit: -1, periodEndsAt, planKey: null };
+  }
 
   const subscription = await Subscription.findOne({ userId });
   if (!subscription) {
     return { used: 0, limit: 0, periodEndsAt, planKey: null };
   }
 
-  const plan = await Plan.findOne({ key: subscription.planKey });
+  const plan = await Plan.findOne({ key: subscription.planKey }).lean();
   if (!plan) {
     return { used: 0, limit: 0, periodEndsAt, planKey: subscription.planKey };
   }
 
-  const period = getCurrentPeriod();
-  const usageDoc = await Usage.findOne({ userId, period });
-  const used = usageDoc?.aiGenerations ?? 0;
-  const limit = getEffectiveLimit(plan, subscription, "aiGeneration");
+  const usageDoc = await Usage.findOne({ userId, period }).lean();
+  const used = (usageDoc as { aiSpendUSD?: number } | null)?.aiSpendUSD ?? 0;
+  const limit = getSpendLimit(plan as IPlan, subscription);
 
   return { used, limit, periodEndsAt, planKey: subscription.planKey };
+}
+
+/**
+ * Returns current-period spend for a list of user IDs in one query.
+ * Used by the admin users table to show per-user spend.
+ * Returns a map of userId string → spentUSD.
+ */
+export async function getBulkSpend(
+  userIds: string[]
+): Promise<Record<string, number>> {
+  if (userIds.length === 0) return {};
+  await connectDB();
+
+  const period = getCurrentPeriod();
+  const docs = await Usage.find({ userId: { $in: userIds }, period }).lean();
+
+  const map: Record<string, number> = {};
+  for (const doc of docs) {
+    map[doc.userId.toString()] = (doc as { aiSpendUSD?: number }).aiSpendUSD ?? 0;
+  }
+  return map;
 }

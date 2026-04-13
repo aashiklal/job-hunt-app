@@ -205,8 +205,8 @@ function buildDocXml(
 // ─── AI slot-fill ─────────────────────────────────────────────────────────────
 
 export type SlotFillOutput =
-  | { valid: true; output: Array<[number, string | null]> }
-  | { valid: false; reason: string };
+  | { valid: true; output: Array<[number, string | null]>; inputTokens: number; outputTokens: number }
+  | { valid: false; reason: string; inputTokens?: number; outputTokens?: number };
 
 /**
  * Ask Claude Haiku to map the generated content onto the template's paragraph
@@ -276,9 +276,12 @@ Respond with ONLY valid JSON, no markdown.`;
     messages: [{ role: "user", content: prompt }],
   });
 
+  const inputTokens = response.usage.input_tokens;
+  const outputTokens = response.usage.output_tokens;
+
   const raw = response.content[0].type === "text" ? response.content[0].text.trim() : "{}";
   const jsonMatch = /\{[\s\S]*\}/.exec(raw);
-  if (!jsonMatch) return { valid: false, reason: "AI returned no valid JSON" };
+  if (!jsonMatch) return { valid: false, reason: "AI returned no valid JSON", inputTokens, outputTokens };
 
   const parsed = JSON.parse(jsonMatch[0]) as {
     valid: boolean;
@@ -286,11 +289,11 @@ Respond with ONLY valid JSON, no markdown.`;
     output?: Array<[number, string | null]>;
   };
 
-  if (!parsed.valid) return { valid: false, reason: parsed.reason ?? "Template deemed unsuitable" };
+  if (!parsed.valid) return { valid: false, reason: parsed.reason ?? "Template deemed unsuitable", inputTokens, outputTokens };
   if (!Array.isArray(parsed.output) || parsed.output.length === 0)
-    return { valid: false, reason: "AI returned empty output" };
+    return { valid: false, reason: "AI returned empty output", inputTokens, outputTokens };
 
-  return { valid: true, output: parsed.output };
+  return { valid: true, output: parsed.output, inputTokens, outputTokens };
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -321,6 +324,8 @@ export async function applyToTemplate(
 export type InjectResult = {
   buffer: Buffer;
   valid: boolean;
+  inputTokens?: number;
+  outputTokens?: number;
 };
 
 /**
@@ -333,8 +338,8 @@ export async function injectContent(
   docType: "resume" | "cover_letter" = "resume"
 ): Promise<InjectResult> {
   const slotFill = await computeSlotFill(templateBuffer, content, docType);
-  if (!slotFill.valid) return { buffer: Buffer.alloc(0), valid: false };
+  if (!slotFill.valid) return { buffer: Buffer.alloc(0), valid: false, inputTokens: slotFill.inputTokens, outputTokens: slotFill.outputTokens };
 
   const buffer = await applyToTemplate(templateBuffer, slotFill.output);
-  return { buffer, valid: true };
+  return { buffer, valid: true, inputTokens: slotFill.inputTokens, outputTokens: slotFill.outputTokens };
 }

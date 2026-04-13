@@ -47,11 +47,11 @@ export default async function Page({
     auditLog.listForTargetUser(userId).then((docs) => docs.map(auditLog.toAuditLogItem)),
   ]);
 
-  // Resolve plan default for the target user's subscription
-  let planDefault = ctx.plan.aiGenerationsPerMonth;
+  // Resolve plan default for the target user's subscription (in USD)
+  let planDefault = ctx.plan.aiSpendLimitUSD ?? 5.0;
   if (subscription?.planKey) {
     const plan = await plans.getByKey(subscription.planKey);
-    if (plan) planDefault = plan.aiGenerationsPerMonth;
+    if (plan) planDefault = plan.aiSpendLimitUSD ?? 5.0;
   }
 
   const targetId = (target._id as { toString(): string }).toString();
@@ -67,13 +67,14 @@ export default async function Page({
         ? "destructive"
         : "secondary";
 
-  const customLimit = subscription?.customLimits?.aiGenerationsPerMonth;
+  const customLimit = subscription?.customLimits?.aiSpendLimitUSD;
   const hasCustomLimit = typeof customLimit === "number";
 
-  const percentUsed = usage.limit > 0 ? Math.round((usage.used / usage.limit) * 100) : 0;
+  const percentUsed = usage.limit > 0 ? Math.min(100, (usage.used / usage.limit) * 100) : 0;
   const remaining = Math.max(0, usage.limit - usage.used);
-  const isOut = remaining === 0 && usage.limit > 0;
-  const isLow = !isOut && remaining <= 5 && usage.limit > 0;
+  const isOut = remaining <= 0 && usage.limit > 0;
+  const isLow = !isOut && remaining < 1.00 && usage.limit > 0;
+  const fmtUSD = (n: number) => `$${n.toFixed(2)}`;
 
   const barColor = isOut
     ? "bg-destructive"
@@ -156,7 +157,7 @@ export default async function Page({
       {/* Usage card */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">AI generation usage this month</CardTitle>
+          <CardTitle className="text-base">AI spend this month</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {usage.limit === 0 ? (
@@ -166,15 +167,15 @@ export default async function Page({
           ) : (
             <>
               <div className="flex justify-between items-center text-sm">
-                <span className="text-muted-foreground">Used</span>
+                <span className="text-muted-foreground">Spent</span>
                 <span className={countColor}>
-                  {usage.used} of {usage.limit}
+                  {fmtUSD(usage.used)} of {fmtUSD(usage.limit)}
                 </span>
               </div>
               <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
                 <div
                   className={`h-full ${barColor} transition-all`}
-                  style={{ width: `${Math.min(100, percentUsed)}%` }}
+                  style={{ width: `${percentUsed}%` }}
                 />
               </div>
               <p className="text-xs text-muted-foreground">
@@ -190,19 +191,19 @@ export default async function Page({
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium">
-                      Custom limit: {customLimit}
+                      Custom budget: {fmtUSD(customLimit!)}
                     </span>
                     <ClearCustomLimitButton userId={targetId} />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Plan default: {planDefault}
+                    Plan default: {fmtUSD(planDefault)} / month
                   </p>
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  Limit from plan:{" "}
+                  Budget from plan:{" "}
                   <span className="font-medium">{usage.planKey ?? "—"}</span>{" "}
-                  ({planDefault} / month)
+                  ({fmtUSD(planDefault)} / month)
                 </p>
               )}
               {subscription && (

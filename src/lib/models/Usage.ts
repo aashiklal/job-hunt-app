@@ -3,7 +3,7 @@ import mongoose, { Document, Model, Schema, Types } from "mongoose";
 export type IUsage = {
   userId: Types.ObjectId;
   period: string;
-  aiGenerations: number;
+  aiSpendUSD: number;
   createdAt: Date;
   updatedAt: Date;
 } & Document;
@@ -12,7 +12,7 @@ const UsageSchema = new Schema<IUsage>(
   {
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     period: { type: String, required: true, index: true },
-    aiGenerations: { type: Number, required: true, default: 0 },
+    aiSpendUSD: { type: Number, required: true, default: 0 },
   },
   { timestamps: true }
 );

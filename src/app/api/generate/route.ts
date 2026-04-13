@@ -12,8 +12,9 @@ import * as templates from "@/lib/repositories/templates";
 import type { TemplateType } from "@/lib/repositories/templates";
 import { computeSlotFill } from "@/lib/export/from-template";
 import {
-  checkAndIncrementUsage,
-  decrementUsage,
+  checkBudget,
+  addSpend,
+  calculateCost,
   QuotaExceededError,
 } from "@/lib/usage";
 import {
@@ -93,9 +94,9 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 6. Check and increment usage. This is the gate. After this point, the user is "charged".
+  // 6. Check budget before calling Anthropic.
   try {
-    await checkAndIncrementUsage(userIdStr, "aiGeneration");
+    await checkBudget(userIdStr, "aiGeneration");
   } catch (err) {
     if (err instanceof QuotaExceededError) {
       return NextResponse.json(
@@ -109,11 +110,11 @@ export async function POST(req: NextRequest) {
         { status: 429 }
       );
     }
-    console.error("[generate] usage check failed:", err);
+    console.error("[generate] budget check failed:", err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 
-  // 7. Branch on type
+  // 7. Branch on type. Cost is recorded inside each handler after tokens are known.
   try {
     if (type === "jd_analysis") {
       return await handleJDAnalysis({ userIdStr, jobId, job });
@@ -128,13 +129,9 @@ export async function POST(req: NextRequest) {
       });
     }
   } catch (err) {
-    // If anything fails AFTER the increment, refund the user.
-    await decrementUsage(userIdStr, "aiGeneration").catch(() => {
-      // best-effort; if decrement fails, log and move on
-    });
     console.error("[generate] generation failed:", err);
     return NextResponse.json(
-      { error: "Generation failed. Your usage has been refunded." },
+      { error: "Generation failed." },
       { status: 500 }
     );
   }
@@ -150,8 +147,6 @@ async function handleJDAnalysis(args: {
   const { userIdStr, jobId, job } = args;
 
   if (!job.jobDescription || job.jobDescription.trim().length < 50) {
-    // Refund and return — JD analysis on an empty JD is pointless
-    await decrementUsage(userIdStr, "aiGeneration").catch(() => {});
     return NextResponse.json(
       {
         error: "NO_JOB_DESCRIPTION",
@@ -168,8 +163,8 @@ async function handleJDAnalysis(args: {
 
   // Try once, retry once on JSON parse failure with a stricter reminder
   let parsed: unknown = null;
-  let inputTokens = 0;
-  let outputTokens = 0;
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
 
   for (let attempt = 0; attempt < 2; attempt++) {
     const response = await anthropic.messages.create({
@@ -182,9 +177,9 @@ async function handleJDAnalysis(args: {
       messages: [{ role: "user", content: userMessage }],
     });
 
-    // Sum tokens across both attempts (we charge for both even if first fails)
-    inputTokens += response.usage.input_tokens;
-    outputTokens += response.usage.output_tokens;
+    // Accumulate tokens across all attempts (cost applies regardless of parse success)
+    totalInputTokens += response.usage.input_tokens;
+    totalOutputTokens += response.usage.output_tokens;
 
     // Extract text from the response
     const textBlock = response.content.find((c) => c.type === "text");
@@ -209,9 +204,11 @@ async function handleJDAnalysis(args: {
     }
   }
 
+  // Record cost for all tokens burned, even if parsing failed
+  const cost = calculateCost(MODEL, totalInputTokens, totalOutputTokens);
+  await addSpend(userIdStr, "aiGeneration", cost).catch((err) => console.error("[addSpend failed]", err));
+
   if (!parsed) {
-    // Both attempts failed. Refund and surface error.
-    await decrementUsage(userIdStr, "aiGeneration").catch(() => {});
     return NextResponse.json(
       { error: "Failed to parse AI response as JSON. Please try again." },
       { status: 502 }
@@ -224,8 +221,8 @@ async function handleJDAnalysis(args: {
     type: "jd_analysis" as DocumentType,
     content: JSON.stringify(parsed),
     aiModel: MODEL,
-    inputTokens,
-    outputTokens,
+    inputTokens: totalInputTokens,
+    outputTokens: totalOutputTokens,
   });
 
   return NextResponse.json({ analysis: parsed });
@@ -297,6 +294,10 @@ async function handleStreamingGeneration(args: {
         const finalInputTokens = finalMessage.usage.input_tokens;
         const finalOutputTokens = finalMessage.usage.output_tokens;
 
+        // Record actual cost now that we have token counts
+        const cost = calculateCost(MODEL, finalInputTokens, finalOutputTokens);
+        await addSpend(userIdStr, "aiGeneration", cost).catch((err) => console.error("[addSpend failed]", err));
+
         // Save the document AFTER streaming completes
         const savedDoc = await documents.upsert(userIdStr, {
           jobId,
@@ -323,18 +324,16 @@ async function handleStreamingGeneration(args: {
       } catch (err) {
         streamErrored = true;
         console.error("[generate] streaming error:", err);
-        // Refund the user since the generation failed
-        await decrementUsage(userIdStr, "aiGeneration").catch(() => {});
+        // Cost is only recorded after finalMessage() resolves; if we errored
+        // before that, no cost was recorded — nothing to refund.
         controller.error(err);
       }
     },
     cancel() {
-      // Client disconnected mid-stream. Refund the user.
-      // Note: this fires when the client aborts (e.g. user closes the tab).
-      // The fullText accumulated so far is partial and we do NOT save it.
-      if (!streamErrored) {
-        decrementUsage(userIdStr, "aiGeneration").catch(() => {});
-      }
+      // Client disconnected mid-stream. Cost is recorded only after
+      // finalMessage() resolves (inside start()), so if we cancel before
+      // that, no cost is charged. No action needed here.
+      void streamErrored; // suppress unused-variable lint
     },
   });
 
@@ -357,7 +356,7 @@ async function handleStreamingGeneration(args: {
 async function precomputeDocxCache(
   docId: string,
   content: string,
-  _userId: string,
+  userId: string,
   type: TemplateType
 ): Promise<void> {
   const adminTemplate = await templates.get(type);
@@ -365,6 +364,15 @@ async function precomputeDocxCache(
 
   const docType = type as "resume" | "cover_letter";
   const result = await computeSlotFill(adminTemplate.fileData as Buffer, content, docType);
+
+  // Track cost of this background Haiku call regardless of whether the fill succeeded
+  const haikuCost = calculateCost(
+    "claude-haiku-4-5-20251001",
+    result.inputTokens ?? 0,
+    result.outputTokens ?? 0
+  );
+  await addSpend(userId, "aiGeneration", haikuCost).catch((err) => console.error("[addSpend failed]", err));
+
   if (!result.valid) return;
 
   await documents.setDocxCache(

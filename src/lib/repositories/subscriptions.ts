@@ -27,17 +27,15 @@ export async function ensureForUser(
 
 export async function setCustomLimit(
   userId: string,
-  aiGenerationsPerMonth: number
+  aiSpendLimitUSD: number
 ): Promise<ISubscription | null> {
-  if (!Number.isInteger(aiGenerationsPerMonth) || aiGenerationsPerMonth < 0) {
-    throw new Error(
-      "aiGenerationsPerMonth must be a non-negative integer"
-    );
+  if (typeof aiSpendLimitUSD !== "number" || aiSpendLimitUSD < 0) {
+    throw new Error("aiSpendLimitUSD must be a non-negative number");
   }
   await connectDB();
   return Subscription.findOneAndUpdate(
     { userId },
-    { $set: { "customLimits.aiGenerationsPerMonth": aiGenerationsPerMonth } },
+    { $set: { "customLimits.aiSpendLimitUSD": aiSpendLimitUSD } },
     { returnDocument: "after" }
   );
 }

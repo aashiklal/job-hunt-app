@@ -13,8 +13,10 @@ export function formatAuditAction(
       return "Granted admin";
     case "user.admin_revoked":
       return "Revoked admin";
-    case "user.custom_limit_set":
-      return `Set custom limit to ${details?.aiGenerationsPerMonth ?? "?"}`;
+    case "user.custom_limit_set": {
+      const usd = details?.aiSpendLimitUSD;
+      return `Set custom budget to ${typeof usd === "number" ? `$${usd.toFixed(2)}` : "?"}`;
+    }
     case "user.custom_limit_cleared":
       return "Cleared custom limit";
     case "template.uploaded":

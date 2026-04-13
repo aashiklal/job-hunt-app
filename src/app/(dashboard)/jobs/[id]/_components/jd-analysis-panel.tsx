@@ -46,8 +46,10 @@ export function JDAnalysisPanel({
       const data = await res.json();
       if (!res.ok) {
         if (res.status === 429 && data.error === "QUOTA_EXCEEDED") {
+          const spent = typeof data.used === "number" ? `$${data.used.toFixed(2)}` : "your full";
+          const limit = typeof data.limit === "number" ? `$${data.limit.toFixed(2)}` : "";
           toast.error(
-            `You have used ${data.used} of ${data.limit} AI generations this month.`
+            `Monthly AI budget reached (${spent} of ${limit} used).`
           );
         } else if (
           res.status === 400 &&

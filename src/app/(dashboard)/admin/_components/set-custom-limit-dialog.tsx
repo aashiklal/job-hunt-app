@@ -28,17 +28,17 @@ export function SetCustomLimitDialog({ userId, currentLimit, planDefault }: Prop
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
-  const [value, setValue] = useState(String(currentLimit));
+  const [value, setValue] = useState(currentLimit.toFixed(2));
   const [error, setError] = useState<string | null>(null);
 
   function handleSubmit() {
-    const parsed = parseInt(value, 10);
+    const parsed = parseFloat(value);
     if (Number.isNaN(parsed) || parsed < 0) {
-      setError("Enter a non-negative whole number");
+      setError("Enter a non-negative dollar amount (e.g. 10.00)");
       return;
     }
-    if (parsed > 10000) {
-      setError("Maximum is 10000");
+    if (parsed > 500) {
+      setError("Maximum is $500.00");
       return;
     }
     setError(null);
@@ -46,10 +46,10 @@ export function SetCustomLimitDialog({ userId, currentLimit, planDefault }: Prop
     startTransition(async () => {
       const result = await setUserCustomLimit({
         userId,
-        aiGenerationsPerMonth: parsed,
+        aiSpendLimitUSD: parsed,
       });
       if (result.ok) {
-        toast.success(`Custom limit set to ${parsed}`);
+        toast.success(`Custom budget set to $${parsed.toFixed(2)}`);
         setOpen(false);
         router.refresh();
       } else {
@@ -62,29 +62,34 @@ export function SetCustomLimitDialog({ userId, currentLimit, planDefault }: Prop
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
-          Set custom limit
+          Set custom budget
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Set custom AI generation limit</DialogTitle>
+          <DialogTitle>Set custom AI budget</DialogTitle>
           <DialogDescription>
-            Override this user&apos;s monthly AI generation limit. The plan
-            default is {planDefault}. Use this for friends in heavy job-hunt
-            mode who need more than the default.
+            Override this user&apos;s monthly AI spend budget. The plan
+            default is ${planDefault.toFixed(2)}/month. Use this for users
+            in heavy job-hunt mode who need more than the default.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
-          <Label htmlFor="limit-input">Generations per month</Label>
-          <Input
-            id="limit-input"
-            type="number"
-            min={0}
-            max={10000}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            disabled={pending}
-          />
+          <Label htmlFor="limit-input">Monthly budget (USD)</Label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+            <Input
+              id="limit-input"
+              type="number"
+              min={0}
+              max={500}
+              step={0.01}
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              disabled={pending}
+              className="pl-7"
+            />
+          </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
         <DialogFooter>
