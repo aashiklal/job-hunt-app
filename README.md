@@ -1,57 +1,215 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Job Hunt
+
+A full-stack AI-powered job application tracker. Track every application through a Kanban pipeline, generate tailored resumes and cover letters with Claude, and stay on top of your job search — all in one place.
+
+---
+
+## Features
+
+**Job Tracker**
+- Add jobs manually or paste a job posting for AI-assisted quick import (extracts company, role, location, salary, and description automatically)
+- Kanban pipeline view with drag-and-drop status management
+- Table list view for scanning at a glance
+- Soft-delete with a trash bin and restore support
+
+**Resume Management**
+- Upload PDF or DOCX resumes and extract the text automatically
+- Store multiple resume versions and set a default
+- Plan-gated limits enforced at both the UI and server action layer
+
+**AI Generation**
+- Tailored resume generation — rewrites your resume to match a specific job description
+- Cover letter generation — produces a targeted, professional cover letter
+- JD analysis — structured breakdown of the job description with key requirements and fit signals
+- All AI usage is metered in USD against a monthly budget; admins can set per-user overrides
+
+**DOCX Export**
+- Export AI-generated content as a DOCX file
+- Template priority: user-uploaded template → admin global template → generic fallback
+- Template-driven formatting preserves the original run styles (fonts, sizes, bold, etc.)
+- Slot-fill output is cached per document so re-exports are instant unless the template changes
+
+**Dashboard & Analytics**
+- Application funnel chart, stat cards, and weekly activity view
+- Stale application alerts
+- Weekly goal widget
+
+**Admin Panel**
+- Approve, reject, and manage user access
+- Set or clear per-user AI spend overrides
+- Toggle admin privileges
+- Full paginated audit log of every admin action
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 16 (App Router, Turbopack) |
+| UI | React 19, Tailwind CSS v4, shadcn/ui, Radix UI |
+| Auth | Clerk |
+| Database | MongoDB via Mongoose |
+| AI | Anthropic Claude (via `@anthropic-ai/sdk`) |
+| Drag and Drop | dnd-kit |
+| Forms | react-hook-form + Zod |
+| DOCX generation | docx, mammoth |
+| PDF extraction | unpdf |
+| Notifications | sonner |
+| Deployment | Vercel |
+
+---
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 20+
+- A MongoDB database (MongoDB Atlas free tier works)
+- A [Clerk](https://clerk.com) application
+- An [Anthropic](https://console.anthropic.com) API key
+
+### Environment Variables
+
+Create a `.env.local` file in the project root:
+
+```env
+MONGODB_URI=your_mongodb_connection_string
+ANTHROPIC_API_KEY=your_anthropic_api_key
+CLERK_SECRET_KEY=your_clerk_secret_key
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
+CLERK_WEBHOOK_SIGNING_SECRET=your_clerk_webhook_signing_secret
+```
+
+### Installation
+
+```bash
+npm install
+```
+
+### Database Setup
+
+Seed the subscription plans (required before any user can access the dashboard):
+
+```bash
+npm run seed:plans
+```
+
+### Clerk Webhook
+
+The app syncs Clerk user events (`user.created`, `user.updated`, `user.deleted`) into MongoDB. Configure a webhook in the Clerk dashboard:
+
+1. Go to **Clerk Dashboard → Webhooks → Add Endpoint**
+2. Set the URL to `https://<your-domain>/api/webhooks/clerk`
+3. Subscribe to events: `user.created`, `user.updated`, `user.deleted`
+4. Copy the **Signing Secret** and set it as `CLERK_WEBHOOK_SIGNING_SECRET`
+
+For local development, use [ngrok](https://ngrok.com) to expose port 3000 and register the ngrok URL as the endpoint.
+
+### Run the Dev Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The first user to sign up will be in `pending` status. Promote yourself to admin:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run bootstrap:admin
+```
 
-## Learn More
+Then approve yourself (and other users) from the `/admin` panel.
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Scripts
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Command | Purpose |
+|---|---|
+| `npm run dev` | Start dev server (Turbopack, port 3000) |
+| `npm run build` | Production build |
+| `npm run start` | Start production server |
+| `npm run lint` | Run ESLint |
+| `npm run bootstrap:admin` | Promote a user to admin by email |
+| `npm run seed:plans` | Seed Plan documents into MongoDB |
+| `npm run backfill:subscriptions` | Create Subscription records for existing approved users |
 
-## Admin recovery
+---
 
-If you ever get locked out of the admin panel (e.g. accidentally rejected yourself or the DB record was wiped), restore your access with the bootstrap script:
+## Access Control
+
+New users land in `pending` status after sign-up. Admins approve or reject access from `/admin`. The flow:
+
+```
+sign-up → pending → (admin approves) → approved → dashboard
+                  → (admin rejects)  → rejected  → can re-request
+```
+
+Admin routes are inside the `(dashboard)` group and additionally gate on `isAdmin: true` — non-admins receive a 404.
+
+---
+
+## AI Quota
+
+AI usage is tracked in USD per calendar month against each user's plan limit. Admins bypass the quota entirely and can set per-user custom limits from the admin panel.
+
+---
+
+## Project Structure
+
+```
+src/
+  proxy.ts                    # Clerk auth proxy (Next.js 16 replacement for middleware.ts)
+  app/
+    layout.tsx                # Root layout
+    page.tsx                  # Public landing page
+    (dashboard)/              # Protected route group
+      layout.tsx              # Enforces approved user + plan check
+      DashboardShell.tsx      # Sidebar + mobile nav
+      jobs/                   # Job tracker (list, kanban, detail, create, edit, trash)
+      resume/                 # Resume management (list, create, edit)
+      tracker/                # Dashboard analytics
+      admin/                  # Admin panel (users, audit log)
+    api/
+      webhooks/clerk/         # Clerk user sync webhook
+      generate/               # AI generation (streaming + non-streaming)
+      generate/export/        # DOCX export
+      jobs/parse/             # Quick import — AI job posting parser
+      resume/parse-pdf/       # PDF text extraction
+      resume/parse-docx/      # DOCX text extraction
+      admin/templates/        # Global DOCX template management
+  lib/
+    auth-helpers.ts           # requireApprovedUserWithPlan(), requireAdminWithPlan()
+    actions.ts                # defineAction() / defineAdminAction() wrappers
+    usage.ts                  # AI quota: checkBudget(), addSpend(), calculateCost()
+    anthropic.ts              # Anthropic SDK singleton (server-only)
+    prompts.ts                # All prompt builders
+    db/connect.ts             # MongoDB connection singleton
+    models/                   # Mongoose models
+    repositories/             # All database access (one file per model)
+    export/                   # DOCX export pipeline
+```
+
+---
+
+## Deployment
+
+The app is designed for [Vercel](https://vercel.com). Set all environment variables from the section above in the Vercel project settings, then push to your connected branch.
+
+After the first deployment, run the seed script once against your production database:
+
+```bash
+MONGODB_URI=your_production_uri npm run seed:plans
+```
+
+### Admin Recovery
+
+If you ever get locked out of the admin panel:
 
 ```bash
 npx tsx scripts/bootstrap-admin.ts your@email.com
 ```
 
-This sets `status: "approved"` and `isAdmin: true` for that email in the `jobhunt` database. Safe to run multiple times.
-
-## Clerk Webhook Setup
-
-To sync users into MongoDB on sign-up, you need to configure a webhook in the Clerk dashboard.
-
-1. Go to **Clerk Dashboard → Webhooks → Add Endpoint**.
-2. Set the URL to `https://<your-domain>/api/webhooks/clerk`.
-3. Subscribe to these events: `user.created`, `user.updated`, `user.deleted`.
-4. Copy the **Signing Secret** and add it to your environment as `CLERK_WEBHOOK_SIGNING_SECRET`.
-
-**Local development:** Use [ngrok](https://ngrok.com) to expose your local server (`ngrok http 3000`), then set the ngrok URL as the webhook endpoint in Clerk. Alternatively, use Clerk's built-in webhook tester in the dashboard to send test events directly without a tunnel.
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Sets `status: "approved"` and `isAdmin: true` for that email. Safe to run multiple times.
