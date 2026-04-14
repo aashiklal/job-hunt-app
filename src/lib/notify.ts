@@ -5,6 +5,23 @@
 import { Resend } from "resend";
 import { listAdmins } from "@/lib/repositories/users";
 
+async function sendTelegramMessage(text: string): Promise<void> {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!token || !chatId) return;
+
+  const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, text }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Telegram API error ${res.status}: ${body}`);
+  }
+}
+
 const FROM = process.env.RESEND_FROM_EMAIL ?? "notifications@yourdomain.com";
 
 function getResend(): Resend {
@@ -52,17 +69,22 @@ export async function notifyAdminsNewSignup(user: {
 
   const text = `${displayName} (${user.email}) just signed up and is waiting for approval.\n\nReview here: ${adminUrl}`;
 
-  try {
-    const resend = getResend();
-    await resend.emails.send({
-      from: FROM,
-      to: adminEmails,
-      subject: `New sign-up pending approval: ${displayName}`,
-      html,
-      text,
-    });
-  } catch (err) {
-    // Never let a notification failure break the webhook
-    console.error("[notify] Failed to send admin signup notification:", err);
-  }
+  const telegramText = `New sign-up pending approval: ${displayName} (${user.email})\n\nReview here: ${adminUrl}`;
+
+  await Promise.allSettled([
+    getResend()
+      .emails.send({
+        from: FROM,
+        to: adminEmails,
+        subject: `New sign-up pending approval: ${displayName}`,
+        html,
+        text,
+      })
+      .catch((err) =>
+        console.error("[notify] Failed to send email notification:", err)
+      ),
+    sendTelegramMessage(telegramText).catch((err) =>
+      console.error("[notify] Failed to send Telegram notification:", err)
+    ),
+  ]);
 }
