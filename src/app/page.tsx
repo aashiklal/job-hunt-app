@@ -36,13 +36,14 @@ export default async function LandingPage() {
   return (
     <main className="min-h-screen bg-background">
       {/* Nav */}
-      <header className="mx-auto flex max-w-5xl items-center justify-between px-4 py-5 md:px-6 lg:px-8">
-        <div className="flex items-center gap-2">
+      <header className="sticky top-0 z-50 border-b border-border/40 bg-background/90 backdrop-blur-sm">
+        <div className="flex items-center justify-between px-4 py-4 sm:px-8 lg:px-12">
+        <Link href="/" className="flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm">
           <Briefcase className="size-5 text-foreground" strokeWidth={1.75} />
           <span className="text-base font-semibold tracking-tight text-foreground">
             JobHunt
           </span>
-        </div>
+        </Link>
         <nav className="flex items-center gap-3">
           {userId ? (
             <Link
@@ -68,10 +69,11 @@ export default async function LandingPage() {
             </>
           )}
         </nav>
+        </div>
       </header>
 
       {/* Hero */}
-      <section className="mx-auto max-w-5xl px-4 py-20 text-center md:px-6 md:py-28 lg:px-8">
+      <section className="mx-auto max-w-6xl px-4 py-20 text-center sm:px-6 sm:py-28 lg:px-8">
         <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           AI-powered job tracker
         </p>
@@ -111,7 +113,7 @@ export default async function LandingPage() {
       </section>
 
       {/* Feature cards */}
-      <section className="mx-auto max-w-5xl px-4 pb-24 md:px-6 lg:px-8">
+      <section className="mx-auto max-w-6xl px-4 pb-24 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {features.map(({ icon: Icon, title, description }) => (
             <div
