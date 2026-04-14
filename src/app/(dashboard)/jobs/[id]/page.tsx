@@ -77,26 +77,31 @@ export default async function JobDetailPage({
   const jobLabel = `${job.role} at ${job.company}`;
 
   return (
-    <div className="space-y-8 px-4 md:px-6 lg:px-8 py-6 md:py-10 md:space-y-10">
-      <Link
-        href="/jobs"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors duration-200 ease-[var(--ease-out-expo)] hover:text-foreground"
-      >
-        <ChevronLeft className="size-4" strokeWidth={1.75} />
-        Back to jobs
-      </Link>
-
-      <div className="flex items-start justify-between gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-          {jobLabel}
-        </h1>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button asChild size="sm" variant="outline">
-            <Link href={`/jobs/${id}/edit`}>Edit</Link>
-          </Button>
-          <DeleteJobButton jobId={id} jobLabel={jobLabel} />
+    <div>
+      <header className="sticky top-14 md:top-0 z-10 -mx-6 md:-mx-8 border-b border-border bg-background/80 backdrop-blur-xl">
+        <div className="px-4 md:px-6 lg:px-8 pb-3 pt-3 md:pb-4 md:pt-4">
+          <Link
+            href="/jobs"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors duration-200 ease-[var(--ease-out-expo)] hover:text-foreground"
+          >
+            <ChevronLeft className="size-4" strokeWidth={1.75} />
+            Back to jobs
+          </Link>
+          <div className="mt-2 flex items-start justify-between gap-4">
+            <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+              {jobLabel}
+            </h1>
+            <div className="flex shrink-0 items-center gap-2">
+              <Button asChild size="sm" variant="outline">
+                <Link href={`/jobs/${id}/edit`}>Edit</Link>
+              </Button>
+              <DeleteJobButton jobId={id} jobLabel={jobLabel} />
+            </div>
+          </div>
         </div>
-      </div>
+      </header>
+
+      <div className="space-y-8 px-4 md:px-6 lg:px-8 py-6 md:py-8 md:space-y-10">
 
       {/* Details */}
       <Card className="border border-border/60 shadow-xs transition-shadow duration-200 ease-[var(--ease-out-expo)] hover:shadow-sm">
@@ -200,6 +205,7 @@ export default async function JobDetailPage({
           }
           initialAnalysis={initialAnalysis}
         />
+      </div>
       </div>
     </div>
   );

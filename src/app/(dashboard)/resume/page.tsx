@@ -1,23 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AlertCircle } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
 import { requireApprovedUserWithPlan } from "@/lib/auth-helpers";
 import * as resumes from "@/lib/repositories/resumes";
 import { toResumeListItem } from "@/lib/repositories/resumes";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { SetDefaultButton } from "./_components/set-default-button";
-import { DeleteResumeButton } from "./_components/delete-resume-button";
+import { ResumesTable } from "./_components/resumes-table";
 
 export const metadata: Metadata = {
   title: "Resumes — Job Hunt",
@@ -80,58 +69,7 @@ export default async function ResumePage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border/60 shadow-xs">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Title</TableHead>
-                <TableHead>Default</TableHead>
-                <TableHead className="hidden md:table-cell">Updated</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {resumeList.map((resume) => (
-                <TableRow key={resume._id}>
-                  <TableCell>
-                    <Link
-                      href={`/resume/${resume._id}`}
-                      className="font-medium text-foreground underline-offset-4 hover:underline"
-                    >
-                      {resume.title}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    {resume.isDefault ? (
-                      <Badge variant="secondary">Default</Badge>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
-                    {formatDistanceToNow(new Date(resume.updatedAt), {
-                      addSuffix: true,
-                    })}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" asChild>
-                        <Link href={`/resume/${resume._id}`}>Edit</Link>
-                      </Button>
-                      {!resume.isDefault && (
-                        <SetDefaultButton resumeId={resume._id} />
-                      )}
-                      <DeleteResumeButton
-                        resumeId={resume._id}
-                        resumeTitle={resume.title}
-                      />
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <ResumesTable resumes={resumeList} />
       )}
 
       {!atLimit && maxResumes !== -1 && (

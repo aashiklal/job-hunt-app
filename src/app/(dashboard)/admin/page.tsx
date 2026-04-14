@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { formatDistanceToNow } from "date-fns";
 import { requireAdminWithPlan } from "@/lib/auth-helpers";
 import * as usersRepo from "@/lib/repositories/users";
-import { type IUser } from "@/lib/repositories/users";
 import * as templates from "@/lib/repositories/templates";
 import * as auditLog from "@/lib/repositories/audit-log";
 import { getBulkSpend } from "@/lib/usage";
@@ -15,122 +12,13 @@ import {
   TabsTrigger,
   TabsContent,
 } from "@/components/ui/tabs";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { UserActionButton } from "./_components/user-actions";
-import { formatAuditAction } from "./_lib/format-audit";
+import { UserTable } from "./_components/user-table";
+import { AuditTable } from "./_components/audit-table";
 
 export const metadata: Metadata = {
   title: "Admin — Job Hunt",
   description: "Manage user access requests.",
 };
-
-function UserTable({
-  users,
-  adminId,
-  showApprove,
-  showReject,
-  spendMap,
-  spendLimit,
-}: {
-  users: IUser[];
-  adminId: string;
-  showApprove: boolean;
-  showReject: boolean;
-  spendMap?: Record<string, number>;
-  spendLimit?: number;
-}) {
-  const showSpend = !!spendMap;
-  return (
-    <div className="overflow-x-auto rounded-xl border border-border/60 shadow-xs">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Email</TableHead>
-            <TableHead className="hidden md:table-cell">Name</TableHead>
-            <TableHead className="hidden md:table-cell">Signed up</TableHead>
-            {showSpend && (
-              <TableHead className="hidden md:table-cell">
-                Spend this month
-              </TableHead>
-            )}
-            <TableHead>Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {users.map((user) => {
-            const id = (user._id as { toString(): string }).toString();
-            const isSelf = id === adminId;
-            const name =
-              user.firstName || user.lastName
-                ? [user.firstName, user.lastName].filter(Boolean).join(" ")
-                : "—";
-            const spent = spendMap?.[id] ?? 0;
-            return (
-              <TableRow key={id}>
-                <TableCell>
-                  <Link
-                    href={`/admin/${id}`}
-                    className="text-foreground underline-offset-4 hover:underline"
-                  >
-                    {user.email}
-                  </Link>
-                </TableCell>
-                <TableCell className="hidden text-foreground md:table-cell">
-                  {name}
-                </TableCell>
-                <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
-                  {formatDistanceToNow(new Date(user.createdAt), {
-                    addSuffix: true,
-                  })}
-                </TableCell>
-                {showSpend && (
-                  <TableCell className="hidden text-sm tabular-nums md:table-cell">
-                    {user.isAdmin ? (
-                      <span className="text-muted-foreground">
-                        ${spent.toFixed(2)} (no cap)
-                      </span>
-                    ) : (
-                      <span
-                        className={
-                          spent >= (spendLimit ?? 5)
-                            ? "font-medium text-destructive"
-                            : "text-foreground"
-                        }
-                      >
-                        ${spent.toFixed(2)} / ${(spendLimit ?? 5).toFixed(2)}
-                      </span>
-                    )}
-                  </TableCell>
-                )}
-                <TableCell>
-                  {isSelf ? (
-                    <span className="text-sm text-muted-foreground">—</span>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      {showApprove && (
-                        <UserActionButton userId={id} variant="approve" />
-                      )}
-                      {showReject && (
-                        <UserActionButton userId={id} variant="reject" />
-                      )}
-                    </div>
-                  )}
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </div>
-  );
-}
 
 export default async function AdminPage() {
   const { user: admin, plan } = await requireAdminWithPlan();
@@ -268,43 +156,7 @@ export default async function AdminPage() {
               No admin actions logged yet.
             </p>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-border/60 shadow-xs">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="whitespace-nowrap">When</TableHead>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Target user</TableHead>
-                    <TableHead>By</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {entries.map((entry) => (
-                    <TableRow key={entry._id}>
-                      <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                        {formatDistanceToNow(new Date(entry.createdAt), {
-                          addSuffix: true,
-                        })}
-                      </TableCell>
-                      <TableCell className="text-sm font-medium text-foreground">
-                        {formatAuditAction(entry.action, entry.details)}
-                      </TableCell>
-                      <TableCell className="max-w-[200px] truncate text-sm">
-                        <Link
-                          href={`/admin/${entry.targetUserId}`}
-                          className="text-foreground underline-offset-4 hover:underline"
-                        >
-                          {entry.targetUserEmail}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="max-w-[160px] truncate text-sm text-muted-foreground">
-                        {entry.adminEmail}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <AuditTable entries={entries} />
           )}
           <p className="text-xs text-muted-foreground">
             Audit entries are retained for 90 days, then automatically deleted.
