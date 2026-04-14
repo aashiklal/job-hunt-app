@@ -6,6 +6,7 @@ import User, { IUser } from "@/lib/models/User";
 import Plan, { IPlan } from "@/lib/models/Plan";
 import * as users from "@/lib/repositories/users";
 import * as subscriptions from "@/lib/repositories/subscriptions";
+import { notifyAdminsNewSignup } from "@/lib/notify";
 import { ISubscription } from "@/lib/models/Subscription";
 
 export async function getCurrentUser(): Promise<IUser | null> {
@@ -52,6 +53,12 @@ export const requireApprovedUserWithPlan = cache(
           email: primaryEmail ?? "",
           firstName: clerkUser.firstName ?? undefined,
           lastName: clerkUser.lastName ?? undefined,
+        });
+        // Notify admins — fire-and-forget, errors are swallowed inside
+        await notifyAdminsNewSignup({
+          email: primaryEmail ?? "",
+          firstName: clerkUser.firstName,
+          lastName: clerkUser.lastName,
         });
         redirect("/pending");
       }

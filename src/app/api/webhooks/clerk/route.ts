@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { Webhook } from "svix";
 import * as users from "@/lib/repositories/users";
+import { notifyAdminsNewSignup } from "@/lib/notify";
 
 type ClerkUserEventData = {
   id: string;
@@ -66,6 +67,12 @@ export async function POST(req: Request) {
         email,
         firstName: data.first_name ?? undefined,
         lastName: data.last_name ?? undefined,
+      });
+      // Notify admins — only for genuine new signups, not bootstrap claims
+      await notifyAdminsNewSignup({
+        email,
+        firstName: data.first_name,
+        lastName: data.last_name,
       });
     }
   }
