@@ -56,7 +56,10 @@ A full-stack AI-powered job application tracker. Track every application through
 | Forms | react-hook-form + Zod |
 | DOCX generation | docx, mammoth |
 | PDF extraction | unpdf |
+| Markdown rendering | react-markdown, remark-gfm |
 | Toast notifications | sonner |
+| Theming | next-themes |
+| Webhook verification | svix |
 | Email notifications | Resend |
 | Deployment | Vercel |
 
@@ -144,6 +147,7 @@ Then approve yourself (and other users) from the `/admin` panel.
 | `npm run bootstrap:admin` | Promote a user to admin by email |
 | `npm run seed:plans` | Seed Plan documents into MongoDB |
 | `npm run backfill:subscriptions` | Create Subscription records for existing approved users |
+| `npm run test:generate` | Run a one-shot AI generation test against your local env |
 
 ---
 
