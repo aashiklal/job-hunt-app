@@ -54,6 +54,11 @@ export async function listAll(): Promise<IUser[]> {
   return User.find().sort({ createdAt: -1 });
 }
 
+export async function listAdmins(): Promise<IUser[]> {
+  await connectDB();
+  return User.find({ isAdmin: true }, { email: 1 }).lean() as Promise<IUser[]>;
+}
+
 export async function setStatus(
   id: string,
   status: "pending" | "approved" | "rejected"
@@ -125,6 +130,11 @@ export async function claimByEmail(
   if (args.firstName !== undefined) update.firstName = args.firstName;
   if (args.lastName !== undefined) update.lastName = args.lastName;
   return User.findOneAndUpdate({ email }, { $set: update }, { returnDocument: "after" });
+}
+
+export async function countApproved(): Promise<number> {
+  await connectDB();
+  return User.countDocuments({ status: "approved" });
 }
 
 export async function deleteByClerkId(clerkId: string): Promise<boolean> {

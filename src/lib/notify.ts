@@ -3,8 +3,7 @@
  * Server-only — never import this in Client Components.
  */
 import { Resend } from "resend";
-import connectDB from "@/lib/db/connect";
-import User from "@/lib/models/User";
+import { listAdmins } from "@/lib/repositories/users";
 
 const FROM = process.env.RESEND_FROM_EMAIL ?? "notifications@yourdomain.com";
 
@@ -16,9 +15,8 @@ function getResend(): Resend {
 
 /** Fetch every admin's email address from the DB. */
 async function getAdminEmails(): Promise<string[]> {
-  await connectDB();
-  const admins = await User.find({ isAdmin: true }, { email: 1 }).lean();
-  return admins.map((a) => a.email as string).filter(Boolean);
+  const admins = await listAdmins();
+  return admins.map((a) => a.email).filter(Boolean);
 }
 
 /**

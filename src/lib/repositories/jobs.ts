@@ -206,6 +206,11 @@ export async function restore(
   );
 }
 
+export async function countAll(): Promise<number> {
+  await connectDB();
+  return Job.countDocuments({ deletedAt: null });
+}
+
 // ---------------------------------------------------------------------------
 // Tracker stats
 // ---------------------------------------------------------------------------

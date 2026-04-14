@@ -13,6 +13,11 @@ export type CreateDocumentInput = {
   resumeIdUsed?: string;
 };
 
+export async function countAll(): Promise<number> {
+  await connectDB();
+  return Doc.countDocuments({});
+}
+
 export async function list(
   userId: string,
   jobId?: string
