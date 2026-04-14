@@ -39,6 +39,7 @@ A full-stack AI-powered job application tracker. Track every application through
 - Set or clear per-user AI spend overrides
 - Toggle admin privileges
 - Full paginated audit log of every admin action
+- Real-time email notification when a new user signs up and is waiting for approval
 
 ---
 
@@ -55,7 +56,8 @@ A full-stack AI-powered job application tracker. Track every application through
 | Forms | react-hook-form + Zod |
 | DOCX generation | docx, mammoth |
 | PDF extraction | unpdf |
-| Notifications | sonner |
+| Toast notifications | sonner |
+| Email notifications | Resend |
 | Deployment | Vercel |
 
 ---
@@ -68,6 +70,7 @@ A full-stack AI-powered job application tracker. Track every application through
 - A MongoDB database (MongoDB Atlas free tier works)
 - A [Clerk](https://clerk.com) application
 - An [Anthropic](https://console.anthropic.com) API key
+- A [Resend](https://resend.com) account (free tier works)
 
 ### Environment Variables
 
@@ -79,7 +82,13 @@ ANTHROPIC_API_KEY=your_anthropic_api_key
 CLERK_SECRET_KEY=your_clerk_secret_key
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
 CLERK_WEBHOOK_SIGNING_SECRET=your_clerk_webhook_signing_secret
+
+# Email notifications (Resend)
+RESEND_API_KEY=your_resend_api_key
+RESEND_FROM_EMAIL=onboarding@resend.dev
 ```
+
+> `RESEND_FROM_EMAIL` can be `onboarding@resend.dev` for testing (delivers only to your Resend account email). For production, verify a sending domain in Resend and use `noreply@yourdomain.com`.
 
 ### Installation
 
@@ -196,7 +205,7 @@ src/
 
 ## Deployment
 
-The app is designed for [Vercel](https://vercel.com). Set all environment variables from the section above in the Vercel project settings, then push to your connected branch.
+The app is designed for [Vercel](https://vercel.com). Set all environment variables from the section above in the Vercel project settings, then push to your connected branch. The production URL is resolved automatically via `VERCEL_PROJECT_PRODUCTION_URL` — no extra config needed for admin notification links to work.
 
 After the first deployment, run the seed script once against your production database:
 
