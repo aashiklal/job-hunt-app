@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { requireAdminWithPlan } from "@/lib/auth-helpers";
 import * as usersRepo from "@/lib/repositories/users";
+import type { UserListItem } from "@/lib/repositories/users";
 import * as templates from "@/lib/repositories/templates";
 import * as auditLog from "@/lib/repositories/audit-log";
 import { getBulkSpend } from "@/lib/usage";
@@ -24,15 +25,17 @@ export default async function AdminPage() {
   const { user: admin, plan } = await requireAdminWithPlan();
   const adminId = (admin._id as { toString(): string }).toString();
 
-  const [allUsers, adminTemplateList, auditEntries] = await Promise.all([
+  const [rawUsers, adminTemplateList, auditEntries] = await Promise.all([
     usersRepo.listAll(),
     templates.list(),
     auditLog.listRecent(100),
   ]);
 
+  const allUsers: UserListItem[] = rawUsers.map(usersRepo.toUserListItem);
+
   const approvedUserIds = allUsers
     .filter((u) => u.status === "approved")
-    .map((u) => (u._id as { toString(): string }).toString());
+    .map((u) => u._id);
 
   const approvedSpend = await getBulkSpend(approvedUserIds);
 
@@ -75,7 +78,7 @@ export default async function AdminPage() {
             </p>
           </div>
 
-          <Tabs defaultValue="pending">
+          <Tabs defaultValue="approved">
             <TabsList>
               <TabsTrigger value="pending">
                 Pending

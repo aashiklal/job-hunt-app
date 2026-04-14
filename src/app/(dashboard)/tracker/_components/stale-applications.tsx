@@ -30,6 +30,7 @@ export function StaleApplications({ jobs }: Props) {
         </span>
       </div>
 
+      <div className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
@@ -44,13 +45,13 @@ export function StaleApplications({ jobs }: Props) {
               <TableCell className="pl-5 font-medium">
                 <Link
                   href={`/jobs/${job._id}`}
-                  className="hover:underline"
+                  className="block max-w-[160px] truncate hover:underline"
                 >
                   {job.company}
                 </Link>
               </TableCell>
               <TableCell className="text-muted-foreground">
-                {job.role}
+                <div className="max-w-[200px] truncate">{job.role}</div>
               </TableCell>
               <TableCell className="pr-5 text-right">
                 <span
@@ -67,6 +68,7 @@ export function StaleApplications({ jobs }: Props) {
           ))}
         </TableBody>
       </Table>
+      </div>
     </div>
   );
 }

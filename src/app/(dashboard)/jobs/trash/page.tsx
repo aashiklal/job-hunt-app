@@ -66,9 +66,11 @@ export default async function TrashPage() {
                 return (
                   <TableRow key={id}>
                     <TableCell className="font-medium text-foreground">
-                      {job.company}
+                      <div className="max-w-[180px] truncate">{job.company}</div>
                     </TableCell>
-                    <TableCell className="text-foreground">{job.role}</TableCell>
+                    <TableCell className="text-foreground">
+                      <div className="max-w-[220px] truncate">{job.role}</div>
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {job.deletedAt
                         ? formatDistanceToNow(new Date(job.deletedAt), {

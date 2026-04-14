@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { auth } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { Briefcase, FileText, Zap } from "lucide-react";
+import { ThemeToggle } from "./ThemeToggle";
 
 export const metadata: Metadata = {
   title: "JobHunt — Land your next role",
@@ -44,7 +45,8 @@ export default async function LandingPage() {
             JobHunt
           </span>
         </Link>
-        <nav className="flex items-center gap-3">
+        <nav className="flex items-center gap-2">
+          <ThemeToggle />
           {userId ? (
             <Link
               href="/jobs"

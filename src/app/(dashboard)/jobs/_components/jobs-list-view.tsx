@@ -39,9 +39,15 @@ export function JobsListView({ jobs }: Props) {
               className="cursor-pointer transition-colors hover:bg-muted/50"
               onClick={() => router.push(`/jobs/${job._id}`)}
             >
-              <TableCell>{job.company}</TableCell>
-              <TableCell>{job.role}</TableCell>
-              <TableCell>{job.location ?? "—"}</TableCell>
+              <TableCell>
+                <div className="max-w-[180px] truncate">{job.company}</div>
+              </TableCell>
+              <TableCell>
+                <div className="max-w-[220px] truncate">{job.role}</div>
+              </TableCell>
+              <TableCell>
+                <div className="max-w-[140px] truncate">{job.location ?? "—"}</div>
+              </TableCell>
               <TableCell>
                 <StatusBadge status={job.status} />
               </TableCell>

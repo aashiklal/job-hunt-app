@@ -42,7 +42,7 @@ export function ResumesTable({ resumes }: Props) {
               onClick={() => router.push(`/resume/${resume._id}`)}
             >
               <TableCell className="font-medium text-foreground">
-                {resume.title}
+                <div className="max-w-[280px] truncate">{resume.title}</div>
               </TableCell>
               <TableCell>
                 {resume.isDefault ? (

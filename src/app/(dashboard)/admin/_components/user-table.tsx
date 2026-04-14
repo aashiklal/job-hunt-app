@@ -11,10 +11,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { UserActionButton } from "./user-actions";
-import type { IUser } from "@/lib/repositories/users";
+import type { UserListItem } from "@/lib/repositories/users";
 
 type Props = {
-  users: IUser[];
+  users: UserListItem[];
   adminId: string;
   showApprove: boolean;
   showReject: boolean;
@@ -51,7 +51,7 @@ export function UserTable({
         </TableHeader>
         <TableBody>
           {users.map((user) => {
-            const id = (user._id as { toString(): string }).toString();
+            const id = user._id;
             const isSelf = id === adminId;
             const name =
               user.firstName || user.lastName
@@ -64,9 +64,11 @@ export function UserTable({
                 className="cursor-pointer transition-colors hover:bg-muted/50"
                 onClick={() => router.push(`/admin/${id}`)}
               >
-                <TableCell className="text-foreground">{user.email}</TableCell>
+                <TableCell className="text-foreground">
+                  <div className="max-w-[220px] truncate">{user.email}</div>
+                </TableCell>
                 <TableCell className="hidden text-foreground md:table-cell">
-                  {name}
+                  <div className="max-w-[160px] truncate">{name}</div>
                 </TableCell>
                 <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
                   {formatDistanceToNow(new Date(user.createdAt), {

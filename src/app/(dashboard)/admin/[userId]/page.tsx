@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
@@ -25,7 +26,7 @@ import { ClearCustomLimitButton } from "../_components/clear-custom-limit-button
 import { SetCustomLimitDialog } from "../_components/set-custom-limit-dialog";
 import { formatAuditAction } from "../_lib/format-audit";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "User Detail — Admin",
   description: "View and manage a user's access, limits, and activity.",
 };
@@ -88,71 +89,105 @@ export default async function Page({
       : "font-medium text-foreground";
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8 px-4 md:px-6 lg:px-8 py-6 md:py-10 md:space-y-10">
-      <Link
-        href="/admin"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors duration-200 ease-[var(--ease-out-expo)] hover:text-foreground"
-      >
-        <ChevronLeft className="size-4" strokeWidth={1.75} />
-        Back to admin
-      </Link>
-
-      {/* Identity card */}
-      <Card className="border border-border/60 shadow-xs transition-shadow duration-200 ease-[var(--ease-out-expo)] hover:shadow-sm">
-        <CardHeader className="pb-3">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="space-y-1">
-              <CardTitle className="text-lg font-semibold tracking-tight">
-                {displayName ?? target.email}
-              </CardTitle>
-              {displayName && (
-                <p className="text-sm text-muted-foreground">{target.email}</p>
-              )}
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <Badge variant={statusBadgeVariant}>
-                  {target.status.charAt(0).toUpperCase() +
-                    target.status.slice(1)}
-                </Badge>
-                {target.isAdmin && <Badge variant="default">Admin</Badge>}
-                <span className="text-xs text-muted-foreground">
-                  Joined{" "}
-                  {formatDistanceToNow(new Date(target.createdAt), {
-                    addSuffix: true,
-                  })}
-                </span>
-              </div>
+    <div>
+      <header className="sticky top-14 md:top-0 z-10 -mx-6 md:-mx-8 border-b border-border bg-background/80 backdrop-blur-xl">
+        <div className="px-4 md:px-6 lg:px-8 pb-3 pt-3 md:pb-4 md:pt-4">
+          <Link
+            href="/admin"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors duration-200 ease-[var(--ease-out-expo)] hover:text-foreground"
+          >
+            <ChevronLeft className="size-4" strokeWidth={1.75} />
+            Back to admin
+          </Link>
+          <div className="mt-2">
+            <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+              {displayName ?? target.email}
+            </h1>
+            {displayName && (
+              <p className="mt-1 text-sm text-muted-foreground">{target.email}</p>
+            )}
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Badge variant={statusBadgeVariant}>
+                {target.status.charAt(0).toUpperCase() + target.status.slice(1)}
+              </Badge>
+              {target.isAdmin && <Badge variant="default">Admin</Badge>}
+              <span className="text-xs text-muted-foreground">
+                Joined{" "}
+                {formatDistanceToNow(new Date(target.createdAt), {
+                  addSuffix: true,
+                })}
+              </span>
             </div>
           </div>
-        </CardHeader>
-        <Separator />
-        <CardContent className="pt-4">
-          {isSelf ? (
-            <p className="text-sm text-muted-foreground">
-              Cannot edit your own account.
-            </p>
-          ) : (
-            <div className="flex flex-wrap items-center gap-2">
-              {target.status === "pending" && (
-                <>
-                  <UserActionButton userId={targetId} variant="approve" />
+        </div>
+      </header>
+
+      <div className="space-y-8 md:space-y-10 px-4 md:px-6 lg:px-8 py-6 md:py-8">
+
+      {/* Controls card */}
+      {isSelf ? (
+        <p className="text-sm text-muted-foreground">
+          Cannot edit your own account.
+        </p>
+      ) : (
+        <Card className="border border-border/60 shadow-xs transition-shadow duration-200 ease-[var(--ease-out-expo)] hover:shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-medium">
+              User controls
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="divide-y divide-border/60 p-0">
+            {/* Access row */}
+            <div className="flex items-center justify-between gap-4 px-6 py-4">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">Access</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {target.status === "approved"
+                    ? "This user can sign in and use the app."
+                    : target.status === "pending"
+                      ? "Waiting for approval — the user cannot sign in yet."
+                      : "Access has been revoked — the user cannot sign in."}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {target.status === "pending" && (
+                  <>
+                    <UserActionButton userId={targetId} variant="approve" />
+                    <UserActionButton userId={targetId} variant="reject" />
+                  </>
+                )}
+                {target.status === "approved" && (
                   <UserActionButton userId={targetId} variant="reject" />
-                </>
-              )}
-              {target.status === "approved" && (
-                <UserActionButton userId={targetId} variant="reject" />
-              )}
-              {target.status === "rejected" && (
-                <UserActionButton userId={targetId} variant="approve" />
-              )}
-              <ToggleAdminButton
-                userId={targetId}
-                currentlyAdmin={target.isAdmin}
-                userLabel={displayName ?? target.email}
-              />
+                )}
+                {target.status === "rejected" && (
+                  <UserActionButton userId={targetId} variant="approve" />
+                )}
+              </div>
             </div>
-          )}
-        </CardContent>
-      </Card>
+
+            {/* Admin row */}
+            <div className="flex items-center justify-between gap-4 px-6 py-4">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">
+                  Admin access
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {target.isAdmin
+                    ? "Can access the admin panel and manage other users."
+                    : "Standard user — no admin privileges."}
+                </p>
+              </div>
+              <div className="shrink-0">
+                <ToggleAdminButton
+                  userId={targetId}
+                  currentlyAdmin={target.isAdmin}
+                  userLabel={displayName ?? target.email}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Usage card */}
       <Card className="border border-border/60 shadow-xs transition-shadow duration-200 ease-[var(--ease-out-expo)] hover:shadow-sm">
@@ -259,7 +294,7 @@ export default async function Page({
                       <TableCell className="text-sm text-muted-foreground">
                         {entry.adminEmail}
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
+                      <TableCell className="max-w-[240px] break-all text-sm text-muted-foreground">
                         {entry.details
                           ? Object.entries(entry.details)
                               .map(([k, v]) => `${k}: ${v}`)
@@ -274,6 +309,7 @@ export default async function Page({
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
