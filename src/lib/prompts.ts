@@ -341,3 +341,298 @@ Generate the interview questions. Return ONLY the JSON object.`;
 
   return { system, userMessage };
 }
+
+export function buildLinkedInAppliedFollowupDMPrompt(args: {
+  senderName: string;
+  recipientName: string;
+  job: { company: string; role: string };
+  daysSinceApplied: number;
+  previousMessageSent: boolean;
+}): { system: string; userMessage: string } {
+  const { senderName, recipientName, job, daysSinceApplied, previousMessageSent } = args;
+  const system = `You are helping a job applicant write a follow-up LinkedIn DM after applying for a role with no response.
+
+Rules:
+- Keep it under 50 words. This is a nudge, not a pitch.
+- Reference the role and company by name.
+- If previousMessageSent is true: acknowledge this is a second follow-up, keep it even shorter, give them an easy out ("happy to be redirected if this is not the right channel").
+- Do NOT sound desperate. Do NOT re-pitch yourself.
+- Do NOT open with "Just following up" -- find a better first line.
+- Plain text only. No greeting header, no sign-off block. Output ONLY the message body.`;
+
+  const userMessage = `Recipient first name: ${recipientName}
+Company: ${job.company}
+Role: ${job.role}
+Days since I applied: ${daysSinceApplied}
+Have I already sent one follow-up before this? ${previousMessageSent ? "yes" : "no"}
+My name: ${senderName}
+
+Write the follow-up DM. Under 50 words.`;
+
+  return { system, userMessage };
+}
+
+export function buildColdEmailPrompt(args: {
+  senderName: string;
+  recipientName?: string;
+  recipientTitle?: string;
+  job: { company: string; role: string; companyContext?: string };
+}): { system: string; userMessage: string } {
+  const { senderName, recipientName, recipientTitle, job } = args;
+  const system = `You are helping a job applicant write a cold outreach email to a company that has not advertised a specific role.
+
+The goal is a speculative application: the applicant is reaching out directly to introduce themselves and signal interest in a specific type of role.
+
+Rules:
+- Subject line: short, specific, non-generic. Include the company name and target role.
+- Body: 3 short paragraphs max, under 200 words total.
+  - Para 1: one specific reason you are reaching out to THIS company (use companyContext if provided, otherwise infer something believable from the company name and role).
+  - Para 2: two concrete things from the resume that are directly relevant to the target role.
+  - Para 3: a clear, low-pressure ask (e.g. "Would you be open to a 15-minute call?").
+- Do NOT use: "I am writing to inquire", "I believe I would be a great fit", "Please find attached".
+- Sign off with the applicant's name only (no title or contact block -- the user will add that).
+- Output format: first line is the subject line prefixed with "Subject: ", then a blank line, then the email body.
+- Plain text only. No markdown.`;
+
+  const userMessage = `Company: ${job.company}
+Target role: ${job.role}
+${recipientName ? `Recipient: ${recipientName}${recipientTitle ? `, ${recipientTitle}` : ""}` : "Recipient: Hiring Manager (unknown name)"}
+${job.companyContext ? `Why this company specifically: ${job.companyContext}` : ""}
+My name: ${senderName}
+
+Write the cold email. Subject line first, then the body. Under 200 words.`;
+
+  return { system, userMessage };
+}
+
+export function buildCheckinEmailPrompt(args: {
+  senderName: string;
+  recipientName?: string;
+  job: { company: string; role: string };
+  lastInteractionDescription: string;
+  daysSinceLastContact: number;
+}): { system: string; userMessage: string } {
+  const { senderName, recipientName, job, lastInteractionDescription, daysSinceLastContact } = args;
+  const system = `You are helping a job applicant write a brief check-in email after going silent post-interview.
+
+This email has two goals: (1) show continued interest, (2) get clarity on whether the process is still active.
+
+Rules:
+- Subject line: reference the role. Keep it short.
+- Body: 2 short paragraphs, under 100 words.
+  - Para 1: reference the last interaction (the interview or call) and express continued interest.
+  - Para 2: ask directly if the process is still ongoing. Give them a polite out ("I understand if the timeline has shifted or the role has been filled").
+- Do NOT sound desperate or resentful. No guilt-tripping.
+- Do NOT use "Just checking in" as the opener.
+- Sign off with the applicant's name.
+- Output format: "Subject: <subject>" on line 1, blank line, then body. Plain text only.`;
+
+  const userMessage = `Company: ${job.company}
+Role: ${job.role}
+Last interaction: ${lastInteractionDescription}
+Days since last contact: ${daysSinceLastContact}
+${recipientName ? `Recipient: ${recipientName}` : "Recipient: unknown (use 'Hiring Team')"}
+My name: ${senderName}
+
+Write the check-in email. Subject first, body under 100 words.`;
+
+  return { system, userMessage };
+}
+
+export function buildSalaryNegotiationEmailPrompt(args: {
+  senderName: string;
+  recipientName: string;
+  job: { company: string; role: string };
+  offeredSalary: string;
+  targetSalary: string;
+  negotiationReason: string;
+  otherComponents?: string;
+}): { system: string; userMessage: string } {
+  const { senderName, recipientName, job, offeredSalary, targetSalary, negotiationReason, otherComponents } = args;
+  const system = `You are helping a job applicant write a professional salary negotiation email after receiving a job offer.
+
+The goal is to counter confidently without damaging the relationship or sounding entitled.
+
+Rules:
+- Subject line: "Re: Offer -- [Role] at [Company]" or similar. Keep it professional.
+- Body: 3 paragraphs, under 200 words.
+  - Para 1: thank them for the offer. Express genuine enthusiasm for the role. Keep it brief -- this is not the main point.
+  - Para 2: make the ask. State the specific counter number (or component). Ground it in one specific reason from negotiationReason (market rate, competing offer, cost of living, experience level). One reason only -- multiple reasons sound desperate.
+  - Para 3: reaffirm excitement about the role. Make clear you are hoping to reach an agreement, not issue an ultimatum. A closing line that invites dialogue.
+- Do NOT say "I feel", "I was hoping", "I was wondering if". Be direct.
+- Do NOT make the counter sound like begging.
+- If otherComponents is provided, work it in naturally in para 2 as a secondary ask.
+- Sign off with applicant's name.
+- Output format: "Subject: <subject>" on line 1, blank line, then body. Plain text only.`;
+
+  const userMessage = `Recipient: ${recipientName}
+Company: ${job.company}
+Role: ${job.role}
+Offer received: ${offeredSalary}
+My target: ${targetSalary}
+Reason for counter: ${negotiationReason}
+${otherComponents ? `Other components to negotiate: ${otherComponents}` : ""}
+My name: ${senderName}
+
+Write the negotiation email. Subject first, body under 200 words.`;
+
+  return { system, userMessage };
+}
+
+export function buildSTARStoryPolishPrompt(args: {
+  roughDraft: string;
+  title: string;
+  maxWords?: number;
+}): { system: string; userMessage: string } {
+  const { roughDraft, title, maxWords = 200 } = args;
+  const system = `You are an expert interview coach helping a job applicant polish a rough behavioral story into a clean STAR-format answer.
+
+STAR format:
+- Situation: brief context (1-2 sentences). What was the setting?
+- Task: what were you specifically responsible for?
+- Action: what YOU did -- not "we". Specific, active verbs. This is the longest part (2-4 sentences).
+- Result: quantified outcome if possible. What changed because of your action? Include timeframe if known.
+
+Rules:
+- Stay within the maxWords limit.
+- Use first-person singular. Remove passive voice.
+- Do NOT invent facts. If the story is vague, make the existing facts sharper -- do not add new ones.
+- Remove filler phrases: "basically", "like", "you know", "so yeah".
+- The Result must be concrete. If the user's draft has a vague result ("it went well"), improve the phrasing but do not fabricate a number.
+- Output format: plain text, with "Situation:", "Task:", "Action:", "Result:" as section headers on their own lines. No markdown bold, no bullet points.`;
+
+  const userMessage = `Story title: ${title}
+Max words: ${maxWords}
+
+My rough story:
+${roughDraft}
+
+Polish this into a clean STAR answer. Use the section headers. Stay under ${maxWords} words.`;
+
+  return { system, userMessage };
+}
+
+export function buildSkillsGapPrompt(args: {
+  missingRequired: string[];
+  missingNiceToHave: string[];
+  resumeSkillsText: string;
+  appliedRoles: string[];
+}): { system: string; userMessage: string } {
+  const { missingRequired, missingNiceToHave, resumeSkillsText, appliedRoles } = args;
+  const system = `You are a career coach helping a job applicant understand their skills gap based on the roles they have been applying to.
+
+You have been given a list of skills that repeatedly appear in job descriptions the applicant has applied to, but are missing from their resume. Your job is to produce a prioritised, actionable learning roadmap.
+
+Respond with ONLY a JSON object matching this schema -- no preamble, no markdown fences:
+
+{
+  "summary": "string -- 2-3 sentence plain English summary of the overall gap pattern",
+  "highPriority": [
+    {
+      "skill": "string",
+      "why": "string -- one sentence: why this skill matters for their target role type",
+      "howToLearn": "string -- one specific, free or low-cost resource or approach (e.g. 'Build a small project using X', 'Complete the official Y docs tutorial'). No paid course recommendations unless free tier is available.",
+      "timeEstimate": "string -- e.g. '2-4 weeks part-time'"
+    }
+  ],
+  "mediumPriority": [ same shape as highPriority ],
+  "lowPriority": [ same shape as highPriority ],
+  "quickWins": [
+    "string -- skills the user almost certainly has but has not written on the resume (inferred from adjacent skills present). One sentence each: 'You use X -- consider adding Y explicitly since it appears in N job descriptions.'"
+  ]
+}
+
+Rules:
+- highPriority: required skills missing from the most job descriptions. Max 5 items.
+- mediumPriority: required skills missing from fewer job descriptions, or frequently missing nice-to-haves. Max 5 items.
+- lowPriority: nice-to-haves missing from few job descriptions. Max 3 items.
+- quickWins: infer from the user's resume what adjacent skills they might have but not listed. Max 3 items.
+- howToLearn: be specific. "Learn Docker" is not useful. "Build a containerised version of a personal project and push it to Docker Hub" is useful.
+- Do NOT recommend paid courses. Suggest official docs, open source projects, personal projects, or free platforms.`;
+
+  const userMessage = `Roles I have been applying to: ${appliedRoles.join(", ")}
+
+Required skills missing from my resume:
+${missingRequired.map((s) => `- ${s}`).join("\n")}
+
+Nice-to-have skills missing from my resume:
+${missingNiceToHave.map((s) => `- ${s}`).join("\n")}
+
+My resume skills (to identify adjacent skills for quick wins):
+${resumeSkillsText.slice(0, 1500)}
+
+Return the JSON skills gap analysis.`;
+
+  return { system, userMessage };
+}
+
+export function buildOfferComparisonPrompt(args: {
+  offers: Array<{
+    company: string;
+    role: string;
+    baseSalary: number;
+    currency: string;
+    equity?: string;
+    bonus?: string;
+    leaveDays?: number;
+    location: string;
+    remotePolicy: string;
+    roleLevel: string;
+    notes?: string;
+  }>;
+}): { system: string; userMessage: string } {
+  const { offers } = args;
+  const system = `You are a career advisor helping a job applicant objectively compare multiple job offers.
+
+Your job is to produce a structured, honest comparison and a clear recommendation -- not a wishy-washy "it depends on what matters to you" non-answer.
+
+Respond with ONLY a JSON object matching this exact schema -- no preamble, no markdown fences:
+
+{
+  "comparisonTable": [
+    {
+      "dimension": "string -- e.g. 'Total compensation', 'Remote flexibility', 'Career growth signal', 'Company stability'",
+      "winner": "string -- company name, or 'Tie'",
+      "notes": "string -- one sentence explaining the call"
+    }
+  ],
+  "prosAndCons": {
+    "<company_name>": {
+      "pros": ["string"],
+      "cons": ["string"]
+    }
+  },
+  "recommendation": {
+    "pick": "string -- company name",
+    "reasoning": "string -- 3-4 sentences. Be direct. Acknowledge the trade-offs of this choice."
+  },
+  "negotiationOpportunities": [
+    "string -- one per offer where there is a clear gap to negotiate (e.g. 'Offer B base salary is $10k below Offer A for the same level -- use that as leverage')"
+  ]
+}
+
+Rules:
+- comparisonTable: cover at minimum: total compensation, remote/location, role level/seniority, career growth signal, company stability/size, benefits. Add more dimensions if the offer data justifies it.
+- Be honest. If one offer is clearly better on a dimension, say so. Do not artificially balance the comparison.
+- recommendation.pick: choose one. If it is genuinely too close to call without more information, say which single piece of information would change the answer and why.
+- negotiationOpportunities: only include if there is a real, specific gap to exploit. Empty array if not.`;
+
+  const userMessage = `Offers:
+${offers
+    .map(
+      (o, i) => `
+Offer ${i + 1}: ${o.company} -- ${o.role}
+  Base salary: ${o.currency} ${o.baseSalary.toLocaleString()}
+  ${o.equity ? `Equity: ${o.equity}` : "No equity"}
+  ${o.bonus ? `Bonus: ${o.bonus}` : "No bonus"}
+  Location: ${o.location} (${o.remotePolicy.replace("_", " ")})
+  Leave: ${o.leaveDays != null ? `${o.leaveDays} days` : "Not specified"}
+  Level: ${o.roleLevel}
+  ${o.notes ? `Notes: ${o.notes}` : ""}`
+    )
+    .join("\n")}
+
+Return the JSON comparison.`;
+
+  return { system, userMessage };
+}
