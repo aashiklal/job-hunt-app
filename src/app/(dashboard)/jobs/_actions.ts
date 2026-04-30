@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { defineAction } from "@/lib/actions";
 import * as jobs from "@/lib/repositories/jobs";
+import { InvalidTransitionError, isValidTransition } from "@/lib/models/Job";
 
 const jobStatusSchema = z.enum([
   "saved",
@@ -65,6 +66,11 @@ export const updateJob = defineAction(
 export const setJobStatus = defineAction(
   async (ctx, input: z.infer<typeof setStatusSchema>) => {
     const { jobId, status } = setStatusSchema.parse(input);
+    const current = await jobs.getById(ctx.user._id.toString(), jobId);
+    if (!current) throw new Error("Job not found");
+    if (!isValidTransition(current.status, status)) {
+      throw new InvalidTransitionError(current.status, status);
+    }
     const updated = await jobs.setStatus(ctx.user._id.toString(), jobId, status);
     if (!updated) {
       throw new Error("Job not found");

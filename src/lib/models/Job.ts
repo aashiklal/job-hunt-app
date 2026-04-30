@@ -10,6 +10,20 @@ export type JobStatus =
   | "rejected"
   | "withdrawn";
 
+export class InvalidTransitionError extends Error {
+  constructor(from: JobStatus, to: JobStatus) {
+    super(`Cannot transition job from "${from}" to "${to}"`);
+    this.name = "InvalidTransitionError";
+  }
+}
+
+// Terminal states may only restart at "saved"; all other transitions are open.
+export function isValidTransition(from: JobStatus, to: JobStatus): boolean {
+  if (from === to) return true;
+  if ((from === "rejected" || from === "withdrawn") && to !== "saved") return false;
+  return true;
+}
+
 export type IJob = {
   userId: Types.ObjectId;
   company: string;
