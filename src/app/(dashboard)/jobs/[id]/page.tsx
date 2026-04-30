@@ -10,12 +10,11 @@ import * as documents from "@/lib/repositories/documents";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DeleteJobButton } from "./_components/delete-job-button";
-import { GeneratePanel } from "./_components/generate-panel";
-import { JDAnalysisPanel } from "./_components/jd-analysis-panel";
+import { JobDetailTabs } from "./_components/job-detail-tabs";
 import { StatusBadge } from "@/app/(dashboard)/jobs/_components/status-badge";
 
 export const metadata: Metadata = {
-  title: "Job Detail — Job Hunt",
+  title: "Job Detail -- Job Hunt",
   description: "View your job application details.",
 };
 
@@ -36,7 +35,7 @@ function DetailRow({
   );
 }
 
-const Dash = () => <span className="text-muted-foreground">—</span>;
+const Dash = () => <span className="text-muted-foreground">-</span>;
 
 export default async function JobDetailPage({
   params,
@@ -50,13 +49,27 @@ export default async function JobDetailPage({
   const job = await jobs.getById(userIdStr, id);
   if (!job) notFound();
 
-  const [resumeList, latestResumeDoc, latestCoverLetterDoc, latestJDDoc] =
-    await Promise.all([
-      resumes.list(userIdStr),
-      documents.getLatestForJob(userIdStr, id, "resume"),
-      documents.getLatestForJob(userIdStr, id, "cover_letter"),
-      documents.getLatestForJob(userIdStr, id, "jd_analysis"),
-    ]);
+  const [
+    resumeList,
+    latestResumeDoc,
+    latestCoverLetterDoc,
+    latestJDDoc,
+    latestLinkedInNoteDoc,
+    latestLinkedInDmDoc,
+    latestFollowUpEmailDoc,
+    latestThankYouEmailDoc,
+    latestInterviewPrepDoc,
+  ] = await Promise.all([
+    resumes.list(userIdStr),
+    documents.getLatestForJob(userIdStr, id, "resume"),
+    documents.getLatestForJob(userIdStr, id, "cover_letter"),
+    documents.getLatestForJob(userIdStr, id, "jd_analysis"),
+    documents.getLatestForJob(userIdStr, id, "linkedin_note"),
+    documents.getLatestForJob(userIdStr, id, "linkedin_dm"),
+    documents.getLatestForJob(userIdStr, id, "followup_email"),
+    documents.getLatestForJob(userIdStr, id, "thankyou_email"),
+    documents.getLatestForJob(userIdStr, id, "interview_prep"),
+  ]);
 
   const initialAnalysis = latestJDDoc
     ? (() => {
@@ -67,6 +80,19 @@ export default async function JobDetailPage({
         }
       })()
     : null;
+
+  const initialInterviewPrep = latestInterviewPrepDoc
+    ? (() => {
+        try {
+          return JSON.parse(latestInterviewPrepDoc.content);
+        } catch {
+          return null;
+        }
+      })()
+    : null;
+
+  const defaultResume = resumeList.find((r) => r.isDefault) ?? resumeList[0] ?? null;
+  const defaultResumeContent = defaultResume?.content ?? "";
 
   const resumeOptions = resumeList.map((r) => ({
     _id: r._id,
@@ -102,110 +128,110 @@ export default async function JobDetailPage({
       </header>
 
       <div className="space-y-8 px-4 md:px-6 lg:px-8 py-6 md:py-8 md:space-y-10">
+        {/* Details */}
+        <Card className="border border-border/60 shadow-xs transition-shadow duration-200 ease-[var(--ease-out-expo)] hover:shadow-sm">
+          <CardContent className="pt-6">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <DetailRow label="Company">{job.company}</DetailRow>
+              <DetailRow label="Role">{job.role}</DetailRow>
+              <DetailRow label="Location">{job.location ?? <Dash />}</DetailRow>
+              <DetailRow label="Status">
+                <StatusBadge status={job.status} />
+              </DetailRow>
+              <DetailRow label="URL">
+                {job.url ? (
+                  <a
+                    href={job.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 break-all underline underline-offset-4 transition-opacity duration-200 hover:opacity-70"
+                  >
+                    {job.url}
+                    <ExternalLink className="size-3 shrink-0" />
+                  </a>
+                ) : (
+                  <Dash />
+                )}
+              </DetailRow>
+              <DetailRow label="Salary">{job.salary ?? <Dash />}</DetailRow>
+              <DetailRow label="Applied at">
+                {job.appliedAt ? (
+                  format(new Date(job.appliedAt), "PPP")
+                ) : (
+                  <span className="text-muted-foreground">Not yet</span>
+                )}
+              </DetailRow>
+              <DetailRow label="Added">
+                {formatDistanceToNow(new Date(job.createdAt), {
+                  addSuffix: true,
+                })}
+              </DetailRow>
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Details */}
-      <Card className="border border-border/60 shadow-xs transition-shadow duration-200 ease-[var(--ease-out-expo)] hover:shadow-sm">
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-            <DetailRow label="Company">{job.company}</DetailRow>
-            <DetailRow label="Role">{job.role}</DetailRow>
-            <DetailRow label="Location">{job.location ?? <Dash />}</DetailRow>
-            <DetailRow label="Status">
-              <StatusBadge status={job.status} />
-            </DetailRow>
-            <DetailRow label="URL">
-              {job.url ? (
-                <a
-                  href={job.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 break-all underline underline-offset-4 transition-opacity duration-200 hover:opacity-70"
-                >
-                  {job.url}
-                  <ExternalLink className="size-3 shrink-0" />
-                </a>
-              ) : (
-                <Dash />
-              )}
-            </DetailRow>
-            <DetailRow label="Salary">{job.salary ?? <Dash />}</DetailRow>
-            <DetailRow label="Applied at">
-              {job.appliedAt ? (
-                format(new Date(job.appliedAt), "PPP")
-              ) : (
-                <span className="text-muted-foreground">Not yet</span>
-              )}
-            </DetailRow>
-            <DetailRow label="Added">
-              {formatDistanceToNow(new Date(job.createdAt), {
-                addSuffix: true,
-              })}
-            </DetailRow>
-          </div>
-        </CardContent>
-      </Card>
+        {/* Job description */}
+        <Card className="border border-border/60 shadow-xs transition-shadow duration-200 ease-[var(--ease-out-expo)] hover:shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg font-medium">Job description</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {job.jobDescription ? (
+              <pre className="whitespace-pre-wrap font-sans text-sm text-foreground">
+                {job.jobDescription}
+              </pre>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No description saved.
+              </p>
+            )}
+          </CardContent>
+        </Card>
 
-      {/* Job description */}
-      <Card className="border border-border/60 shadow-xs transition-shadow duration-200 ease-[var(--ease-out-expo)] hover:shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg font-medium">Job description</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {job.jobDescription ? (
-            <pre className="whitespace-pre-wrap font-sans text-sm text-foreground">
-              {job.jobDescription}
-            </pre>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No description saved.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+        {/* Notes */}
+        <Card className="border border-border/60 shadow-xs transition-shadow duration-200 ease-[var(--ease-out-expo)] hover:shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg font-medium">Notes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {job.notes ? (
+              <pre className="whitespace-pre-wrap font-sans text-sm text-foreground">
+                {job.notes}
+              </pre>
+            ) : (
+              <p className="text-sm text-muted-foreground">No notes.</p>
+            )}
+          </CardContent>
+        </Card>
 
-      {/* Notes */}
-      <Card className="border border-border/60 shadow-xs transition-shadow duration-200 ease-[var(--ease-out-expo)] hover:shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg font-medium">Notes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {job.notes ? (
-            <pre className="whitespace-pre-wrap font-sans text-sm text-foreground">
-              {job.notes}
-            </pre>
-          ) : (
-            <p className="text-sm text-muted-foreground">No notes.</p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* AI Generation */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-medium">AI Generation</h2>
-        <GeneratePanel
-          type="resume"
-          jobId={id}
-          resumes={resumeOptions}
-          initialContent={latestResumeDoc?.content ?? null}
-          initialResumeId={latestResumeDoc?.resumeIdUsed ?? null}
-        />
-        <GeneratePanel
-          type="cover_letter"
-          jobId={id}
-          resumes={resumeOptions}
-          initialContent={latestCoverLetterDoc?.content ?? null}
-          initialResumeId={
-            latestCoverLetterDoc?.resumeIdUsed ?? null
-          }
-        />
-        <JDAnalysisPanel
-          jobId={id}
-          hasJobDescription={
-            !!job.jobDescription && job.jobDescription.trim().length >= 50
-          }
-          initialAnalysis={initialAnalysis}
-        />
-      </div>
+        {/* AI Tools */}
+        <div className="space-y-4">
+          <h2 className="text-lg font-medium">AI tools</h2>
+          <JobDetailTabs
+            jobId={id}
+            job={{
+              company: job.company,
+              role: job.role,
+              status: job.status,
+              appliedAt: job.appliedAt,
+              jobDescription: job.jobDescription,
+              contactName: job.contactName,
+              contactTitle: job.contactTitle,
+            }}
+            resumes={resumeOptions}
+            defaultResumeContent={defaultResumeContent}
+            initialResumeContent={latestResumeDoc?.content ?? null}
+            initialResumeId={latestResumeDoc?.resumeIdUsed ?? null}
+            initialCoverLetterContent={latestCoverLetterDoc?.content ?? null}
+            initialCoverLetterId={latestCoverLetterDoc?.resumeIdUsed ?? null}
+            initialAnalysis={initialAnalysis}
+            initialLinkedInNote={latestLinkedInNoteDoc?.content ?? null}
+            initialLinkedInDm={latestLinkedInDmDoc?.content ?? null}
+            initialFollowUpEmail={latestFollowUpEmailDoc?.content ?? null}
+            initialThankYouEmail={latestThankYouEmailDoc?.content ?? null}
+            initialInterviewPrep={initialInterviewPrep}
+          />
+        </div>
       </div>
     </div>
   );
