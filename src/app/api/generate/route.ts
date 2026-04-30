@@ -22,6 +22,11 @@ import {
   buildResumeTailorPrompt,
   buildCoverLetterPrompt,
   buildJDAnalysisPrompt,
+  buildLinkedInConnectionNotePrompt,
+  buildLinkedInRecruiterDMPrompt,
+  buildFollowUpApplicationEmailPrompt,
+  buildThankYouEmailPrompt,
+  buildInterviewPrepPrompt,
 } from "@/lib/prompts";
 
 const MODEL = "claude-sonnet-4-5";
@@ -31,8 +36,41 @@ const jdAnalysisSchema = z.record(z.string(), z.unknown());
 
 const requestSchema = z.object({
   jobId: z.string().min(1),
-  type: z.enum(["resume", "cover_letter", "jd_analysis"]),
+  type: z.enum([
+    "resume",
+    "cover_letter",
+    "jd_analysis",
+    "linkedin_note",
+    "linkedin_dm",
+    "followup_email",
+    "thankyou_email",
+    "interview_prep",
+  ]),
   resumeId: z.string().min(1).optional(),
+  // Outreach fields
+  recipientName: z.string().max(200).optional(),
+  recipientTitle: z.string().max(300).optional(),
+  tone: z.enum(["direct", "warm"]).optional(),
+  hasApplied: z.boolean().optional(),
+  daysSinceApplied: z.number().int().min(0).optional(),
+  // Thank-you email fields
+  interviewerName: z.string().max(200).optional(),
+  interviewerTitle: z.string().max(300).optional(),
+  interviewTopics: z.string().max(2000).optional(),
+  interviewType: z.enum(["phone_screen", "technical", "onsite", "panel"]).optional(),
+  // Interview prep fields
+  seniorityLevel: z.enum(["junior", "mid", "senior", "staff", "unclear"]).optional(),
+  focusAreas: z.string().max(500).optional(),
+});
+
+// ─── Interview prep schema (module scope to avoid TS hoisting issues) ────────
+
+const interviewPrepSchema = z.object({
+  behavioral: z.array(z.object({ question: z.string(), hint: z.string() })),
+  technical: z.array(z.object({ question: z.string(), hint: z.string() })),
+  roleSpecific: z.array(z.object({ question: z.string(), hint: z.string() })),
+  cultureFit: z.array(z.object({ question: z.string(), hint: z.string() })),
+  questionsToAskThem: z.array(z.string()),
 });
 
 export async function POST(req: NextRequest) {
@@ -121,6 +159,30 @@ export async function POST(req: NextRequest) {
   try {
     if (type === "jd_analysis") {
       return await handleJDAnalysis({ userIdStr, jobId, job });
+    } else if (type === "interview_prep") {
+      return await handleInterviewPrep({
+        userIdStr,
+        jobId,
+        job,
+        seniorityLevel: parseResult.data.seniorityLevel ?? "unclear",
+        focusAreas: parseResult.data.focusAreas,
+        resumeList: await resumes.list(userIdStr),
+      });
+    } else if (
+      type === "linkedin_note" ||
+      type === "linkedin_dm" ||
+      type === "followup_email" ||
+      type === "thankyou_email"
+    ) {
+      return await handleOutreach({
+        userIdStr,
+        jobId,
+        type,
+        job,
+        user: user as { firstName?: string | null; lastName?: string | null; email: string },
+        params: parseResult.data,
+        resumeList: await resumes.list(userIdStr),
+      });
     } else {
       // Resume tailor or cover letter — both stream
       return await handleStreamingGeneration({
@@ -197,6 +259,196 @@ async function handleJDAnalysis(args: {
   });
 
   return NextResponse.json({ analysis: parsed });
+}
+
+// ─── Non-streaming outreach: LinkedIn note/DM, follow-up email, thank-you email ──
+
+async function handleOutreach(args: {
+  userIdStr: string;
+  jobId: string;
+  type: "linkedin_note" | "linkedin_dm" | "followup_email" | "thankyou_email";
+  job: {
+    company: string;
+    role: string;
+    jobDescription?: string | null;
+    appliedAt?: string | null;
+    status: string;
+  };
+  user: { firstName?: string | null; lastName?: string | null; email: string };
+  params: {
+    recipientName?: string;
+    recipientTitle?: string;
+    tone?: "direct" | "warm";
+    hasApplied?: boolean;
+    daysSinceApplied?: number;
+    interviewerName?: string;
+    interviewerTitle?: string;
+    interviewTopics?: string;
+    interviewType?: "phone_screen" | "technical" | "onsite" | "panel";
+  };
+  resumeList: Array<{ content: string; isDefault: boolean }>;
+}) {
+  const { userIdStr, jobId, type, job, user, params, resumeList } = args;
+
+  const senderName =
+    [user.firstName, user.lastName].filter(Boolean).join(" ") ||
+    user.email.split("@")[0];
+
+  const defaultResume = resumeList.find((r) => r.isDefault) ?? resumeList[0];
+  const baseResume = defaultResume?.content ?? "";
+
+  let system: string;
+  let userMessage: string;
+
+  if (type === "linkedin_note") {
+    if (!params.recipientName || !params.recipientTitle) {
+      return NextResponse.json(
+        { error: "recipientName and recipientTitle are required for LinkedIn note" },
+        { status: 400 }
+      );
+    }
+    ({ system, userMessage } = buildLinkedInConnectionNotePrompt({
+      senderName,
+      recipientName: params.recipientName,
+      recipientTitle: params.recipientTitle,
+      job: { company: job.company, role: job.role },
+      baseResume,
+    }));
+  } else if (type === "linkedin_dm") {
+    if (!params.recipientName || !params.recipientTitle) {
+      return NextResponse.json(
+        { error: "recipientName and recipientTitle are required for LinkedIn DM" },
+        { status: 400 }
+      );
+    }
+    ({ system, userMessage } = buildLinkedInRecruiterDMPrompt({
+      senderName,
+      recipientName: params.recipientName,
+      recipientTitle: params.recipientTitle,
+      job: { company: job.company, role: job.role, jobDescription: job.jobDescription },
+      baseResume,
+      tone: params.tone ?? "direct",
+      hasApplied: params.hasApplied ?? false,
+    }));
+  } else if (type === "followup_email") {
+    if (params.daysSinceApplied === undefined) {
+      return NextResponse.json(
+        { error: "daysSinceApplied is required for follow-up email" },
+        { status: 400 }
+      );
+    }
+    ({ system, userMessage } = buildFollowUpApplicationEmailPrompt({
+      senderName,
+      recipientName: params.recipientName,
+      job: { company: job.company, role: job.role, appliedAt: job.appliedAt },
+      daysSinceApplied: params.daysSinceApplied,
+    }));
+  } else {
+    // thankyou_email
+    if (!params.interviewerName || !params.interviewTopics || !params.interviewType) {
+      return NextResponse.json(
+        { error: "interviewerName, interviewTopics, and interviewType are required for thank-you email" },
+        { status: 400 }
+      );
+    }
+    ({ system, userMessage } = buildThankYouEmailPrompt({
+      senderName,
+      interviewerName: params.interviewerName,
+      interviewerTitle: params.interviewerTitle,
+      job: { company: job.company, role: job.role },
+      interviewTopics: params.interviewTopics,
+      interviewType: params.interviewType,
+    }));
+  }
+
+  const response = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: 1024,
+    system,
+    messages: [{ role: "user", content: userMessage }],
+  });
+
+  const content =
+    response.content[0].type === "text" ? response.content[0].text : "";
+
+  const cost = calculateCost(MODEL, response.usage.input_tokens, response.usage.output_tokens);
+  await addSpend(userIdStr, "aiGeneration", cost).catch((err) =>
+    console.error("[addSpend failed]", err)
+  );
+
+  await documents.upsert(userIdStr, {
+    jobId,
+    type: type as DocumentType,
+    content,
+    aiModel: MODEL,
+    inputTokens: response.usage.input_tokens,
+    outputTokens: response.usage.output_tokens,
+  });
+
+  return NextResponse.json({ content });
+}
+
+// ─── Interview prep: structured JSON, retry once ────────────────────────────
+
+async function handleInterviewPrep(args: {
+  userIdStr: string;
+  jobId: string;
+  job: {
+    company: string;
+    role: string;
+    jobDescription?: string | null;
+  };
+  seniorityLevel: "junior" | "mid" | "senior" | "staff" | "unclear";
+  focusAreas?: string;
+  resumeList: Array<{ content: string; isDefault: boolean }>;
+}) {
+  const { userIdStr, jobId, job, seniorityLevel, focusAreas, resumeList } = args;
+
+  const defaultResume = resumeList.find((r) => r.isDefault) ?? resumeList[0];
+  const baseResume = defaultResume?.content ?? "";
+
+  const { system, userMessage } = buildInterviewPrepPrompt({
+    job: { company: job.company, role: job.role, jobDescription: job.jobDescription },
+    baseResume,
+    seniorityLevel,
+    focusAreas,
+  });
+
+  let parsed: z.infer<typeof interviewPrepSchema>;
+  let inputTokens: number;
+  let outputTokens: number;
+
+  try {
+    const result = await callStructured(
+      { system, userMessage, model: MODEL, maxTokens: MAX_TOKENS },
+      interviewPrepSchema
+    );
+    parsed = result.data as z.infer<typeof interviewPrepSchema>;
+    inputTokens = result.inputTokens;
+    outputTokens = result.outputTokens;
+  } catch (err) {
+    console.error("[generate] interview prep parse failed:", err);
+    return NextResponse.json(
+      { error: "Failed to parse AI response as JSON. Please try again." },
+      { status: 502 }
+    );
+  }
+
+  const cost = calculateCost(MODEL, inputTokens, outputTokens);
+  await addSpend(userIdStr, "aiGeneration", cost).catch((err) =>
+    console.error("[addSpend failed]", err)
+  );
+
+  await documents.upsert(userIdStr, {
+    jobId,
+    type: "interview_prep" as DocumentType,
+    content: JSON.stringify(parsed),
+    aiModel: MODEL,
+    inputTokens,
+    outputTokens,
+  });
+
+  return NextResponse.json({ prep: parsed });
 }
 
 // ─── Streaming generation: resume tailor + cover letter ─────────────
