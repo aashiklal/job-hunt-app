@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { defineAction } from "@/lib/actions";
 import * as jobs from "@/lib/repositories/jobs";
-import { InvalidTransitionError, isValidTransition } from "@/lib/models/Job";
+import { InvalidTransitionError, isValidTransition } from "@/lib/repositories/jobs";
 
 const jobStatusSchema = z.enum([
   "saved",

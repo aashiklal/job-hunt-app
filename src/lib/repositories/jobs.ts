@@ -1,9 +1,10 @@
 import { Types } from "mongoose";
 import connectDB from "@/lib/db/connect";
-import Job, { IJob, JobStatus } from "@/lib/models/Job";
+import Job, { IJob, JobStatus, InvalidTransitionError, isValidTransition } from "@/lib/models/Job";
 import Doc from "@/lib/models/Document";
 
 export type { JobStatus };
+export { InvalidTransitionError, isValidTransition };
 
 export type JobListItem = {
   _id: string;
