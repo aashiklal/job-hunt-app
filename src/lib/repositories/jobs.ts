@@ -18,6 +18,8 @@ export type JobListItem = {
   jobDescription: string | null;
   notes: string | null;
   appliedAt: string | null;
+  contactName: string | null;
+  contactTitle: string | null;
   deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -36,6 +38,8 @@ function toJobListItem(doc: IJob): JobListItem {
     jobDescription: doc.jobDescription ?? null,
     notes: doc.notes ?? null,
     appliedAt: doc.appliedAt ? doc.appliedAt.toISOString() : null,
+    contactName: doc.contactName ?? null,
+    contactTitle: doc.contactTitle ?? null,
     deletedAt: doc.deletedAt ? doc.deletedAt.toISOString() : null,
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString(),
@@ -64,6 +68,8 @@ export type JobUpdateInput = {
   status?: JobStatus;
   notes?: string;
   appliedAt?: Date | null;
+  contactName?: string;
+  contactTitle?: string;
 };
 
 export async function list(
@@ -145,6 +151,8 @@ export async function update(
     "status",
     "notes",
     "appliedAt",
+    "contactName",
+    "contactTitle",
   ];
   const set: Record<string, unknown> = {};
   for (const key of allowedKeys) {
