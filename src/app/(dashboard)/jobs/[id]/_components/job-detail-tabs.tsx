@@ -50,6 +50,10 @@ type Props = {
   initialFollowUpEmail: string | null;
   initialThankYouEmail: string | null;
   initialInterviewPrep: PrepData | null;
+  initialLinkedInFollowupDm: string | null;
+  initialColdEmail: string | null;
+  initialCheckinEmail: string | null;
+  initialSalaryNegotiation: string | null;
 };
 
 export function JobDetailTabs({
@@ -67,6 +71,10 @@ export function JobDetailTabs({
   initialFollowUpEmail,
   initialThankYouEmail,
   initialInterviewPrep,
+  initialLinkedInFollowupDm,
+  initialColdEmail,
+  initialCheckinEmail,
+  initialSalaryNegotiation,
 }: Props) {
   return (
     <Tabs defaultValue="documents">
@@ -117,6 +125,30 @@ export function JobDetailTabs({
           jobId={jobId}
           job={job}
           initialContent={initialThankYouEmail}
+        />
+        <OutreachPanel
+          type="linkedin_followup_dm"
+          jobId={jobId}
+          job={job}
+          initialContent={initialLinkedInFollowupDm}
+        />
+        <OutreachPanel
+          type="cold_email"
+          jobId={jobId}
+          job={job}
+          initialContent={initialColdEmail}
+        />
+        <OutreachPanel
+          type="checkin_email"
+          jobId={jobId}
+          job={job}
+          initialContent={initialCheckinEmail}
+        />
+        <OutreachPanel
+          type="salary_negotiation"
+          jobId={jobId}
+          job={job}
+          initialContent={initialSalaryNegotiation}
         />
       </TabsContent>
 

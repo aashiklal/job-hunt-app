@@ -59,6 +59,10 @@ export default async function JobDetailPage({
     latestFollowUpEmailDoc,
     latestThankYouEmailDoc,
     latestInterviewPrepDoc,
+    latestLinkedInFollowupDmDoc,
+    latestColdEmailDoc,
+    latestCheckinEmailDoc,
+    latestSalaryNegotiationDoc,
   ] = await Promise.all([
     resumes.list(userIdStr),
     documents.getLatestForJob(userIdStr, id, "resume"),
@@ -69,6 +73,10 @@ export default async function JobDetailPage({
     documents.getLatestForJob(userIdStr, id, "followup_email"),
     documents.getLatestForJob(userIdStr, id, "thankyou_email"),
     documents.getLatestForJob(userIdStr, id, "interview_prep"),
+    documents.getLatestForJob(userIdStr, id, "linkedin_followup_dm"),
+    documents.getLatestForJob(userIdStr, id, "cold_email"),
+    documents.getLatestForJob(userIdStr, id, "checkin_email"),
+    documents.getLatestForJob(userIdStr, id, "salary_negotiation"),
   ]);
 
   const initialAnalysis = latestJDDoc
@@ -230,6 +238,10 @@ export default async function JobDetailPage({
             initialFollowUpEmail={latestFollowUpEmailDoc?.content ?? null}
             initialThankYouEmail={latestThankYouEmailDoc?.content ?? null}
             initialInterviewPrep={initialInterviewPrep}
+            initialLinkedInFollowupDm={latestLinkedInFollowupDmDoc?.content ?? null}
+            initialColdEmail={latestColdEmailDoc?.content ?? null}
+            initialCheckinEmail={latestCheckinEmailDoc?.content ?? null}
+            initialSalaryNegotiation={latestSalaryNegotiationDoc?.content ?? null}
           />
         </div>
       </div>
