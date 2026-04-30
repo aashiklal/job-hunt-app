@@ -1,6 +1,14 @@
 import mongoose, { Document, Model, Schema, Types } from "mongoose";
 
-export type DocumentType = "resume" | "cover_letter" | "jd_analysis";
+export type DocumentType =
+  | "resume"
+  | "cover_letter"
+  | "jd_analysis"
+  | "linkedin_note"
+  | "linkedin_dm"
+  | "followup_email"
+  | "thankyou_email"
+  | "interview_prep";
 
 export type DocxSlotCache = {
   templateId: string;
@@ -28,7 +36,16 @@ const DocumentSchema = new Schema<IDocument>(
     jobId: { type: Schema.Types.ObjectId, ref: "Job", required: true, index: true },
     type: {
       type: String,
-      enum: ["resume", "cover_letter", "jd_analysis"],
+      enum: [
+        "resume",
+        "cover_letter",
+        "jd_analysis",
+        "linkedin_note",
+        "linkedin_dm",
+        "followup_email",
+        "thankyou_email",
+        "interview_prep",
+      ],
       required: true,
     },
     content: { type: String, required: true },
