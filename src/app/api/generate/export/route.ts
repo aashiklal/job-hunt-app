@@ -5,10 +5,8 @@ import { z } from "zod";
 import * as users from "@/lib/repositories/users";
 import * as templates from "@/lib/repositories/templates";
 import * as documents from "@/lib/repositories/documents";
-import type { TemplateType } from "@/lib/repositories/templates";
 import type { DocumentType } from "@/lib/repositories/documents";
-import { applyToTemplate, injectContent } from "@/lib/export/from-template";
-import { generateDOCX } from "@/lib/export/to-docx";
+import { exportDocument } from "@/lib/export";
 import { checkBudget, addSpend, calculateCost, QuotaExceededError } from "@/lib/usage";
 
 const schema = z.object({
@@ -43,57 +41,40 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   const userIdStr = (user._id as { toString(): string }).toString();
-  const docType = type as TemplateType;
 
   const [adminTemplate, storedDoc] = await Promise.all([
-    templates.get(docType),
+    templates.get(type),
     jobId
       ? documents.getLatestForJob(userIdStr, jobId, type as DocumentType)
       : Promise.resolve(null),
   ]);
 
-  // ── Try cache first ──────────────────────────────────────────────────────
-  const cache = storedDoc?.docxSlotCache;
-  if (cache && adminTemplate && adminTemplate._id?.toString() === cache.templateId) {
-    if (cache.cachedAt >= adminTemplate.uploadedAt) {
-      try {
-        const buffer = await applyToTemplate(adminTemplate.fileData as Buffer, cache.output);
-        return new Response(new Uint8Array(buffer), {
-          headers: {
-            "Content-Type":
-              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "Content-Disposition": `attachment; filename="${filename}.docx"`,
-            "Cache-Control": "no-store",
-          },
-        });
-      } catch (err) {
-        console.error("[generate/export] cache hit apply failed:", err);
-        // Fall through to fresh generation below
-      }
-    }
-  }
+  const docsBinaryHeaders = {
+    "Content-Type":
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "Content-Disposition": `attachment; filename="${filename}.docx"`,
+    "Cache-Control": "no-store",
+  };
 
-  // ── Cache miss ────────────────────────────────────────────────────────────
+  // No template — generic DOCX, no AI call, no quota check
   if (!adminTemplate) {
-    // No template at all — generic DOCX, no AI call, no quota
     try {
-      const buffer = await generateDOCX(content);
+      const { buffer } = await exportDocument({
+        content,
+        type,
+        docId: storedDoc?._id ?? null,
+        adminTemplate: null,
+      });
       return new Response(new Uint8Array(buffer), {
-        headers: {
-          "Content-Type":
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          "Content-Disposition": `attachment; filename="${filename}.docx"`,
-          "Cache-Control": "no-store",
-          "X-Template-Fallback": "generic",
-        },
+        headers: { ...docsBinaryHeaders, "X-Template-Fallback": "generic" },
       });
     } catch (err) {
-      console.error("[generate/export] generateDOCX failed:", err);
+      console.error("[generate/export] export failed:", err);
       return NextResponse.json({ error: "Export failed" }, { status: 500 });
     }
   }
 
-  // Admin template exists — this path calls Anthropic (Haiku); gate behind budget
+  // Template path — may or may not call AI depending on cache state
   try {
     await checkBudget(userIdStr, "aiGeneration");
   } catch (err) {
@@ -114,31 +95,27 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await injectContent(
-      adminTemplate.fileData as Buffer,
+    const { buffer, aiUsage } = await exportDocument({
       content,
-      type as "resume" | "cover_letter"
-    );
-
-    // Record cost for the Haiku call regardless of fill validity
-    const exportCost = calculateCost(
-      "claude-haiku-4-5-20251001",
-      result.inputTokens ?? 0,
-      result.outputTokens ?? 0
-    );
-    await addSpend(userIdStr, "aiGeneration", exportCost).catch((err) => console.error("[addSpend failed]", err));
-
-    const buffer = result.buffer;
-    return new Response(new Uint8Array(buffer), {
-      headers: {
-        "Content-Type":
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "Content-Disposition": `attachment; filename="${filename}.docx"`,
-        "Cache-Control": "no-store",
+      type,
+      docId: storedDoc?._id ?? null,
+      adminTemplate: {
+        _id: (adminTemplate._id as { toString(): string }).toString(),
+        fileData: adminTemplate.fileData as Buffer,
+        uploadedAt: adminTemplate.uploadedAt,
       },
     });
+
+    if (aiUsage) {
+      const cost = calculateCost(aiUsage.model, aiUsage.inputTokens, aiUsage.outputTokens);
+      await addSpend(userIdStr, "aiGeneration", cost).catch((err) =>
+        console.error("[addSpend failed]", err)
+      );
+    }
+
+    return new Response(new Uint8Array(buffer), { headers: docsBinaryHeaders });
   } catch (err) {
-    console.error("[generate/export] injectContent failed:", err);
+    console.error("[generate/export] export failed:", err);
     return NextResponse.json({ error: "Export failed" }, { status: 500 });
   }
 }
