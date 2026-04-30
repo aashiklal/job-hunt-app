@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import anthropic from "@/lib/anthropic";
+import { callStructured } from "@/lib/ai";
 import * as users from "@/lib/repositories/users";
 import * as jobs from "@/lib/repositories/jobs";
 import * as resumes from "@/lib/repositories/resumes";
@@ -25,6 +26,8 @@ import {
 
 const MODEL = "claude-sonnet-4-5";
 const MAX_TOKENS = 4096;
+
+const jdAnalysisSchema = z.record(z.string(), z.unknown());
 
 const requestSchema = z.object({
   jobId: z.string().min(1),
@@ -161,68 +164,36 @@ async function handleJDAnalysis(args: {
     jobDescription: job.jobDescription,
   });
 
-  // Try once, retry once on JSON parse failure with a stricter reminder
-  let parsed: unknown = null;
-  let totalInputTokens = 0;
-  let totalOutputTokens = 0;
+  let parsed: Record<string, unknown>;
+  let inputTokens: number;
+  let outputTokens: number;
 
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const response = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: MAX_TOKENS,
-      system:
-        attempt === 0
-          ? system
-          : `${system}\n\nIMPORTANT: Your previous response was not valid JSON. Respond with ONLY the JSON object, no markdown, no code fences, no commentary.`,
-      messages: [{ role: "user", content: userMessage }],
-    });
-
-    // Accumulate tokens across all attempts (cost applies regardless of parse success)
-    totalInputTokens += response.usage.input_tokens;
-    totalOutputTokens += response.usage.output_tokens;
-
-    // Extract text from the response
-    const textBlock = response.content.find((c) => c.type === "text");
-    if (!textBlock || textBlock.type !== "text") {
-      continue;
-    }
-    const lastRawResponse = textBlock.text;
-
-    // Try to parse, stripping any code fences just in case
-    const cleaned = lastRawResponse
-      .trim()
-      .replace(/^```json\s*/i, "")
-      .replace(/^```\s*/i, "")
-      .replace(/```\s*$/i, "");
-
-    try {
-      parsed = JSON.parse(cleaned);
-      break;
-    } catch {
-      // try again with stricter reminder
-      continue;
-    }
-  }
-
-  // Record cost for all tokens burned, even if parsing failed
-  const cost = calculateCost(MODEL, totalInputTokens, totalOutputTokens);
-  await addSpend(userIdStr, "aiGeneration", cost).catch((err) => console.error("[addSpend failed]", err));
-
-  if (!parsed) {
+  try {
+    const result = await callStructured(
+      { system, userMessage, model: MODEL, maxTokens: MAX_TOKENS },
+      jdAnalysisSchema
+    );
+    parsed = result.data;
+    inputTokens = result.inputTokens;
+    outputTokens = result.outputTokens;
+  } catch (err) {
+    console.error("[generate] JD analysis parse failed:", err);
     return NextResponse.json(
       { error: "Failed to parse AI response as JSON. Please try again." },
       { status: 502 }
     );
   }
 
-  // Save the document
+  const cost = calculateCost(MODEL, inputTokens, outputTokens);
+  await addSpend(userIdStr, "aiGeneration", cost).catch((err) => console.error("[addSpend failed]", err));
+
   await documents.upsert(userIdStr, {
     jobId,
     type: "jd_analysis" as DocumentType,
     content: JSON.stringify(parsed),
     aiModel: MODEL,
-    inputTokens: totalInputTokens,
-    outputTokens: totalOutputTokens,
+    inputTokens,
+    outputTokens,
   });
 
   return NextResponse.json({ analysis: parsed });

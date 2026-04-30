@@ -2,7 +2,7 @@ import "server-only";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
-import anthropic from "@/lib/anthropic";
+import { callStructured } from "@/lib/ai";
 import * as users from "@/lib/repositories/users";
 import { checkBudget, addSpend, calculateCost, QuotaExceededError } from "@/lib/usage";
 import { buildJobParsePrompt } from "@/lib/prompts";
@@ -72,66 +72,28 @@ export async function POST(req: NextRequest) {
 
   const { system, userMessage } = buildJobParsePrompt({ text });
 
-  let parsed: ParsedJobFields | null = null;
-  let totalInputTokens = 0;
-  let totalOutputTokens = 0;
+  let parsed: ParsedJobFields;
+  let inputTokens: number;
+  let outputTokens: number;
 
   try {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const response = await anthropic.messages.create({
-        model: MODEL,
-        max_tokens: MAX_TOKENS,
-        system:
-          attempt === 0
-            ? system
-            : `${system}\n\nIMPORTANT: Your previous response was not valid JSON. Respond with ONLY the JSON object.`,
-        messages: [{ role: "user", content: userMessage }],
-      });
-
-      totalInputTokens += response.usage.input_tokens;
-      totalOutputTokens += response.usage.output_tokens;
-
-      const textBlock = response.content.find((c) => c.type === "text");
-      if (!textBlock || textBlock.type !== "text") continue;
-
-      const cleaned = textBlock.text
-        .trim()
-        .replace(/^```json\s*/i, "")
-        .replace(/^```\s*/i, "")
-        .replace(/```\s*$/i, "");
-
-      try {
-        const raw = JSON.parse(cleaned);
-        const validated = parsedSchema.safeParse(raw);
-        if (validated.success) {
-          parsed = validated.data;
-          break;
-        }
-      } catch {
-        continue;
-      }
-    }
-  } catch (err) {
-    console.error("[jobs/parse] anthropic error:", err);
-    // Record cost for any tokens already consumed before the error
-    const cost = calculateCost(MODEL, totalInputTokens, totalOutputTokens);
-    await addSpend(userIdStr, "aiGeneration", cost).catch((err) => console.error("[addSpend failed]", err));
-    return NextResponse.json(
-      { error: "AI service error. Please try again." },
-      { status: 502 }
+    const result = await callStructured(
+      { system, userMessage, model: MODEL, maxTokens: MAX_TOKENS },
+      parsedSchema
     );
-  }
-
-  // Record cost for all tokens burned
-  const cost = calculateCost(MODEL, totalInputTokens, totalOutputTokens);
-  await addSpend(userIdStr, "aiGeneration", cost).catch((err) => console.error("[addSpend failed]", err));
-
-  if (!parsed) {
+    parsed = result.data;
+    inputTokens = result.inputTokens;
+    outputTokens = result.outputTokens;
+  } catch (err) {
+    console.error("[jobs/parse] parse failed:", err);
     return NextResponse.json(
       { error: "Failed to parse the job posting. Please try again." },
       { status: 502 }
     );
   }
+
+  const cost = calculateCost(MODEL, inputTokens, outputTokens);
+  await addSpend(userIdStr, "aiGeneration", cost).catch((err) => console.error("[addSpend failed]", err));
 
   return NextResponse.json({ fields: parsed });
 }

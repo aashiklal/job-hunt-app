@@ -233,3 +233,20 @@ export async function getBulkSpend(
   }
   return map;
 }
+
+/**
+ * Wraps an AI call with quota enforcement and spend recording.
+ * Sequence: checkBudget → fn() → calculateCost → addSpend.
+ * Re-throws QuotaExceededError so routes continue to return 429.
+ */
+export async function withBudget<T>(
+  userId: string,
+  model: string,
+  fn: () => Promise<{ result: T; inputTokens: number; outputTokens: number }>
+): Promise<T> {
+  await checkBudget(userId, "aiGeneration");
+  const { result, inputTokens, outputTokens } = await fn();
+  const cost = calculateCost(model, inputTokens, outputTokens);
+  await addSpend(userId, "aiGeneration", cost);
+  return result;
+}
