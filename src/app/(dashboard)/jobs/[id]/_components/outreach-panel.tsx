@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -166,12 +167,12 @@ export function OutreachPanel({ type, jobId, job, initialContent }: Props) {
         {followupBlocked ? (
           <p className="text-sm text-muted-foreground">
             Set your applied date on this job to generate a follow-up email.{" "}
-            <a
+            <Link
               href={`/jobs/${jobId}/edit`}
               className="underline underline-offset-4 hover:opacity-70"
             >
               Edit job
-            </a>
+            </Link>
           </p>
         ) : (
           <>
