@@ -8,7 +8,11 @@ export type DocumentType =
   | "linkedin_dm"
   | "followup_email"
   | "thankyou_email"
-  | "interview_prep";
+  | "interview_prep"
+  | "linkedin_followup_dm"
+  | "cold_email"
+  | "checkin_email"
+  | "salary_negotiation";
 
 export type DocxSlotCache = {
   templateId: string;
@@ -45,6 +49,10 @@ const DocumentSchema = new Schema<IDocument>(
         "followup_email",
         "thankyou_email",
         "interview_prep",
+        "linkedin_followup_dm",
+        "cold_email",
+        "checkin_email",
+        "salary_negotiation",
       ],
       required: true,
     },
