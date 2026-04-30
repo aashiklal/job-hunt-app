@@ -31,6 +31,8 @@ const createJobSchema = z.object({
 
 const updateJobSchema = createJobSchema.partial().extend({
   jobId: z.string().min(1),
+  contactName: z.string().max(200).optional(),
+  contactTitle: z.string().max(300).optional(),
 });
 
 const jobIdSchema = z.object({ jobId: z.string().min(1) });

@@ -51,6 +51,8 @@ const jobFormSchema = z.object({
   status: z.enum(jobStatusOptions).optional(),
   notes: z.string().max(10000).optional(),
   appliedAt: z.string().optional(),
+  contactName: z.string().max(200).optional(),
+  contactTitle: z.string().max(300).optional(),
 });
 
 export type JobFormValues = z.infer<typeof jobFormSchema>;
@@ -80,6 +82,8 @@ export function JobForm({ mode, initialValues, jobId }: Props) {
       status: "saved",
       notes: "",
       appliedAt: "",
+      contactName: "",
+      contactTitle: "",
       ...initialValues,
     },
   });
@@ -322,6 +326,45 @@ export function JobForm({ mode, initialValues, jobId }: Props) {
             </FormItem>
           )}
         />
+
+        {mode === "edit" && (
+          <>
+            <FormField
+              control={form.control}
+              name="contactName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Contact name</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="e.g. Jane Smith"
+                      {...field}
+                      value={field.value ?? ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="contactTitle"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Contact title</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="e.g. Senior Recruiter at Acme"
+                      {...field}
+                      value={field.value ?? ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </>
+        )}
 
         <FormField
           control={form.control}

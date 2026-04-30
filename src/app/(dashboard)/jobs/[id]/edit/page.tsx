@@ -33,6 +33,8 @@ export default async function EditJobPage({
     status: job.status,
     notes: job.notes ?? "",
     appliedAt: job.appliedAt ? job.appliedAt.slice(0, 10) : "",
+    contactName: job.contactName ?? "",
+    contactTitle: job.contactTitle ?? "",
   };
 
   return (
