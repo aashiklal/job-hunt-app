@@ -211,10 +211,10 @@ async function handleStreamingGeneration(args: {
     location?: string | null;
     jobDescription?: string | null;
   };
-  resume: { _id: unknown; content: string };
+  resume: { _id: string; content: string };
 }) {
   const { userIdStr, jobId, type, job, resume } = args;
-  const resumeIdStr = (resume._id as { toString(): string }).toString();
+  const resumeIdStr = resume._id;
 
   // Build the prompt
   const built =
@@ -283,7 +283,7 @@ async function handleStreamingGeneration(args: {
         // Fire-and-forget: pre-compute DOCX slot-fill while user reads the preview.
         // When the user clicks Download the cache will already be ready — zero AI latency.
         precomputeDocxCache(
-          (savedDoc._id as { toString(): string }).toString(),
+          savedDoc._id,
           fullText,
           userIdStr,
           type as TemplateType

@@ -22,7 +22,7 @@ export type JobListItem = {
   updatedAt: string;
 };
 
-export function toJobListItem(doc: IJob): JobListItem {
+function toJobListItem(doc: IJob): JobListItem {
   return {
     _id: (doc._id as { toString(): string }).toString(),
     userId: (doc.userId as unknown as { toString(): string }).toString(),
@@ -68,47 +68,51 @@ export type JobUpdateInput = {
 export async function list(
   userId: string,
   options?: { includeDeleted?: boolean }
-): Promise<IJob[]> {
+): Promise<JobListItem[]> {
   await connectDB();
   const filter: Record<string, unknown> = { userId };
   if (!options?.includeDeleted) {
     filter.deletedAt = null;
   }
-  return Job.find(filter).sort({ updatedAt: -1 });
+  const docs = await Job.find(filter).sort({ updatedAt: -1 });
+  return docs.map(toJobListItem);
 }
 
-export async function listDeleted(userId: string): Promise<IJob[]> {
+export async function listDeleted(userId: string): Promise<JobListItem[]> {
   await connectDB();
-  return Job.find({ userId, deletedAt: { $ne: null } }).sort({ deletedAt: -1 });
+  const docs = await Job.find({ userId, deletedAt: { $ne: null } }).sort({ deletedAt: -1 });
+  return docs.map(toJobListItem);
 }
 
 export async function listByStatus(
   userId: string,
   status: JobStatus
-): Promise<IJob[]> {
+): Promise<JobListItem[]> {
   await connectDB();
-  return Job.find({ userId, status, deletedAt: null }).sort({ updatedAt: -1 });
+  const docs = await Job.find({ userId, status, deletedAt: null }).sort({ updatedAt: -1 });
+  return docs.map(toJobListItem);
 }
 
 export async function getById(
   userId: string,
   jobId: string,
   options?: { includeDeleted?: boolean }
-): Promise<IJob | null> {
+): Promise<JobListItem | null> {
   await connectDB();
   const filter: Record<string, unknown> = { _id: jobId, userId };
   if (!options?.includeDeleted) {
     filter.deletedAt = null;
   }
-  return Job.findOne(filter);
+  const doc = await Job.findOne(filter);
+  return doc ? toJobListItem(doc) : null;
 }
 
 export async function create(
   userId: string,
   data: JobCreateInput
-): Promise<IJob> {
+): Promise<JobListItem> {
   await connectDB();
-  return Job.create({
+  const doc = await Job.create({
     userId,
     company: data.company,
     role: data.role,
@@ -121,13 +125,14 @@ export async function create(
     appliedAt: data.appliedAt ?? undefined,
     deletedAt: null,
   });
+  return toJobListItem(doc);
 }
 
 export async function update(
   userId: string,
   jobId: string,
   data: JobUpdateInput
-): Promise<IJob | null> {
+): Promise<JobListItem | null> {
   await connectDB();
   const allowedKeys: (keyof JobUpdateInput)[] = [
     "company",
@@ -146,36 +151,39 @@ export async function update(
       set[key] = data[key];
     }
   }
-  return Job.findOneAndUpdate(
+  const doc = await Job.findOneAndUpdate(
     { _id: jobId, userId, deletedAt: null },
     { $set: set },
     { returnDocument: "after" }
   );
+  return doc ? toJobListItem(doc) : null;
 }
 
 export async function setStatus(
   userId: string,
   jobId: string,
   status: JobStatus
-): Promise<IJob | null> {
+): Promise<JobListItem | null> {
   await connectDB();
-  return Job.findOneAndUpdate(
+  const doc = await Job.findOneAndUpdate(
     { _id: jobId, userId, deletedAt: null },
     { $set: { status } },
     { returnDocument: "after" }
   );
+  return doc ? toJobListItem(doc) : null;
 }
 
 export async function softDelete(
   userId: string,
   jobId: string
-): Promise<IJob | null> {
+): Promise<JobListItem | null> {
   await connectDB();
-  return Job.findOneAndUpdate(
+  const doc = await Job.findOneAndUpdate(
     { _id: jobId, userId },
     { $set: { deletedAt: new Date() } },
     { returnDocument: "after" }
   );
+  return doc ? toJobListItem(doc) : null;
 }
 
 export async function hardDelete(
@@ -197,13 +205,14 @@ export async function hardDelete(
 export async function restore(
   userId: string,
   jobId: string
-): Promise<IJob | null> {
+): Promise<JobListItem | null> {
   await connectDB();
-  return Job.findOneAndUpdate(
+  const doc = await Job.findOneAndUpdate(
     { _id: jobId, userId },
     { $set: { deletedAt: null } },
     { returnDocument: "after" }
   );
+  return doc ? toJobListItem(doc) : null;
 }
 
 export async function countAll(): Promise<number> {

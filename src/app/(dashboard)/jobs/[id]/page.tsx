@@ -69,7 +69,7 @@ export default async function JobDetailPage({
     : null;
 
   const resumeOptions = resumeList.map((r) => ({
-    _id: (r._id as { toString(): string }).toString(),
+    _id: r._id,
     title: r.title,
     isDefault: r.isDefault,
   }));
@@ -187,7 +187,7 @@ export default async function JobDetailPage({
           jobId={id}
           resumes={resumeOptions}
           initialContent={latestResumeDoc?.content ?? null}
-          initialResumeId={latestResumeDoc?.resumeIdUsed?.toString() ?? null}
+          initialResumeId={latestResumeDoc?.resumeIdUsed ?? null}
         />
         <GeneratePanel
           type="cover_letter"
@@ -195,7 +195,7 @@ export default async function JobDetailPage({
           resumes={resumeOptions}
           initialContent={latestCoverLetterDoc?.content ?? null}
           initialResumeId={
-            latestCoverLetterDoc?.resumeIdUsed?.toString() ?? null
+            latestCoverLetterDoc?.resumeIdUsed ?? null
           }
         />
         <JDAnalysisPanel

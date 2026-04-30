@@ -62,7 +62,7 @@ export default async function TrashPage() {
             </TableHeader>
             <TableBody>
               {deletedJobs.map((job) => {
-                const id = (job._id as { toString(): string }).toString();
+                const id = job._id;
                 return (
                   <TableRow key={id}>
                     <TableCell className="font-medium text-foreground">

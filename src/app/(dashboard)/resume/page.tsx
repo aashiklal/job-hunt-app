@@ -3,7 +3,6 @@ import Link from "next/link";
 import { AlertCircle } from "lucide-react";
 import { requireApprovedUserWithPlan } from "@/lib/auth-helpers";
 import * as resumes from "@/lib/repositories/resumes";
-import { toResumeListItem } from "@/lib/repositories/resumes";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ResumesTable } from "./_components/resumes-table";
@@ -16,8 +15,7 @@ export const metadata: Metadata = {
 export default async function ResumePage() {
   const { user, plan } = await requireApprovedUserWithPlan();
   const userId = user._id.toString();
-  const rawResumes = await resumes.list(userId);
-  const resumeList = rawResumes.map(toResumeListItem);
+  const resumeList = await resumes.list(userId);
 
   const count = resumeList.length;
   const maxResumes = plan.maxResumes;

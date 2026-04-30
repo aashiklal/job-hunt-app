@@ -32,7 +32,7 @@ export default async function EditJobPage({
     salary: job.salary ?? "",
     status: job.status,
     notes: job.notes ?? "",
-    appliedAt: job.appliedAt ? job.appliedAt.toISOString().slice(0, 10) : "",
+    appliedAt: job.appliedAt ? job.appliedAt.slice(0, 10) : "",
   };
 
   return (

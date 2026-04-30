@@ -3,7 +3,6 @@ import Link from "next/link";
 import { Trash2 } from "lucide-react";
 import { requireApprovedUserWithPlan } from "@/lib/auth-helpers";
 import * as jobs from "@/lib/repositories/jobs";
-import { toJobListItem } from "@/lib/repositories/jobs";
 import * as resumes from "@/lib/repositories/resumes";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,11 +18,10 @@ export const metadata: Metadata = {
 export default async function JobsPage() {
   const { user } = await requireApprovedUserWithPlan();
   const userId = user._id.toString();
-  const [rawJobs, resumeCount] = await Promise.all([
+  const [jobList, resumeCount] = await Promise.all([
     jobs.list(userId),
     resumes.countForUser(userId),
   ]);
-  const jobList = rawJobs.map(toJobListItem);
 
   return (
     <div className="space-y-8 md:space-y-10 px-4 md:px-6 lg:px-8 py-6 md:py-10">
