@@ -27,6 +27,10 @@ import {
   buildFollowUpApplicationEmailPrompt,
   buildThankYouEmailPrompt,
   buildInterviewPrepPrompt,
+  buildLinkedInAppliedFollowupDMPrompt,
+  buildColdEmailPrompt,
+  buildCheckinEmailPrompt,
+  buildSalaryNegotiationEmailPrompt,
 } from "@/lib/prompts";
 
 const MODEL = "claude-sonnet-4-5";
@@ -45,6 +49,10 @@ const requestSchema = z.object({
     "followup_email",
     "thankyou_email",
     "interview_prep",
+    "linkedin_followup_dm",
+    "cold_email",
+    "checkin_email",
+    "salary_negotiation",
   ]),
   resumeId: z.string().min(1).optional(),
   // Outreach fields
@@ -61,6 +69,15 @@ const requestSchema = z.object({
   // Interview prep fields
   seniorityLevel: z.enum(["junior", "mid", "senior", "staff", "unclear"]).optional(),
   focusAreas: z.string().max(500).optional(),
+  // Phase 2 outreach fields
+  previousMessageSent: z.boolean().optional(),
+  companyContext: z.string().max(2000).optional(),
+  lastInteractionDescription: z.string().max(2000).optional(),
+  daysSinceLastContact: z.number().int().min(0).optional(),
+  offeredSalary: z.string().max(200).optional(),
+  targetSalary: z.string().max(200).optional(),
+  negotiationReason: z.string().max(1000).optional(),
+  otherComponents: z.string().max(500).optional(),
 });
 
 // ─── Interview prep schema (module scope to avoid TS hoisting issues) ────────
@@ -172,7 +189,11 @@ export async function POST(req: NextRequest) {
       type === "linkedin_note" ||
       type === "linkedin_dm" ||
       type === "followup_email" ||
-      type === "thankyou_email"
+      type === "thankyou_email" ||
+      type === "linkedin_followup_dm" ||
+      type === "cold_email" ||
+      type === "checkin_email" ||
+      type === "salary_negotiation"
     ) {
       return await handleOutreach({
         userIdStr,
@@ -266,7 +287,7 @@ async function handleJDAnalysis(args: {
 async function handleOutreach(args: {
   userIdStr: string;
   jobId: string;
-  type: "linkedin_note" | "linkedin_dm" | "followup_email" | "thankyou_email";
+  type: "linkedin_note" | "linkedin_dm" | "followup_email" | "thankyou_email" | "linkedin_followup_dm" | "cold_email" | "checkin_email" | "salary_negotiation";
   job: {
     company: string;
     role: string;
@@ -285,6 +306,14 @@ async function handleOutreach(args: {
     interviewerTitle?: string;
     interviewTopics?: string;
     interviewType?: "phone_screen" | "technical" | "onsite" | "panel";
+    previousMessageSent?: boolean;
+    companyContext?: string;
+    lastInteractionDescription?: string;
+    daysSinceLastContact?: number;
+    offeredSalary?: string;
+    targetSalary?: string;
+    negotiationReason?: string;
+    otherComponents?: string;
   };
   resumeList: Array<{ content: string; isDefault: boolean }>;
 }) {
@@ -343,8 +372,7 @@ async function handleOutreach(args: {
       job: { company: job.company, role: job.role, appliedAt: job.appliedAt },
       daysSinceApplied: params.daysSinceApplied,
     }));
-  } else {
-    // thankyou_email
+  } else if (type === "thankyou_email") {
     if (!params.interviewerName || !params.interviewTopics || !params.interviewType) {
       return NextResponse.json(
         { error: "interviewerName, interviewTopics, and interviewType are required for thank-you email" },
@@ -358,6 +386,58 @@ async function handleOutreach(args: {
       job: { company: job.company, role: job.role },
       interviewTopics: params.interviewTopics,
       interviewType: params.interviewType,
+    }));
+  } else if (type === "linkedin_followup_dm") {
+    if (!params.recipientName) {
+      return NextResponse.json(
+        { error: "recipientName is required for LinkedIn follow-up DM" },
+        { status: 400 }
+      );
+    }
+    ({ system, userMessage } = buildLinkedInAppliedFollowupDMPrompt({
+      senderName,
+      recipientName: params.recipientName,
+      job: { company: job.company, role: job.role },
+      daysSinceApplied: params.daysSinceApplied ?? 0,
+      previousMessageSent: params.previousMessageSent ?? false,
+    }));
+  } else if (type === "cold_email") {
+    ({ system, userMessage } = buildColdEmailPrompt({
+      senderName,
+      recipientName: params.recipientName,
+      recipientTitle: params.recipientTitle,
+      job: { company: job.company, role: job.role, companyContext: params.companyContext },
+    }));
+  } else if (type === "checkin_email") {
+    if (!params.lastInteractionDescription) {
+      return NextResponse.json(
+        { error: "lastInteractionDescription is required for check-in email" },
+        { status: 400 }
+      );
+    }
+    ({ system, userMessage } = buildCheckinEmailPrompt({
+      senderName,
+      recipientName: params.recipientName,
+      job: { company: job.company, role: job.role },
+      lastInteractionDescription: params.lastInteractionDescription,
+      daysSinceLastContact: params.daysSinceLastContact ?? 0,
+    }));
+  } else {
+    // salary_negotiation
+    if (!params.recipientName || !params.offeredSalary || !params.targetSalary || !params.negotiationReason) {
+      return NextResponse.json(
+        { error: "recipientName, offeredSalary, targetSalary, and negotiationReason are required for salary negotiation" },
+        { status: 400 }
+      );
+    }
+    ({ system, userMessage } = buildSalaryNegotiationEmailPrompt({
+      senderName,
+      recipientName: params.recipientName,
+      job: { company: job.company, role: job.role },
+      offeredSalary: params.offeredSalary,
+      targetSalary: params.targetSalary,
+      negotiationReason: params.negotiationReason,
+      otherComponents: params.otherComponents,
     }));
   }
 
