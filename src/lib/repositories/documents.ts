@@ -112,6 +112,15 @@ export async function upsert(
   return toDocItem(doc);
 }
 
+export async function listByType(
+  userId: string,
+  type: DocumentType
+): Promise<DocItem[]> {
+  await connectDB();
+  const docs = await Doc.find({ userId, type }).sort({ createdAt: -1 });
+  return docs.map(toDocItem);
+}
+
 export async function getValidDocxCache(
   docId: string,
   templateId: string,
