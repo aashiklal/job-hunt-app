@@ -156,6 +156,14 @@ export async function fillTemplate(
 
     // ── Fixed marker paragraph ────────────────────────────────────────────────
     if (markers.length > 0) {
+      // BODY_PARAGRAPH: clone this paragraph once per cover letter body paragraph
+      if (markers.includes("BODY_PARAGRAPH") && "bodyParagraphs" in data) {
+        for (const p of (data as CoverLetterTemplateData).bodyParagraphs) {
+          outputXmls.push(setParaText(para.xml, p));
+        }
+        i++;
+        continue;
+      }
       const resolved = resolveParaText(text, (m) => resolveFixedMarker(m, data));
       if (resolved !== null) {
         outputXmls.push(setParaText(para.xml, resolved));
