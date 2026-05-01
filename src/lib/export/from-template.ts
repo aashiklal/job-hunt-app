@@ -4,7 +4,7 @@ import anthropic from "@/lib/anthropic";
 
 // ─── XML helper ───────────────────────────────────────────────────────────────
 
-function escapeXml(text: string): string {
+export function escapeXml(text: string): string {
   return text
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -109,7 +109,7 @@ function extractRunTemplates(paraXml: string): RunTemplate[] {
  *     → run[0].rPr for the label, run[last].rPr for the value
  * - 2+ template runs, no pattern matched → all text into run[0].rPr
  */
-function setParaText(paraXml: string, newText: string): string {
+export function setParaText(paraXml: string, newText: string): string {
   const openTagMatch = /^<w:p(?:\s[^>]*)?>/.exec(paraXml);
   const openTag = openTagMatch ? openTagMatch[0] : "<w:p>";
   const pPrMatch = /<w:pPr>[\s\S]*?<\/w:pPr>/.exec(paraXml);
@@ -155,7 +155,7 @@ function setParaText(paraXml: string, newText: string): string {
 
 // ─── ZIP helpers ──────────────────────────────────────────────────────────────
 
-async function loadTemplate(templateBuffer: Buffer) {
+export async function loadTemplate(templateBuffer: Buffer) {
   const zip = await JSZip.loadAsync(templateBuffer);
   const docXml = (await zip.file("word/document.xml")?.async("string")) ?? "";
   const paragraphs = extractParagraphs(docXml);
