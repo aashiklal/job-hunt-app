@@ -2,6 +2,8 @@ import "server-only";
 import * as documents from "@/lib/repositories/documents";
 import { applyToTemplate, injectContent } from "@/lib/export/from-template";
 import { generateDOCX } from "@/lib/export/to-docx";
+import { fillTemplate } from "@/lib/export/template-fill";
+import type { ResumeTemplateData, CoverLetterTemplateData } from "@/lib/export/template-data";
 
 const HAIKU_MODEL = "claude-haiku-4-5-20251001";
 
@@ -10,6 +12,7 @@ export type ExportDocumentParams = {
   type: "resume" | "cover_letter";
   docId?: string | null;
   adminTemplate: { _id: string; fileData: Buffer; uploadedAt: Date } | null;
+  templateData?: Record<string, unknown> | null;
 };
 
 export type ExportDocumentResult = {
@@ -20,7 +23,7 @@ export type ExportDocumentResult = {
 export async function exportDocument(
   params: ExportDocumentParams
 ): Promise<ExportDocumentResult> {
-  const { content, type, docId, adminTemplate } = params;
+  const { content, type, docId, adminTemplate, templateData } = params;
 
   // Path 1: No template — generic DOCX, no AI
   if (!adminTemplate) {
@@ -28,7 +31,14 @@ export async function exportDocument(
     return { buffer };
   }
 
-  // Path 2: Template + valid cache — apply without AI
+  // Path 2: Template + precomputed structured data — deterministic fill, no AI
+  if (templateData) {
+    const data = templateData as ResumeTemplateData | CoverLetterTemplateData;
+    const buffer = await fillTemplate(adminTemplate.fileData, data, type);
+    return { buffer };
+  }
+
+  // Path 3: Template + valid slot-fill cache — apply without AI (backwards compat)
   if (docId) {
     const cachedOutput = await documents.getValidDocxCache(
       docId,
@@ -41,7 +51,7 @@ export async function exportDocument(
     }
   }
 
-  // Path 3: Template + cache miss — call AI (Haiku)
+  // Path 4: Template + cache miss — call AI (Haiku)
   const result = await injectContent(adminTemplate.fileData, content, type);
   return {
     buffer: result.buffer,

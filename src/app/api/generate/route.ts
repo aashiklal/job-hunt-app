@@ -11,7 +11,6 @@ import * as documents from "@/lib/repositories/documents";
 import type { DocumentType } from "@/lib/repositories/documents";
 import * as templates from "@/lib/repositories/templates";
 import type { TemplateType } from "@/lib/repositories/templates";
-import { computeSlotFill } from "@/lib/export/from-template";
 import {
   checkBudget,
   addSpend,
@@ -31,6 +30,8 @@ import {
   buildColdEmailPrompt,
   buildCheckinEmailPrompt,
   buildSalaryNegotiationEmailPrompt,
+  buildResumeExtractionPrompt,
+  buildCoverLetterExtractionPrompt,
 } from "@/lib/prompts";
 
 const MODEL = "claude-sonnet-4-5";
@@ -206,12 +207,16 @@ export async function POST(req: NextRequest) {
       });
     } else {
       // Resume tailor or cover letter — both stream
+      const candidateName =
+        [user.firstName, user.lastName].filter(Boolean).join(" ") ||
+        user.email.split("@")[0];
       return await handleStreamingGeneration({
         userIdStr,
         jobId,
         type,
         job,
         resume: resume!, // safe: we returned above if type needs resume and resume was null
+        candidateName,
       });
     }
   } catch (err) {
@@ -544,8 +549,9 @@ async function handleStreamingGeneration(args: {
     jobDescription?: string | null;
   };
   resume: { _id: string; content: string };
+  candidateName: string;
 }) {
-  const { userIdStr, jobId, type, job, resume } = args;
+  const { userIdStr, jobId, type, job, resume, candidateName } = args;
   const resumeIdStr = resume._id;
 
   // Build the prompt
@@ -612,15 +618,17 @@ async function handleStreamingGeneration(args: {
           resumeIdUsed: resumeIdStr,
         });
 
-        // Fire-and-forget: pre-compute DOCX slot-fill while user reads the preview.
+        // Fire-and-forget: extract structured template data while user reads the preview.
         // When the user clicks Download the cache will already be ready — zero AI latency.
-        precomputeDocxCache(
+        precomputeTemplateData(
           savedDoc._id,
           fullText,
           userIdStr,
-          type as TemplateType
+          type,
+          { company: job.company, role: job.role },
+          candidateName
         ).catch((err) =>
-          console.error("[generate] slot-fill pre-compute failed:", err)
+          console.error("[generate] template data pre-compute failed:", err)
         );
 
         controller.close();
@@ -649,38 +657,57 @@ async function handleStreamingGeneration(args: {
   });
 }
 
-// ─── DOCX slot-fill pre-computation ──────────────────────────────────────────
+// ─── Template data pre-computation ───────────────────────────────────────────
 
-/**
- * Runs in the background after generation completes.
- * Computes the DOCX slot-fill output (haiku call) and stores it on the Document
- * so the export route can apply it instantly without another AI call.
- */
-async function precomputeDocxCache(
+async function precomputeTemplateData(
   docId: string,
   content: string,
   userId: string,
-  type: TemplateType
+  type: "resume" | "cover_letter",
+  job: { company: string; role: string },
+  candidateName: string
 ): Promise<void> {
-  const adminTemplate = await templates.get(type);
+  const adminTemplate = await templates.get(type as TemplateType);
   if (!adminTemplate) return;
 
-  const docType = type as "resume" | "cover_letter";
-  const result = await computeSlotFill(adminTemplate.fileData as Buffer, content, docType);
+  const HAIKU_MODEL = "claude-haiku-4-5-20251001";
 
-  // Track cost of this background Haiku call regardless of whether the fill succeeded
-  const haikuCost = calculateCost(
-    "claude-haiku-4-5-20251001",
-    result.inputTokens ?? 0,
-    result.outputTokens ?? 0
+  const { system, userMessage } =
+    type === "resume"
+      ? buildResumeExtractionPrompt({ markdown: content })
+      : buildCoverLetterExtractionPrompt({
+          markdown: content,
+          company: job.company,
+          role: job.role,
+          candidateName,
+        });
+
+  const response = await anthropic.messages.create({
+    model: HAIKU_MODEL,
+    max_tokens: 4096,
+    system,
+    messages: [{ role: "user", content: userMessage }],
+  });
+
+  const cost = calculateCost(HAIKU_MODEL, response.usage.input_tokens, response.usage.output_tokens);
+  await addSpend(userId, "aiGeneration", cost).catch((err) =>
+    console.error("[addSpend failed]", err)
   );
-  await addSpend(userId, "aiGeneration", haikuCost).catch((err) => console.error("[addSpend failed]", err));
 
-  if (!result.valid) return;
+  const raw = response.content[0].type === "text" ? response.content[0].text.trim() : "";
+  const jsonMatch = /\{[\s\S]*\}/.exec(raw);
+  if (!jsonMatch) return;
 
-  await documents.setDocxCache(
+  let data: Record<string, unknown>;
+  try {
+    data = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+  } catch {
+    return;
+  }
+
+  await documents.setTemplateData(
     docId,
     (adminTemplate._id as { toString(): string }).toString(),
-    result.output
+    data
   );
 }

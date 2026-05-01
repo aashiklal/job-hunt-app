@@ -49,6 +49,19 @@ export async function POST(req: NextRequest) {
       : Promise.resolve(null),
   ]);
 
+  const templateId = adminTemplate
+    ? (adminTemplate._id as { toString(): string }).toString()
+    : null;
+
+  const templateData =
+    adminTemplate && storedDoc && templateId
+      ? await documents.getValidTemplateData(
+          storedDoc._id,
+          templateId,
+          adminTemplate.uploadedAt
+        )
+      : null;
+
   const docsBinaryHeaders = {
     "Content-Type":
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -74,24 +87,26 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Template path — may or may not call AI depending on cache state
-  try {
-    await checkBudget(userIdStr, "aiGeneration");
-  } catch (err) {
-    if (err instanceof QuotaExceededError) {
-      return NextResponse.json(
-        {
-          error: "QUOTA_EXCEEDED",
-          message: err.message,
-          limit: err.limit,
-          used: err.used,
-          periodEndsAt: err.periodEndsAt.toISOString(),
-        },
-        { status: 429 }
-      );
+  // Template path — quota check only needed when AI will be called (no templateData cache)
+  if (!templateData) {
+    try {
+      await checkBudget(userIdStr, "aiGeneration");
+    } catch (err) {
+      if (err instanceof QuotaExceededError) {
+        return NextResponse.json(
+          {
+            error: "QUOTA_EXCEEDED",
+            message: err.message,
+            limit: err.limit,
+            used: err.used,
+            periodEndsAt: err.periodEndsAt.toISOString(),
+          },
+          { status: 429 }
+        );
+      }
+      console.error("[generate/export] budget check failed:", err);
+      return NextResponse.json({ error: "Internal error" }, { status: 500 });
     }
-    console.error("[generate/export] budget check failed:", err);
-    return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 
   try {
@@ -100,10 +115,11 @@ export async function POST(req: NextRequest) {
       type,
       docId: storedDoc?._id ?? null,
       adminTemplate: {
-        _id: (adminTemplate._id as { toString(): string }).toString(),
+        _id: templateId!,
         fileData: adminTemplate.fileData as Buffer,
         uploadedAt: adminTemplate.uploadedAt,
       },
+      templateData,
     });
 
     if (aiUsage) {
