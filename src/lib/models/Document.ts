@@ -20,6 +20,12 @@ export type DocxSlotCache = {
   output: Array<[number, string | null]>;
 };
 
+export type TemplateDataCache = {
+  templateId: string;
+  cachedAt: Date;
+  data: Record<string, unknown>;
+};
+
 export type IDocument = {
   userId: Types.ObjectId;
   jobId: Types.ObjectId;
@@ -30,6 +36,7 @@ export type IDocument = {
   outputTokens?: number;
   resumeIdUsed?: Types.ObjectId;
   docxSlotCache?: DocxSlotCache;
+  templateData?: TemplateDataCache;
   createdAt: Date;
   updatedAt: Date;
 } & Document;
@@ -62,6 +69,7 @@ const DocumentSchema = new Schema<IDocument>(
     outputTokens: { type: Number },
     resumeIdUsed: { type: Schema.Types.ObjectId, ref: "Resume" },
     docxSlotCache: { type: Schema.Types.Mixed },
+    templateData: { type: Schema.Types.Mixed },
   },
   { timestamps: true }
 );

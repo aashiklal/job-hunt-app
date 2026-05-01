@@ -1,5 +1,5 @@
 import connectDB from "@/lib/db/connect";
-import Doc, { IDocument, DocumentType, DocxSlotCache } from "@/lib/models/Document";
+import Doc, { IDocument, DocumentType, DocxSlotCache, TemplateDataCache } from "@/lib/models/Document";
 
 export type { DocumentType };
 
@@ -14,6 +14,7 @@ export type DocItem = {
   outputTokens?: number;
   resumeIdUsed?: string;
   docxSlotCache?: DocxSlotCache;
+  templateData?: TemplateDataCache;
   createdAt: string;
   updatedAt: string;
 };
@@ -32,6 +33,7 @@ function toDocItem(doc: IDocument): DocItem {
       ? (doc.resumeIdUsed as unknown as { toString(): string }).toString()
       : undefined,
     docxSlotCache: doc.docxSlotCache,
+    templateData: doc.templateData,
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString(),
   };
@@ -136,4 +138,33 @@ export async function getValidDocxCache(
   if (cache.templateId !== templateId) return null;
   if (cache.cachedAt < templateUploadedAt) return null;
   return cache.output;
+}
+
+export async function setTemplateData(
+  docId: string,
+  templateId: string,
+  data: Record<string, unknown>
+): Promise<void> {
+  await connectDB();
+  await Doc.findByIdAndUpdate(docId, {
+    $set: {
+      templateData: { templateId, cachedAt: new Date(), data },
+    },
+  });
+}
+
+export async function getValidTemplateData(
+  docId: string,
+  templateId: string,
+  templateUploadedAt: Date
+): Promise<Record<string, unknown> | null> {
+  await connectDB();
+  const doc = await Doc.findById(docId)
+    .select("templateData")
+    .lean<{ templateData?: TemplateDataCache }>();
+  if (!doc?.templateData) return null;
+  const cache = doc.templateData;
+  if (cache.templateId !== templateId) return null;
+  if (cache.cachedAt < templateUploadedAt) return null;
+  return cache.data;
 }
