@@ -4,6 +4,7 @@ import * as users from "@/lib/repositories/users";
 import * as templates from "@/lib/repositories/templates";
 import * as auditLog from "@/lib/repositories/audit-log";
 import type { TemplateType } from "@/lib/repositories/templates";
+import { detectMarkers } from "@/lib/export/markers";
 
 const DOCX_MIME =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -58,6 +59,9 @@ export async function POST(req: NextRequest) {
     );
 
   const buffer = Buffer.from(await file.arrayBuffer());
+
+  const structure = await detectMarkers(buffer, type as "resume" | "cover_letter");
+
   await templates.upsert(type as TemplateType, buffer, file.name);
 
   const adminIdStr = (admin._id as { toString(): string }).toString();
@@ -71,10 +75,17 @@ export async function POST(req: NextRequest) {
       templateType: type,
       fileName: file.name,
       fileSize: file.size,
+      markers: structure.markers,
+      blocks: structure.blocks,
     },
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    ok: true,
+    markers: structure.markers,
+    blocks: structure.blocks,
+    warnings: structure.warnings,
+  });
 }
 
 /** DELETE /api/admin/templates?type=resume — remove a global template */
