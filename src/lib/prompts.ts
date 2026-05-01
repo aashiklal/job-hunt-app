@@ -643,3 +643,103 @@ Return the JSON comparison.`;
 
   return { system, userMessage };
 }
+
+export function buildResumeExtractionPrompt(args: {
+  markdown: string;
+}): { system: string; userMessage: string } {
+  const system = `You are extracting structured data from a tailored resume in markdown format.
+The resume uses # for the candidate name, ## for section headers, ### for job/project/degree titles, and - for bullet points.
+
+Return ONLY a JSON object matching this exact schema -- no preamble, no commentary, no markdown code fences:
+
+{
+  "name": "string",
+  "location": "string or null",
+  "phone": "string or null",
+  "email": "string or null",
+  "linkedin": "string or null",
+  "github": "string or null",
+  "website": "string or null",
+  "workRights": "string or null",
+  "summary": "string or null",
+  "skills": [{ "category": "string", "items": "string" }],
+  "experience": [{
+    "jobTitle": "string",
+    "company": "string",
+    "dateRange": "string",
+    "subtitle": "string or null",
+    "bullets": ["string"]
+  }],
+  "projects": [{
+    "name": "string",
+    "techStack": "string or null",
+    "bullets": ["string"]
+  }],
+  "education": [{
+    "degree": "string",
+    "school": "string",
+    "gradDate": "string or null",
+    "notes": "string or null"
+  }],
+  "certifications": ["string"],
+  "footer": "string or null"
+}
+
+Extraction rules:
+- name: from the # heading (first line).
+- location, phone, email, linkedin, github, website, workRights: from header lines after the name, before Professional Summary. Values on the same line are separated by | characters.
+- summary: paragraph text under the Professional Summary section header.
+- skills: each "Category: items" line. category is the label before ":", items is everything after ":".
+- experience: each role under Professional Experience. jobTitle and company are usually on the same ### line. subtitle is the optional context line immediately following (URL or promotion note), not a bullet. bullets are the - lines.
+- projects: each entry under Projects. name is the full title including type (e.g. "Job Hunt Tracker | Personal Project"). techStack is the "Tech Stack:" line value.
+- education: each degree. notes is the coursework or publication line if present.
+- certifications: flat list of strings, one per certification bullet.
+- footer: any final line like "References available on request".
+- Use null for any field not present in the resume.
+
+Respond with ONLY the JSON object.`;
+
+  return {
+    system,
+    userMessage: `Resume markdown:\n\n${args.markdown}\n\nReturn the JSON.`,
+  };
+}
+
+export function buildCoverLetterExtractionPrompt(args: {
+  markdown: string;
+  company: string;
+  role: string;
+  candidateName: string;
+}): { system: string; userMessage: string } {
+  const { markdown, company, role, candidateName } = args;
+  const system = `You are extracting structured data from a cover letter in markdown format.
+
+Return ONLY a JSON object matching this exact schema -- no preamble, no commentary, no markdown code fences:
+
+{
+  "name": "string",
+  "date": "string",
+  "recipient": "string or null",
+  "company": "string",
+  "role": "string",
+  "bodyParagraphs": ["string"],
+  "closing": "string or null"
+}
+
+Extraction rules:
+- name: the applicant's name from the sign-off, or use the hint provided.
+- date: the date line at the top of the letter.
+- recipient: "Hiring Manager", a personal name if addressed to one, or null.
+- company: the company name from the letter body (use the hint if not explicit).
+- role: the job title from the letter body (use the hint if not explicit).
+- bodyParagraphs: each body paragraph as a separate string. Exclude the date line, recipient line, and sign-off block.
+- closing: the closing sentence before the name sign-off (e.g. "I look forward to hearing from you.").
+- Use null for any field not present.
+
+Respond with ONLY the JSON object.`;
+
+  return {
+    system,
+    userMessage: `Company hint: ${company}\nRole hint: ${role}\nApplicant name hint: ${candidateName}\n\nCover letter markdown:\n\n${markdown}\n\nReturn the JSON.`,
+  };
+}
