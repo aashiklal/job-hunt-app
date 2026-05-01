@@ -14,10 +14,15 @@ export type BlockName = (typeof BLOCK_NAMES)[number];
 export const FIXED_RESUME_MARKERS = [
   "NAME", "LOCATION", "PHONE", "EMAIL", "LINKEDIN",
   "GITHUB", "WEBSITE", "WORK_RIGHTS", "SUMMARY", "FOOTER",
+  "JOB_TITLE", "COMPANY", "DATE_RANGE", "JOB_SUBTITLE",
+  "BULLET", "PROJECT_NAME", "PROJECT_TECH_STACK",
+  "DEGREE", "SCHOOL", "GRAD_DATE", "EDU_NOTES",
+  "CERT", "SKILL_LINE",
 ] as const;
 
 export const FIXED_COVER_LETTER_MARKERS = [
   "NAME", "DATE", "RECIPIENT", "COMPANY", "ROLE", "CLOSING",
+  "BODY_PARAGRAPH",
 ] as const;
 
 const CRITICAL_RESUME_MARKERS = ["NAME", "SUMMARY", "BULLET"];
@@ -59,7 +64,11 @@ export async function detectMarkers(
   docType: "resume" | "cover_letter"
 ): Promise<TemplateStructure> {
   const zip = await JSZip.loadAsync(buffer);
-  const docXml = (await zip.file("word/document.xml")?.async("string")) ?? "";
+  const entry = zip.file("word/document.xml");
+  if (!entry) {
+    throw new Error("Invalid DOCX: word/document.xml not found in archive");
+  }
+  const docXml = await entry.async("string");
 
   const paraRe = /<w:p\b[\s\S]*?<\/w:p>/g;
   const allMarkers = new Set<string>();
@@ -88,6 +97,28 @@ export async function detectMarkers(
   const warnings = criticalMarkers
     .filter((m) => !allMarkers.has(m))
     .map((m) => `Missing critical marker: {{${m}}}`);
+
+  // Check for mismatched START/END delimiter pairs
+  const startsSeen = new Set<string>();
+  const endsSeen = new Set<string>();
+  // Re-scan for delimiters only
+  const delimRe = /<w:p\b[\s\S]*?<\/w:p>/g;
+  let dm: RegExpExecArray | null;
+  while ((dm = delimRe.exec(docXml)) !== null) {
+    const t = getMergedText(dm[0]);
+    for (const m of getMarkersFromText(t)) {
+      for (const block of BLOCK_NAMES) {
+        if (m === `START_${block}`) startsSeen.add(block);
+        if (m === `END_${block}`) endsSeen.add(block);
+      }
+    }
+  }
+  for (const block of BLOCK_NAMES) {
+    const hasStart = startsSeen.has(block);
+    const hasEnd = endsSeen.has(block);
+    if (hasStart && !hasEnd) warnings.push(`Block {{START_${block}}} has no matching {{END_${block}}}`);
+    if (!hasStart && hasEnd) warnings.push(`Block {{END_${block}}} has no matching {{START_${block}}}`);
+  }
 
   return {
     markers: Array.from(allMarkers),
