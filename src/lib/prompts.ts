@@ -690,9 +690,9 @@ Extraction rules:
 - location, phone, email, linkedin, github, website, workRights: from header lines after the name, before Professional Summary. Values on the same line are separated by | characters.
 - summary: paragraph text under the Professional Summary section header.
 - skills: each "Category: items" line. category is the label before ":", items is everything after ":".
-- experience: each role under Professional Experience. jobTitle and company are usually on the same ### line. subtitle is the optional context line immediately following (URL or promotion note), not a bullet. bullets are the - lines.
+- experience: each role under Professional Experience. jobTitle and company are usually on the same ### line. subtitle is the optional plain-text context line immediately following the title line (e.g. a promotion note or a project URL), not a bullet point. If the line is a URL, include it as-is. bullets are the - lines.
 - projects: each entry under Projects. name is the full title including type (e.g. "Job Hunt Tracker | Personal Project"). techStack is the "Tech Stack:" line value.
-- education: each degree. notes is the coursework or publication line if present.
+- education: each degree. notes is the first supplementary line after the degree/school/date line (coursework, GPA, honours, or publication). If multiple supplementary lines exist, concatenate them with a semicolon. null if none present.
 - certifications: flat list of strings, one per certification bullet.
 - footer: any final line like "References available on request".
 - Use null for any field not present in the resume.
@@ -733,7 +733,7 @@ Extraction rules:
 - company: the company name from the letter body (use the hint if not explicit).
 - role: the job title from the letter body (use the hint if not explicit).
 - bodyParagraphs: each body paragraph as a separate string. Exclude the date line, recipient line, and sign-off block.
-- closing: the closing sentence before the name sign-off (e.g. "I look forward to hearing from you.").
+- closing: the distinct closing sentence before the name sign-off (e.g. "I look forward to hearing from you."). If no separate closing sentence exists and the last body paragraph itself serves as the close, use null.
 - Use null for any field not present.
 
 Respond with ONLY the JSON object.`;

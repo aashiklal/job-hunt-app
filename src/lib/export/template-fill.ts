@@ -40,8 +40,17 @@ function resolveFixedMarker(
 
 type BlockItem = Record<string, string | string[] | null | undefined>;
 
+// Markers whose template name does not mechanically map to the data field name
+const MARKER_ALIAS: Record<string, string> = {
+  JOB_SUBTITLE:       "subtitle",
+  EDU_NOTES:          "notes",
+  PROJECT_NAME:       "name",
+  PROJECT_TECH_STACK: "techStack",
+};
+
 function resolveBlockMarker(marker: string, item: BlockItem): string | string[] | null {
-  const val = item[markerToCamel(marker)];
+  const key = MARKER_ALIAS[marker] ?? markerToCamel(marker);
+  const val = item[key];
   return val !== undefined ? (val as string | string[] | null) : null;
 }
 
@@ -124,6 +133,12 @@ export async function fillTemplate(
         for (const bpara of blockTemplate) {
           const btext = getMergedText(bpara.xml);
           const bmarkers = getMarkersFromText(btext);
+
+          if (bmarkers.includes("SKILL_LINE")) {
+            const line = `${item["category"] as string}: ${item["items"] as string}`;
+            outputXmls.push(setParaText(bpara.xml, line));
+            continue;
+          }
 
           if (bmarkers.includes("BULLET")) {
             const bullets = (item["bullets"] as string[] | undefined) ?? [];
