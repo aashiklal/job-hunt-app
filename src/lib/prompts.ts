@@ -47,9 +47,16 @@ export function buildCoverLetterPrompt(args: {
   userName?: string;
 }) {
   const { baseResume, job, userName } = args;
+  const now = new Date();
+  const day = now.getDate();
+  const ordinal = ["th", "st", "nd", "rd"][
+    day % 10 > 3 || Math.floor((day % 100) / 10) === 1 ? 0 : day % 10
+  ];
+  const todayFormatted = `${day}${ordinal} ${now.toLocaleDateString("en-GB", { month: "long" })} ${now.getFullYear()}`;
   const system = `You are helping a job applicant write a professional cover letter for a specific role.
 
 Your job is to write a concise, warm, professional cover letter (3 to 4 paragraphs) tailored to the company and role. The letter should:
+- Begin with today's date (${todayFormatted}) on its own line
 - Open with a specific reason the applicant is interested in THIS role at THIS company (not generic)
 - Highlight 2 to 3 specific accomplishments from the base resume that match the job description
 - Close with a brief, confident call to action
