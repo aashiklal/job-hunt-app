@@ -46,7 +46,6 @@ next-env.d.ts
 # AI agent instructions (generated on init, not source-controlled)
 CLAUDE.md
 AGENTS.md
-NEW_FEATURE_PROMPTS.md
 
 docs/
 
