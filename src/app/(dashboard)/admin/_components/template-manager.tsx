@@ -151,6 +151,7 @@ export function TemplateManager({
                   <input
                     ref={inputRefFor(type)}
                     type="file"
+                    aria-label={`Upload ${label} template`}
                     accept="application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx"
                     className="hidden"
                     onChange={(e) => {

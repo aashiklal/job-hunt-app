@@ -60,7 +60,15 @@ export async function POST(req: NextRequest) {
 
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  const structure = await detectMarkers(buffer, type as "resume" | "cover_letter");
+  let structure: Awaited<ReturnType<typeof detectMarkers>>;
+  try {
+    structure = await detectMarkers(buffer, type as "resume" | "cover_letter");
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Could not parse DOCX structure" },
+      { status: 422 }
+    );
+  }
 
   await templates.upsert(type as TemplateType, buffer, file.name);
 
