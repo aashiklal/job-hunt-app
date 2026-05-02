@@ -4,7 +4,12 @@ import * as users from "@/lib/repositories/users";
 import * as templates from "@/lib/repositories/templates";
 import * as auditLog from "@/lib/repositories/audit-log";
 import type { TemplateType } from "@/lib/repositories/templates";
-import { detectMarkers } from "@/lib/export/markers";
+import { analyzeDocxTheme } from "@/lib/export/analyze-docx-theme";
+import { extractDocxStructure } from "@/lib/export/extract-docx-structure";
+import { extractDocxStyles } from "@/lib/export/extract-docx-styles";
+import { mapPixelTheme } from "@/lib/export/map-pixel-theme";
+import { mapStylesToRoles } from "@/lib/export/map-styles-to-roles";
+import { buildPixelThemeContract } from "@/lib/export/pixel-theme-contract";
 
 const DOCX_MIME =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -17,7 +22,7 @@ async function requireAdmin(clerkUserId: string) {
   return user;
 }
 
-/** POST /api/admin/templates — upload or replace a global default template */
+/** POST /api/admin/templates — upload or replace a global document theme */
 export async function POST(req: NextRequest) {
   const { userId: clerkUserId } = await auth();
   if (!clerkUserId)
@@ -60,17 +65,37 @@ export async function POST(req: NextRequest) {
 
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  let structure: Awaited<ReturnType<typeof detectMarkers>>;
+  let themeAnalysis: Awaited<ReturnType<typeof analyzeDocxTheme>>;
+  let mapped: Awaited<ReturnType<typeof mapPixelTheme>>;
+  let styleMapped: Awaited<ReturnType<typeof mapStylesToRoles>>;
   try {
-    structure = await detectMarkers(buffer, type as "resume" | "cover_letter");
+    themeAnalysis = await analyzeDocxTheme(buffer, type as "resume" | "cover_letter");
+    const structure = await extractDocxStructure(buffer);
+    const styles = await extractDocxStyles(buffer);
+    mapped = await mapPixelTheme(structure, type as "resume" | "cover_letter");
+    styleMapped = await mapStylesToRoles(styles, type as "resume" | "cover_letter");
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Could not parse DOCX structure" },
       { status: 422 }
     );
   }
+  const contract = buildPixelThemeContract({
+    docType: type as "resume" | "cover_letter",
+    themeAnalysis,
+    pixelThemeMap: mapped.map,
+    styleRoleMap: styleMapped.map,
+  });
 
-  await templates.upsert(type as TemplateType, buffer, file.name);
+  await templates.upsert(
+    type as TemplateType,
+    buffer,
+    file.name,
+    themeAnalysis,
+    mapped.map,
+    styleMapped.map,
+    "claude-haiku-4-5-20251001"
+  );
 
   const adminIdStr = (admin._id as { toString(): string }).toString();
   await auditLog.create({
@@ -83,16 +108,29 @@ export async function POST(req: NextRequest) {
       templateType: type,
       fileName: file.name,
       fileSize: file.size,
-      markers: structure.markers,
-      blocks: structure.blocks,
+      themeAnalysis,
+      mappedRegions: mapped.map.regions.length,
+      mappedStyles: Object.values(styleMapped.map.roleStyles).filter(Boolean).length,
+      mappingInputTokens: mapped.inputTokens,
+      mappingOutputTokens: mapped.outputTokens,
+      styleMappingInputTokens: styleMapped.inputTokens,
+      styleMappingOutputTokens: styleMapped.outputTokens,
     },
   });
 
   return NextResponse.json({
     ok: true,
-    markers: structure.markers,
-    blocks: structure.blocks,
-    warnings: structure.warnings,
+    themeAnalysis,
+    pixelThemeMap: {
+      regionCount: mapped.map.regions.length,
+      roles: mapped.map.regions.map((region) => region.role),
+    },
+    styleRoleMap: {
+      mappedStyleCount: Object.values(styleMapped.map.roleStyles).filter(Boolean).length,
+      sectionHeadingCase: styleMapped.map.sectionHeadingCase,
+    },
+    themeCapacity: contract?.capacity ?? null,
+    warnings: contract?.warnings ?? [...mapped.map.warnings, ...styleMapped.map.warnings],
   });
 }
 

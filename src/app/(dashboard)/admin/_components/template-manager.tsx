@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { ThemeCapacity } from "@/lib/export/pixel-theme-contract";
 
 type SlotInfo = {
   type: "resume" | "cover_letter";
@@ -15,24 +16,40 @@ type SlotInfo = {
 const SLOTS: SlotInfo[] = [
   {
     type: "resume",
-    label: "Resume Template",
-    hint: "Upload a .docx file with {{MARKER}} placeholders.",
+    label: "Resume Theme",
+    hint: "Upload a .docx visual reference.",
   },
   {
     type: "cover_letter",
-    label: "Cover Letter Template",
-    hint: "Upload a .docx file with {{MARKER}} placeholders.",
+    label: "Cover Letter Theme",
+    hint: "Upload a .docx visual reference.",
   },
 ];
 
-type MarkerSummary = {
-  markers: string[];
-  blocks: string[];
+type ThemeSummary = {
+  textParagraphCount: number;
+  mappedRegionCount: number;
+  mappedStyleCount: number;
+  hasTables: boolean;
+  hasDrawings: boolean;
+  hasTextBoxes: boolean;
+  hasMarkers: boolean;
+  themeCapacity: ThemeCapacity | null;
   warnings: string[];
 };
 
 type Props = {
-  current: Partial<Record<"resume" | "cover_letter", { fileName: string }>>;
+  current: Partial<
+    Record<
+      "resume" | "cover_letter",
+      {
+        fileName: string;
+        mappedRegionCount?: number;
+        mappedStyleCount?: number;
+        themeCapacity?: ThemeCapacity | null;
+      }
+    >
+  >;
   apiBase: string;
   title?: string;
   description?: string;
@@ -41,13 +58,13 @@ type Props = {
 export function TemplateManager({
   current,
   apiBase,
-  title = "Export Templates",
-  description = "Upload a .docx file with {{MARKER}} placeholders. The system replaces markers with each user's actual data at export time.",
+  title = "Document Themes",
+  description = "Upload normal .docx files as visual references. The app keeps the look and replaces the sample text with each user's generated content.",
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [busy, setBusy] = useState<"resume" | "cover_letter" | null>(null);
-  const [summary, setSummary] = useState<Partial<Record<"resume" | "cover_letter", MarkerSummary>>>({});
+  const [summary, setSummary] = useState<Partial<Record<"resume" | "cover_letter", ThemeSummary>>>({});
   const resumeInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
@@ -73,16 +90,22 @@ export function TemplateManager({
       setSummary((prev) => ({
         ...prev,
         [type]: {
-          markers: data.markers ?? [],
-          blocks: data.blocks ?? [],
+          textParagraphCount: data.themeAnalysis?.textParagraphCount ?? 0,
+          mappedRegionCount: data.pixelThemeMap?.regionCount ?? 0,
+          mappedStyleCount: data.styleRoleMap?.mappedStyleCount ?? 0,
+          hasTables: data.themeAnalysis?.hasTables ?? false,
+          hasDrawings: data.themeAnalysis?.hasDrawings ?? false,
+          hasTextBoxes: data.themeAnalysis?.hasTextBoxes ?? false,
+          hasMarkers: data.themeAnalysis?.hasMarkers ?? false,
+          themeCapacity: data.themeCapacity ?? null,
           warnings: data.warnings ?? [],
         },
       }));
 
       if (data.warnings?.length > 0) {
-        toast.warning(`Template uploaded with ${data.warnings.length} warning(s) -- check the marker summary.`);
+        toast.warning(`Theme uploaded with ${data.warnings.length} warning(s) -- check the theme summary.`);
       } else {
-        toast.success("Template saved");
+        toast.success("Theme saved");
       }
 
       startTransition(() => router.refresh());
@@ -110,7 +133,7 @@ export function TemplateManager({
         return next;
       });
 
-      toast.success("Template removed");
+      toast.success("Theme removed");
       startTransition(() => router.refresh());
     } catch {
       toast.error("Network error");
@@ -131,7 +154,10 @@ export function TemplateManager({
         {SLOTS.map(({ type, label, hint }) => {
           const existing = current[type];
           const isBusy = busy === type;
-          const markerSummary = summary[type];
+          const themeSummary = summary[type];
+          const existingRegionCount = existing?.mappedRegionCount;
+          const existingStyleCount = existing?.mappedStyleCount;
+          const existingCapacity = existing?.themeCapacity;
 
           return (
             <div key={type} className="flex flex-col gap-3 rounded-lg border px-4 py-3">
@@ -186,31 +212,83 @@ export function TemplateManager({
                 </div>
               </div>
 
-              {markerSummary && (
+              {themeSummary ? (
                 <div className="flex flex-col gap-2 text-xs border-t pt-2">
-                  {markerSummary.warnings.length > 0 && (
+                  {themeSummary.warnings.length > 0 && (
                     <div className="flex flex-col gap-1">
-                      {markerSummary.warnings.map((w) => (
+                      {themeSummary.warnings.map((w) => (
                         <p key={w} className="text-destructive">{w}</p>
                       ))}
                     </div>
                   )}
                   <div>
-                    <span className="font-medium text-muted-foreground">Detected markers: </span>
+                    <span className="font-medium text-muted-foreground">Theme Capacity: </span>
                     <span className="text-foreground">
-                      {markerSummary.markers.length > 0
-                        ? markerSummary.markers.map((m) => `{{${m}}}`).join(", ")
-                        : "none"}
+                      {themeSummary.themeCapacity
+                        ? `${themeSummary.themeCapacity.level} -- ${themeSummary.themeCapacity.guidance}`
+                        : "unavailable"}
                     </span>
                   </div>
-                  {markerSummary.blocks.length > 0 && (
+                  <div>
+                    <span className="font-medium text-muted-foreground">Theme text paragraphs: </span>
+                    <span className="text-foreground">
+                      {themeSummary.textParagraphCount}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-medium text-muted-foreground">Style roles: </span>
+                    <span className="text-foreground">
+                      {themeSummary.mappedStyleCount > 0
+                        ? `${themeSummary.mappedStyleCount} mapped`
+                        : "none -- re-upload to enable style matching"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-medium text-muted-foreground">Pixel theme regions: </span>
+                    <span className="text-foreground">
+                      {themeSummary.mappedRegionCount > 0
+                        ? `${themeSummary.mappedRegionCount} mapped`
+                        : "none -- re-upload to enable design matching"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-medium text-muted-foreground">Detected features: </span>
+                    <span className="text-foreground">
+                      {[
+                        themeSummary.hasTables ? "tables" : null,
+                        themeSummary.hasDrawings ? "drawings/shapes" : null,
+                        themeSummary.hasTextBoxes ? "text boxes" : null,
+                        themeSummary.hasMarkers ? "old markers treated as sample text" : null,
+                      ].filter(Boolean).join(", ") || "standard paragraphs"}
+                    </span>
+                  </div>
+                </div>
+              ) : existing && (existingRegionCount !== undefined || existingStyleCount !== undefined) && (
+                <div className="flex flex-col gap-2 text-xs border-t pt-2">
+                  {existingCapacity && (
                     <div>
-                      <span className="font-medium text-muted-foreground">Repeating blocks: </span>
+                      <span className="font-medium text-muted-foreground">Theme Capacity: </span>
                       <span className="text-foreground">
-                        {markerSummary.blocks.join(", ")}
+                        {existingCapacity.level} -- {existingCapacity.guidance}
                       </span>
                     </div>
                   )}
+                  <div>
+                    <span className="font-medium text-muted-foreground">Style roles: </span>
+                    <span className="text-foreground">
+                      {(existingStyleCount ?? 0) > 0
+                        ? `${existingStyleCount} mapped`
+                        : "none -- re-upload to enable style matching"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-medium text-muted-foreground">Pixel theme regions: </span>
+                    <span className="text-foreground">
+                      {(existingRegionCount ?? 0) > 0
+                        ? `${existingRegionCount} mapped`
+                        : "none -- re-upload to enable design matching"}
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
@@ -218,12 +296,8 @@ export function TemplateManager({
         })}
 
         <p className="text-xs text-muted-foreground">
-          Only .docx files are supported. Add{" "}
-          <code className="font-mono bg-muted px-1 rounded">{"{{MARKER}}"}</code>{" "}
-          placeholders where user data should appear. Wrap repeating sections with{" "}
-          <code className="font-mono bg-muted px-1 rounded">{"{{START_EXPERIENCE}}"}</code>{" "}
-          and{" "}
-          <code className="font-mono bg-muted px-1 rounded">{"{{END_EXPERIENCE}}"}</code>.
+          Only .docx files are supported. Existing text is treated as sample content;
+          it will not be copied into user exports.
         </p>
       </CardContent>
     </Card>

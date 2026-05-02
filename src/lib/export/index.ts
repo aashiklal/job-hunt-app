@@ -1,64 +1,60 @@
 import "server-only";
-import * as documents from "@/lib/repositories/documents";
-import { applyToTemplate, injectContent } from "@/lib/export/from-template";
 import { generateDOCX } from "@/lib/export/to-docx";
-import { fillTemplate } from "@/lib/export/template-fill";
-import type { ResumeTemplateData, CoverLetterTemplateData } from "@/lib/export/template-data";
-
-const HAIKU_MODEL = "claude-haiku-4-5-20251001";
+import { renderThemedDOCX } from "@/lib/export/render-themed-docx";
+import {
+  generatedDocumentSchema,
+  generatedDocumentToMarkdown,
+} from "@/lib/generated-documents";
+import type { DocumentThemeAnalysis } from "@/lib/export/analyze-docx-theme";
+import type { PixelThemeMap } from "@/lib/export/map-pixel-theme";
+import type { StyleRoleMap } from "@/lib/export/map-styles-to-roles";
+import { buildPixelThemeContract } from "@/lib/export/pixel-theme-contract";
 
 export type ExportDocumentParams = {
   content: string;
   type: "resume" | "cover_letter";
-  docId?: string | null;
-  adminTemplate: { _id: string; fileData: Buffer; uploadedAt: Date } | null;
-  templateData?: Record<string, unknown> | null;
+  adminTemplate: {
+    _id: string;
+    fileData: Buffer;
+    uploadedAt: Date;
+    themeAnalysis?: DocumentThemeAnalysis | null;
+    pixelThemeMap?: PixelThemeMap | null;
+    styleRoleMap?: StyleRoleMap | null;
+  } | null;
+  structuredContent?: Record<string, unknown> | null;
 };
 
 export type ExportDocumentResult = {
   buffer: Buffer;
-  aiUsage?: { model: string; inputTokens: number; outputTokens: number };
+  usedTheme: boolean;
 };
 
 export async function exportDocument(
   params: ExportDocumentParams
 ): Promise<ExportDocumentResult> {
-  const { content, type, docId, adminTemplate, templateData } = params;
+  const { content, adminTemplate, structuredContent } = params;
+  const parsedStructured = structuredContent
+    ? generatedDocumentSchema.safeParse(structuredContent)
+    : null;
+  const structured = parsedStructured?.success ? parsedStructured.data : null;
+  const renderContent = structured ? generatedDocumentToMarkdown(structured) : content;
 
-  // Path 1: No template — generic DOCX, no AI
-  if (!adminTemplate) {
-    const buffer = await generateDOCX(content);
-    return { buffer };
+  if (!adminTemplate || !structured) {
+    const buffer = await generateDOCX(renderContent);
+    return { buffer, usedTheme: false };
   }
 
-  // Path 2: Template + precomputed structured data — deterministic fill, no AI
-  if (templateData) {
-    const data = templateData as ResumeTemplateData | CoverLetterTemplateData;
-    const buffer = await fillTemplate(adminTemplate.fileData, data, type);
-    return { buffer };
+  const contract = buildPixelThemeContract({
+    docType: structured.kind,
+    themeAnalysis: adminTemplate.themeAnalysis,
+    pixelThemeMap: adminTemplate.pixelThemeMap,
+    styleRoleMap: adminTemplate.styleRoleMap,
+  });
+  const themed = await renderThemedDOCX(adminTemplate.fileData, structured, contract);
+  if (themed.usedTheme) {
+    return { buffer: themed.buffer, usedTheme: true };
   }
 
-  // Path 3: Template + valid slot-fill cache — apply without AI (backwards compat)
-  if (docId) {
-    const cachedOutput = await documents.getValidDocxCache(
-      docId,
-      adminTemplate._id,
-      adminTemplate.uploadedAt
-    );
-    if (cachedOutput) {
-      const buffer = await applyToTemplate(adminTemplate.fileData, cachedOutput);
-      return { buffer };
-    }
-  }
-
-  // Path 4: Template + cache miss — call AI (Haiku)
-  const result = await injectContent(adminTemplate.fileData, content, type);
-  return {
-    buffer: result.buffer,
-    aiUsage: {
-      model: HAIKU_MODEL,
-      inputTokens: result.inputTokens ?? 0,
-      outputTokens: result.outputTokens ?? 0,
-    },
-  };
+  const buffer = await generateDOCX(renderContent);
+  return { buffer, usedTheme: false };
 }

@@ -5,6 +5,7 @@ import type { UserListItem } from "@/lib/repositories/users";
 import * as templates from "@/lib/repositories/templates";
 import * as auditLog from "@/lib/repositories/audit-log";
 import { getBulkSpend } from "@/lib/usage";
+import type { ThemeCapacity } from "@/lib/export/pixel-theme-contract";
 import { TemplateManager } from "./_components/template-manager";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -40,8 +41,26 @@ export default async function AdminPage() {
   const approvedSpend = await getBulkSpend(approvedUserIds);
 
   const currentAdminTemplates = Object.fromEntries(
-    adminTemplateList.map((t) => [t.type, { fileName: t.fileName }])
-  ) as Partial<Record<"resume" | "cover_letter", { fileName: string }>>;
+    adminTemplateList.map((t) => [
+      t.type,
+      {
+        fileName: t.fileName,
+        mappedRegionCount: t.mappedRegionCount ?? 0,
+        mappedStyleCount: t.mappedStyleCount ?? 0,
+        themeCapacity: t.themeCapacity ?? null,
+      },
+    ])
+  ) as Partial<
+    Record<
+      "resume" | "cover_letter",
+      {
+        fileName: string;
+        mappedRegionCount: number;
+        mappedStyleCount: number;
+        themeCapacity: ThemeCapacity | null;
+      }
+    >
+  >;
 
   const planSpendLimit = plan.aiSpendLimitUSD ?? 5.0;
 
