@@ -16,6 +16,7 @@ type Analysis = {
   requiredSkills: string[];
   niceToHaves: string[];
   keywordsForResume: string[];
+  interviewLikelyFocus?: string[];
   redFlags: string[];
 };
 
@@ -42,8 +43,10 @@ type Props = {
   defaultResumeContent: string;
   initialResumeContent: string | null;
   initialResumeId: string | null;
+  initialResumeDocumentId: string | null;
   initialCoverLetterContent: string | null;
   initialCoverLetterId: string | null;
+  initialCoverLetterDocumentId: string | null;
   initialAnalysis: Analysis | null;
   initialLinkedInNote: string | null;
   initialLinkedInDm: string | null;
@@ -63,8 +66,10 @@ export function JobDetailTabs({
   defaultResumeContent,
   initialResumeContent,
   initialResumeId,
+  initialResumeDocumentId,
   initialCoverLetterContent,
   initialCoverLetterId,
+  initialCoverLetterDocumentId,
   initialAnalysis,
   initialLinkedInNote,
   initialLinkedInDm,
@@ -91,6 +96,7 @@ export function JobDetailTabs({
           resumes={resumes}
           initialContent={initialResumeContent}
           initialResumeId={initialResumeId}
+          initialDocumentId={initialResumeDocumentId}
         />
         <GeneratePanel
           type="cover_letter"
@@ -98,6 +104,7 @@ export function JobDetailTabs({
           resumes={resumes}
           initialContent={initialCoverLetterContent}
           initialResumeId={initialCoverLetterId}
+          initialDocumentId={initialCoverLetterDocumentId}
         />
       </TabsContent>
 

@@ -14,29 +14,16 @@ export type DocumentType =
   | "checkin_email"
   | "salary_negotiation";
 
-export type DocxSlotCache = {
-  templateId: string;
-  cachedAt: Date;
-  output: Array<[number, string | null]>;
-};
-
-export type TemplateDataCache = {
-  templateId: string;
-  cachedAt: Date;
-  data: Record<string, unknown>;
-};
-
 export type IDocument = {
   userId: Types.ObjectId;
   jobId: Types.ObjectId;
   type: DocumentType;
   content: string;
+  structuredContent?: Record<string, unknown>;
   aiModel: string;
   inputTokens?: number;
   outputTokens?: number;
   resumeIdUsed?: Types.ObjectId;
-  docxSlotCache?: DocxSlotCache;
-  templateData?: TemplateDataCache;
   createdAt: Date;
   updatedAt: Date;
 } & Document;
@@ -64,12 +51,11 @@ const DocumentSchema = new Schema<IDocument>(
       required: true,
     },
     content: { type: String, required: true },
+    structuredContent: { type: Schema.Types.Mixed },
     aiModel: { type: String, required: true },
     inputTokens: { type: Number },
     outputTokens: { type: Number },
     resumeIdUsed: { type: Schema.Types.ObjectId, ref: "Resume" },
-    docxSlotCache: { type: Schema.Types.Mixed },
-    templateData: { type: Schema.Types.Mixed },
   },
   { timestamps: true }
 );

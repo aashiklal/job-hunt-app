@@ -230,8 +230,10 @@ export default async function JobDetailPage({
             defaultResumeContent={defaultResumeContent}
             initialResumeContent={latestResumeDoc?.content ?? null}
             initialResumeId={latestResumeDoc?.resumeIdUsed ?? null}
+            initialResumeDocumentId={latestResumeDoc?._id ?? null}
             initialCoverLetterContent={latestCoverLetterDoc?.content ?? null}
             initialCoverLetterId={latestCoverLetterDoc?.resumeIdUsed ?? null}
+            initialCoverLetterDocumentId={latestCoverLetterDoc?._id ?? null}
             initialAnalysis={initialAnalysis}
             initialLinkedInNote={latestLinkedInNoteDoc?.content ?? null}
             initialLinkedInDm={latestLinkedInDmDoc?.content ?? null}

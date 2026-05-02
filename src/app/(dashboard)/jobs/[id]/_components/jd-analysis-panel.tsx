@@ -13,6 +13,7 @@ type Analysis = {
   requiredSkills: string[];
   niceToHaves: string[];
   keywordsForResume: string[];
+  interviewLikelyFocus?: string[];
   redFlags: string[];
 };
 
@@ -30,6 +31,7 @@ export function JDAnalysisPanel({
   const router = useRouter();
   const [analysis, setAnalysis] = useState<Analysis | null>(initialAnalysis);
   const [isLoading, setIsLoading] = useState(false);
+  const interviewLikelyFocus = analysis?.interviewLikelyFocus ?? [];
 
   async function handleGenerate() {
     if (!hasJobDescription) {
@@ -161,6 +163,20 @@ export function JDAnalysisPanel({
                     </Badge>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Interview focus */}
+            {interviewLikelyFocus.length > 0 && (
+              <div>
+                <div className="text-xs font-medium text-muted-foreground mb-1">
+                  Likely interview focus
+                </div>
+                <ul className="text-sm list-disc list-inside space-y-1">
+                  {interviewLikelyFocus.map((s) => (
+                    <li key={s}>{s}</li>
+                  ))}
+                </ul>
               </div>
             )}
 

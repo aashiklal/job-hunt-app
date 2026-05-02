@@ -8,9 +8,8 @@ import * as users from "@/lib/repositories/users";
 import * as jobs from "@/lib/repositories/jobs";
 import * as resumes from "@/lib/repositories/resumes";
 import * as documents from "@/lib/repositories/documents";
-import type { DocumentType } from "@/lib/repositories/documents";
 import * as templates from "@/lib/repositories/templates";
-import type { TemplateType } from "@/lib/repositories/templates";
+import type { DocumentType } from "@/lib/repositories/documents";
 import {
   checkBudget,
   addSpend,
@@ -18,8 +17,6 @@ import {
   QuotaExceededError,
 } from "@/lib/usage";
 import {
-  buildResumeTailorPrompt,
-  buildCoverLetterPrompt,
   buildJDAnalysisPrompt,
   buildLinkedInConnectionNotePrompt,
   buildLinkedInRecruiterDMPrompt,
@@ -30,14 +27,32 @@ import {
   buildColdEmailPrompt,
   buildCheckinEmailPrompt,
   buildSalaryNegotiationEmailPrompt,
-  buildResumeExtractionPrompt,
-  buildCoverLetterExtractionPrompt,
 } from "@/lib/prompts";
+import {
+  buildStructuredCoverLetterPrompt,
+  buildStructuredResumePrompt,
+  fallbackContactFromResume,
+  generatedCoverLetterSchema,
+  generatedDocumentToMarkdown,
+  generatedResumeSchema,
+  sortExperienceByDate,
+  type GeneratedDocument,
+  type GeneratedResume,
+} from "@/lib/generated-documents";
+import { buildPixelThemeContract } from "@/lib/export/pixel-theme-contract";
 
 const MODEL = "claude-sonnet-4-5";
 const MAX_TOKENS = 4096;
 
-const jdAnalysisSchema = z.record(z.string(), z.unknown());
+const jdAnalysisSchema = z.object({
+  summary: z.string().min(1),
+  seniorityLevel: z.enum(["junior", "mid", "senior", "staff", "unclear"]),
+  requiredSkills: z.array(z.string().min(1)),
+  niceToHaves: z.array(z.string().min(1)),
+  keywordsForResume: z.array(z.string().min(1)),
+  interviewLikelyFocus: z.array(z.string().min(1)),
+  redFlags: z.array(z.string().min(1)),
+});
 
 const requestSchema = z.object({
   jobId: z.string().min(1),
@@ -206,11 +221,11 @@ export async function POST(req: NextRequest) {
         resumeList: await resumes.list(userIdStr),
       });
     } else {
-      // Resume tailor or cover letter — both stream
+      // Resume tailor and cover letter use structured JSON as the source of truth.
       const candidateName =
         [user.firstName, user.lastName].filter(Boolean).join(" ") ||
         user.email.split("@")[0];
-      return await handleStreamingGeneration({
+      return await handleStructuredGeneration({
         userIdStr,
         jobId,
         type,
@@ -536,9 +551,9 @@ async function handleInterviewPrep(args: {
   return NextResponse.json({ prep: parsed });
 }
 
-// ─── Streaming generation: resume tailor + cover letter ─────────────
+// ─── Structured generation: resume tailor + cover letter ─────────────
 
-async function handleStreamingGeneration(args: {
+async function handleStructuredGeneration(args: {
   userIdStr: string;
   jobId: string;
   type: "resume" | "cover_letter";
@@ -553,11 +568,19 @@ async function handleStreamingGeneration(args: {
 }) {
   const { userIdStr, jobId, type, job, resume, candidateName } = args;
   const resumeIdStr = resume._id;
+  const adminTemplate = await templates.get(type);
+  const themeContract = adminTemplate
+    ? buildPixelThemeContract({
+        docType: type,
+        themeAnalysis: adminTemplate.themeAnalysis ?? null,
+        pixelThemeMap: adminTemplate.pixelThemeMap ?? null,
+        styleRoleMap: adminTemplate.styleRoleMap ?? null,
+      })
+    : null;
 
-  // Build the prompt
   const built =
     type === "resume"
-      ? buildResumeTailorPrompt({
+      ? buildStructuredResumePrompt({
           baseResume: resume.content,
           job: {
             company: job.company,
@@ -565,8 +588,9 @@ async function handleStreamingGeneration(args: {
             location: job.location,
             jobDescription: job.jobDescription,
           },
+          themeCapacity: themeContract?.capacity ?? null,
         })
-      : buildCoverLetterPrompt({
+      : buildStructuredCoverLetterPrompt({
           baseResume: resume.content,
           job: {
             company: job.company,
@@ -574,140 +598,85 @@ async function handleStreamingGeneration(args: {
             location: job.location,
             jobDescription: job.jobDescription,
           },
+          userName: candidateName,
+          themeCapacity: themeContract?.capacity ?? null,
         });
 
-  // Open the Anthropic stream
-  const anthropicStream = anthropic.messages.stream({
-    model: MODEL,
-    max_tokens: MAX_TOKENS,
-    system: built.system,
-    messages: [{ role: "user", content: built.userMessage }],
-  });
+  let result: {
+    data: GeneratedDocument;
+    inputTokens: number;
+    outputTokens: number;
+  };
+  try {
+    if (type === "resume") {
+      result = await callStructured(
+        {
+          system: built.system,
+          userMessage: built.userMessage,
+          model: MODEL,
+          maxTokens: MAX_TOKENS,
+        },
+        generatedResumeSchema
+      );
+    } else {
+      result = await callStructured(
+        {
+          system: built.system,
+          userMessage: built.userMessage,
+          model: MODEL,
+          maxTokens: MAX_TOKENS,
+        },
+        generatedCoverLetterSchema
+      );
+    }
+  } catch (err) {
+    console.error("[generate] structured document parse failed:", err);
+    return NextResponse.json(
+      { error: "Failed to parse AI response as structured document. Please try again." },
+      { status: 502 }
+    );
+  }
 
-  // Build a ReadableStream that pipes text deltas to the client
-  const encoder = new TextEncoder();
-  let fullText = "";
-  let streamErrored = false;
+  const structuredContent =
+    type === "cover_letter"
+      ? (() => {
+          const fallbackContact = fallbackContactFromResume(resume.content);
+          return {
+            ...result.data,
+            name: result.data.name || candidateName,
+            contact: {
+              location: result.data.contact.location ?? fallbackContact.location,
+              phone: result.data.contact.phone ?? fallbackContact.phone,
+              email: result.data.contact.email ?? fallbackContact.email,
+              linkedin: result.data.contact.linkedin ?? fallbackContact.linkedin,
+              github: result.data.contact.github ?? fallbackContact.github,
+              website: result.data.contact.website ?? fallbackContact.website,
+              workRights: result.data.contact.workRights ?? fallbackContact.workRights,
+            },
+          };
+        })()
+      : sortExperienceByDate(result.data as GeneratedResume);
 
-  const readable = new ReadableStream<Uint8Array>({
-    async start(controller) {
-      try {
-        // Listen for text deltas
-        anthropicStream.on("text", (textDelta: string) => {
-          fullText += textDelta;
-          controller.enqueue(encoder.encode(textDelta));
-        });
-
-        // Wait for completion
-        const finalMessage = await anthropicStream.finalMessage();
-        const finalInputTokens = finalMessage.usage.input_tokens;
-        const finalOutputTokens = finalMessage.usage.output_tokens;
-
-        // Record actual cost now that we have token counts
-        const cost = calculateCost(MODEL, finalInputTokens, finalOutputTokens);
-        await addSpend(userIdStr, "aiGeneration", cost).catch((err) => console.error("[addSpend failed]", err));
-
-        // Save the document AFTER streaming completes
-        const savedDoc = await documents.upsert(userIdStr, {
-          jobId,
-          type,
-          content: fullText,
-          aiModel: MODEL,
-          inputTokens: finalInputTokens,
-          outputTokens: finalOutputTokens,
-          resumeIdUsed: resumeIdStr,
-        });
-
-        // Fire-and-forget: extract structured template data while user reads the preview.
-        // When the user clicks Download the cache will already be ready — zero AI latency.
-        precomputeTemplateData(
-          savedDoc._id,
-          fullText,
-          userIdStr,
-          type,
-          { company: job.company, role: job.role },
-          candidateName
-        ).catch((err) =>
-          console.error("[generate] template data pre-compute failed:", err)
-        );
-
-        controller.close();
-      } catch (err) {
-        streamErrored = true;
-        console.error("[generate] streaming error:", err);
-        // Cost is only recorded after finalMessage() resolves; if we errored
-        // before that, no cost was recorded — nothing to refund.
-        controller.error(err);
-      }
-    },
-    cancel() {
-      // Client disconnected mid-stream. Cost is recorded only after
-      // finalMessage() resolves (inside start()), so if we cancel before
-      // that, no cost is charged. No action needed here.
-      void streamErrored; // suppress unused-variable lint
-    },
-  });
-
-  return new Response(readable, {
-    headers: {
-      "Content-Type": "text/plain; charset=utf-8",
-      "Cache-Control": "no-store",
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
-}
-
-// ─── Template data pre-computation ───────────────────────────────────────────
-
-async function precomputeTemplateData(
-  docId: string,
-  content: string,
-  userId: string,
-  type: "resume" | "cover_letter",
-  job: { company: string; role: string },
-  candidateName: string
-): Promise<void> {
-  const adminTemplate = await templates.get(type as TemplateType);
-  if (!adminTemplate) return;
-
-  const HAIKU_MODEL = "claude-haiku-4-5-20251001";
-
-  const { system, userMessage } =
-    type === "resume"
-      ? buildResumeExtractionPrompt({ markdown: content })
-      : buildCoverLetterExtractionPrompt({
-          markdown: content,
-          company: job.company,
-          role: job.role,
-          candidateName,
-        });
-
-  const response = await anthropic.messages.create({
-    model: HAIKU_MODEL,
-    max_tokens: 4096,
-    system,
-    messages: [{ role: "user", content: userMessage }],
-  });
-
-  const cost = calculateCost(HAIKU_MODEL, response.usage.input_tokens, response.usage.output_tokens);
-  await addSpend(userId, "aiGeneration", cost).catch((err) =>
+  const content = generatedDocumentToMarkdown(structuredContent);
+  const cost = calculateCost(MODEL, result.inputTokens, result.outputTokens);
+  await addSpend(userIdStr, "aiGeneration", cost).catch((err) =>
     console.error("[addSpend failed]", err)
   );
 
-  const raw = response.content[0].type === "text" ? response.content[0].text.trim() : "";
-  const jsonMatch = /\{[\s\S]*\}/.exec(raw);
-  if (!jsonMatch) return;
+  const savedDoc = await documents.upsert(userIdStr, {
+    jobId,
+    type,
+    content,
+    structuredContent,
+    aiModel: MODEL,
+    inputTokens: result.inputTokens,
+    outputTokens: result.outputTokens,
+    resumeIdUsed: resumeIdStr,
+  });
 
-  let data: Record<string, unknown>;
-  try {
-    data = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
-  } catch {
-    return;
-  }
-
-  await documents.setTemplateData(
-    docId,
-    (adminTemplate._id as { toString(): string }).toString(),
-    data
-  );
+  return NextResponse.json({
+    documentId: savedDoc._id,
+    content,
+    structuredContent,
+  });
 }

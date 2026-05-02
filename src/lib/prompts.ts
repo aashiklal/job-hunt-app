@@ -1,88 +1,3 @@
-export function buildResumeTailorPrompt(args: {
-  baseResume: string;
-  job: {
-    company: string;
-    role: string;
-    location?: string | null;
-    jobDescription?: string | null;
-  };
-}) {
-  const { baseResume, job } = args;
-  const system = `You are an expert resume editor helping a job applicant tailor their existing base resume for a specific role.
-
-Your job is to rewrite the user's resume so it is targeted at the specific job description, while staying truthful. You may NOT add experience, skills, or accomplishments that are not in the original resume. You MAY:
-- Reorder bullet points to put the most relevant ones first
-- Rephrase bullet points to use language and keywords from the job description (where the original facts genuinely match)
-- Adjust the summary or objective section to speak directly to the role
-- Drop bullet points that are clearly irrelevant to this role (but never lie about experience)
-- Adjust skill ordering to put the most relevant skills first
-
-Output the tailored resume in clean markdown. Use # for the candidate's name as the top heading, ## for major sections (Experience, Education, Skills, etc.), ### for individual roles, and - for bullet points. Do not include any preamble, explanation, or commentary — just the tailored resume.
-
-The user's base resume may be in plain text or markdown; treat both the same way.`;
-
-  const userMessage = `Job:
-Company: ${job.company}
-Role: ${job.role}${job.location ? `\nLocation: ${job.location}` : ""}
-
-Job description:
-${job.jobDescription ?? "(No job description provided)"}
-
-Base resume:
-${baseResume}
-
-Now tailor the base resume for this job. Output only the tailored resume in markdown.`;
-
-  return { system, userMessage };
-}
-
-export function buildCoverLetterPrompt(args: {
-  baseResume: string;
-  job: {
-    company: string;
-    role: string;
-    location?: string | null;
-    jobDescription?: string | null;
-  };
-  userName?: string;
-}) {
-  const { baseResume, job, userName } = args;
-  const now = new Date();
-  const day = now.getDate();
-  const ordinal = ["th", "st", "nd", "rd"][
-    day % 10 > 3 || Math.floor((day % 100) / 10) === 1 ? 0 : day % 10
-  ];
-  const todayFormatted = `${day}${ordinal} ${now.toLocaleDateString("en-GB", { month: "long" })} ${now.getFullYear()}`;
-  const system = `You are helping a job applicant write a professional cover letter for a specific role.
-
-Your job is to write a concise, warm, professional cover letter (3 to 4 paragraphs) tailored to the company and role. The letter should:
-- Begin with today's date (${todayFormatted}) on its own line
-- Open with a specific reason the applicant is interested in THIS role at THIS company (not generic)
-- Highlight 2 to 3 specific accomplishments from the base resume that match the job description
-- Close with a brief, confident call to action
-
-Constraints:
-- Do NOT invent facts. Only use experience, skills, and accomplishments from the base resume.
-- Do NOT use cliches like "I am writing to express my interest in" or "I believe I would be a great fit".
-- Keep it under 350 words.
-- Output in clean markdown. No preamble or commentary — just the letter itself.`;
-
-  const userMessage = `Job:
-Company: ${job.company}
-Role: ${job.role}${job.location ? `\nLocation: ${job.location}` : ""}
-
-Job description:
-${job.jobDescription ?? "(No job description provided)"}
-
-Base resume:
-${baseResume}
-
-${userName ? `The applicant's name is ${userName}.` : ""}
-Now write the cover letter. Output only the letter in markdown.`;
-
-  return { system, userMessage };
-}
-
 export function buildJobParsePrompt(args: { text: string }) {
   const system = `You are a job posting parser. Extract structured details from a raw job posting.
 
@@ -116,26 +31,35 @@ Return the JSON.`;
 
 export function buildJDAnalysisPrompt(args: { jobDescription: string }) {
   const { jobDescription } = args;
-  const system = `You are an expert job description analyzer helping a job applicant understand a role before applying.
+  const system = `You are an expert job description analyst helping a job applicant prepare a targeted application.
 
-Your job is to read a job description and return a structured analysis. Respond with ONLY a JSON object matching this exact schema, no preamble, no commentary, no markdown code fences:
+Read the job description carefully and return a structured analysis. Respond with ONLY a JSON object matching this exact schema — no preamble, no commentary, no markdown code fences:
 
 {
-  "summary": "string — 2-3 sentence plain English summary of what the role actually does",
+  "summary": "string",
   "seniorityLevel": "junior" | "mid" | "senior" | "staff" | "unclear",
-  "requiredSkills": ["string", ...],
-  "niceToHaves": ["string", ...],
-  "keywordsForResume": ["string", ...],
-  "redFlags": ["string", ...]
+  "requiredSkills": ["string"],
+  "niceToHaves": ["string"],
+  "keywordsForResume": ["string"],
+  "interviewLikelyFocus": ["string"],
+  "redFlags": ["string"]
 }
 
-Notes on each field:
-- summary: what the role actually does, in plain English. No buzzwords.
-- seniorityLevel: your best guess. "unclear" is acceptable.
-- requiredSkills: skills the candidate MUST have to be considered. Hard skills only (languages, tools, frameworks). Not soft skills.
-- niceToHaves: skills the JD mentions as bonus or preferred. Empty array if none.
-- keywordsForResume: terminology and phrases from the JD that the candidate should naturally include in their resume. 5-15 items.
-- redFlags: signs the role might be misrepresented or have poor working conditions. Examples: vague responsibilities, "wear many hats", "fast-paced startup environment" used as a euphemism, missing salary range, demands a wide range of unrelated skills suggesting the role is doing 3 jobs. Empty array if the JD looks clean.
+Field guidance:
+
+summary: 2-3 sentences of plain English. What does this person actually do day-to-day, who do they work with, and what does success look like? No buzzwords, no restating the job title.
+
+seniorityLevel: infer from years-of-experience requirements, reporting structure, scope of ownership, and compensation signals. "unclear" is acceptable if the JD is genuinely ambiguous.
+
+requiredSkills: hard skills the candidate MUST have to pass the initial screen — languages, frameworks, tools, platforms, methodologies, credentials, and role-specific domain requirements. No generic soft skills. Each item is a short exact string (e.g. "React", "SQL", "Kubernetes"). Empty array if the JD is too vague to determine.
+
+niceToHaves: skills the JD labels "preferred", "bonus", "nice to have", or "advantageous". Empty array if none.
+
+keywordsForResume: 8-20 exact strings the candidate should mirror in their resume to pass ATS and resonate with recruiters. Include specific technology names, domain/industry terms, role-specific methodology phrases, and competency phrases the JD genuinely emphasises. Prioritise terms that appear multiple times or are used in the requirements section. Use the JD's exact wording — not synonyms. Return raw terms only; do not prefix with categories.
+
+interviewLikelyFocus: 3-6 short strings describing the specific topics this JD signals will be tested. Think like the hiring manager designing the interview loop. Be specific to this role — do not list generic topics. Format each as "Category: specific topic" (e.g. "Technical: SQL window functions and query optimisation", "System design: event-driven microservices", "Behavioural: navigating ambiguity without clear requirements", "Domain: experience with GDPR compliance workflows"). Include technical, behavioural, domain, or portfolio-review topics only when the JD signals them.
+
+redFlags: concrete signals the role may be misrepresented or working conditions are poor. Look for: scope creep disguised as "wear many hats", missing or implausibly wide salary range, demands for an implausible breadth of unrelated skills, vague or unmeasurable responsibilities, "fast-paced startup environment" without specifics, no mention of team size or reporting structure, excessive out-of-hours expectations. Empty array if the JD looks clean and well-scoped.
 
 Respond with ONLY the JSON object. No code fences. No preamble. No explanation.`;
 
@@ -642,104 +566,4 @@ Offer ${i + 1}: ${o.company} -- ${o.role}
 Return the JSON comparison.`;
 
   return { system, userMessage };
-}
-
-export function buildResumeExtractionPrompt(args: {
-  markdown: string;
-}): { system: string; userMessage: string } {
-  const system = `You are extracting structured data from a tailored resume in markdown format.
-The resume uses # for the candidate name, ## for section headers, ### for job/project/degree titles, and - for bullet points.
-
-Return ONLY a JSON object matching this exact schema -- no preamble, no commentary, no markdown code fences:
-
-{
-  "name": "string",
-  "location": "string or null",
-  "phone": "string or null",
-  "email": "string or null",
-  "linkedin": "string or null",
-  "github": "string or null",
-  "website": "string or null",
-  "workRights": "string or null",
-  "summary": "string or null",
-  "skills": [{ "category": "string", "items": "string" }],
-  "experience": [{
-    "jobTitle": "string",
-    "company": "string",
-    "dateRange": "string",
-    "subtitle": "string or null",
-    "bullets": ["string"]
-  }],
-  "projects": [{
-    "name": "string",
-    "techStack": "string or null",
-    "bullets": ["string"]
-  }],
-  "education": [{
-    "degree": "string",
-    "school": "string",
-    "gradDate": "string or null",
-    "notes": "string or null"
-  }],
-  "certifications": ["string"],
-  "footer": "string or null"
-}
-
-Extraction rules:
-- name: from the # heading (first line).
-- location, phone, email, linkedin, github, website, workRights: from header lines after the name, before Professional Summary. Values on the same line are separated by | characters.
-- summary: paragraph text under the Professional Summary section header.
-- skills: each "Category: items" line. category is the label before ":", items is everything after ":".
-- experience: each role under Professional Experience. jobTitle and company are usually on the same ### line. subtitle is the optional plain-text context line immediately following the title line (e.g. a promotion note or a project URL), not a bullet point. If the line is a URL, include it as-is. bullets are the - lines.
-- projects: each entry under Projects. name is the full title including type (e.g. "Job Hunt Tracker | Personal Project"). techStack is the "Tech Stack:" line value.
-- education: each degree. notes is the first supplementary line after the degree/school/date line (coursework, GPA, honours, or publication). If multiple supplementary lines exist, concatenate them with a semicolon. null if none present.
-- certifications: flat list of strings, one per certification bullet.
-- footer: any final line like "References available on request".
-- Use null for any field not present in the resume.
-
-Respond with ONLY the JSON object.`;
-
-  return {
-    system,
-    userMessage: `Resume markdown:\n\n${args.markdown}\n\nReturn the JSON.`,
-  };
-}
-
-export function buildCoverLetterExtractionPrompt(args: {
-  markdown: string;
-  company: string;
-  role: string;
-  candidateName: string;
-}): { system: string; userMessage: string } {
-  const { markdown, company, role, candidateName } = args;
-  const system = `You are extracting structured data from a cover letter in markdown format.
-
-Return ONLY a JSON object matching this exact schema -- no preamble, no commentary, no markdown code fences:
-
-{
-  "name": "string",
-  "date": "string",
-  "recipient": "string or null",
-  "company": "string",
-  "role": "string",
-  "bodyParagraphs": ["string"],
-  "closing": "string or null"
-}
-
-Extraction rules:
-- name: the applicant's name from the sign-off, or use the hint provided.
-- date: the date line at the top of the letter.
-- recipient: "Hiring Manager", a personal name if addressed to one, or null.
-- company: the company name from the letter body (use the hint if not explicit).
-- role: the job title from the letter body (use the hint if not explicit).
-- bodyParagraphs: each body paragraph as a separate string. Exclude the date line, recipient line, and sign-off block.
-- closing: the distinct closing sentence before the name sign-off (e.g. "I look forward to hearing from you."). If no separate closing sentence exists and the last body paragraph itself serves as the close, use null.
-- Use null for any field not present.
-
-Respond with ONLY the JSON object.`;
-
-  return {
-    system,
-    userMessage: `Company hint: ${company}\nRole hint: ${role}\nApplicant name hint: ${candidateName}\n\nCover letter markdown:\n\n${markdown}\n\nReturn the JSON.`,
-  };
 }

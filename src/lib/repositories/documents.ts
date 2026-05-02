@@ -1,5 +1,5 @@
 import connectDB from "@/lib/db/connect";
-import Doc, { IDocument, DocumentType, DocxSlotCache, TemplateDataCache } from "@/lib/models/Document";
+import Doc, { IDocument, DocumentType } from "@/lib/models/Document";
 
 export type { DocumentType };
 
@@ -9,12 +9,11 @@ export type DocItem = {
   jobId: string;
   type: DocumentType;
   content: string;
+  structuredContent?: Record<string, unknown>;
   aiModel: string;
   inputTokens?: number;
   outputTokens?: number;
   resumeIdUsed?: string;
-  docxSlotCache?: DocxSlotCache;
-  templateData?: TemplateDataCache;
   createdAt: string;
   updatedAt: string;
 };
@@ -26,14 +25,13 @@ function toDocItem(doc: IDocument): DocItem {
     jobId: (doc.jobId as unknown as { toString(): string }).toString(),
     type: doc.type,
     content: doc.content,
+    structuredContent: doc.structuredContent,
     aiModel: doc.aiModel,
     inputTokens: doc.inputTokens,
     outputTokens: doc.outputTokens,
     resumeIdUsed: doc.resumeIdUsed
       ? (doc.resumeIdUsed as unknown as { toString(): string }).toString()
       : undefined,
-    docxSlotCache: doc.docxSlotCache,
-    templateData: doc.templateData,
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString(),
   };
@@ -43,6 +41,7 @@ export type CreateDocumentInput = {
   jobId: string;
   type: DocumentType;
   content: string;
+  structuredContent?: Record<string, unknown>;
   aiModel: string;
   inputTokens?: number;
   outputTokens?: number;
@@ -75,17 +74,13 @@ export async function getLatestForJob(
   return doc ? toDocItem(doc) : null;
 }
 
-export async function setDocxCache(
-  docId: string,
-  templateId: string,
-  output: Array<[number, string | null]>
-): Promise<void> {
+export async function getById(
+  userId: string,
+  documentId: string
+): Promise<DocItem | null> {
   await connectDB();
-  await Doc.findByIdAndUpdate(docId, {
-    $set: {
-      docxSlotCache: { templateId, cachedAt: new Date(), output },
-    },
-  });
+  const doc = await Doc.findOne({ _id: documentId, userId });
+  return doc ? toDocItem(doc) : null;
 }
 
 export async function upsert(
@@ -98,6 +93,7 @@ export async function upsert(
     {
       $set: {
         content: data.content,
+        structuredContent: data.structuredContent,
         aiModel: data.aiModel,
         inputTokens: data.inputTokens,
         outputTokens: data.outputTokens,
@@ -121,50 +117,4 @@ export async function listByType(
   await connectDB();
   const docs = await Doc.find({ userId, type }).sort({ createdAt: -1 });
   return docs.map(toDocItem);
-}
-
-export async function getValidDocxCache(
-  docId: string,
-  templateId: string,
-  templateUploadedAt: Date
-): Promise<Array<[number, string | null]> | null> {
-  await connectDB();
-  const doc = await Doc.findById(docId)
-    .select("docxSlotCache")
-    .lean<{ docxSlotCache?: DocxSlotCache }>();
-  if (!doc) return null;
-  const cache = doc.docxSlotCache;
-  if (!cache) return null;
-  if (cache.templateId !== templateId) return null;
-  if (cache.cachedAt < templateUploadedAt) return null;
-  return cache.output;
-}
-
-export async function setTemplateData(
-  docId: string,
-  templateId: string,
-  data: Record<string, unknown>
-): Promise<void> {
-  await connectDB();
-  await Doc.findByIdAndUpdate(docId, {
-    $set: {
-      templateData: { templateId, cachedAt: new Date(), data },
-    },
-  });
-}
-
-export async function getValidTemplateData(
-  docId: string,
-  templateId: string,
-  templateUploadedAt: Date
-): Promise<Record<string, unknown> | null> {
-  await connectDB();
-  const doc = await Doc.findById(docId)
-    .select("templateData")
-    .lean<{ templateData?: TemplateDataCache }>();
-  if (!doc?.templateData) return null;
-  const cache = doc.templateData;
-  if (cache.templateId !== templateId) return null;
-  if (cache.cachedAt < templateUploadedAt) return null;
-  return cache.data;
 }

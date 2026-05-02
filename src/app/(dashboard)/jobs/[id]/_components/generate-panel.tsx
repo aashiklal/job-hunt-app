@@ -28,6 +28,7 @@ type Props = {
   resumes: ResumeOption[];
   initialContent: string | null;
   initialResumeId: string | null;
+  initialDocumentId: string | null;
 };
 
 const TITLES = {
@@ -53,6 +54,7 @@ export function GeneratePanel({
   resumes,
   initialContent,
   initialResumeId,
+  initialDocumentId,
 }: Props) {
   const defaultId =
     initialResumeId ??
@@ -63,6 +65,7 @@ export function GeneratePanel({
   const router = useRouter();
   const [selectedResumeId, setSelectedResumeId] = useState(defaultId);
   const [content, setContent] = useState<string>(initialContent ?? "");
+  const [documentId, setDocumentId] = useState<string | null>(initialDocumentId);
   const [isStreaming, setIsStreaming] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(initialContent !== null);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -80,6 +83,7 @@ export function GeneratePanel({
     setIsStreaming(true);
     setContent("");
     setHasGenerated(false);
+    setDocumentId(null);
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -113,29 +117,9 @@ export function GeneratePanel({
         return;
       }
 
-      if (!res.body) {
-        toast.error("No response body");
-        setIsStreaming(false);
-        return;
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let accumulated = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        accumulated += chunk;
-        setContent(accumulated);
-      }
-
-      const flushed = decoder.decode();
-      if (flushed) {
-        accumulated += flushed;
-        setContent(accumulated);
-      }
+      const data = await res.json();
+      setContent(data.content ?? "");
+      setDocumentId(data.documentId ?? null);
 
       setHasGenerated(true);
       setIsStreaming(false);
@@ -170,21 +154,12 @@ export function GeneratePanel({
   }
 
   async function handleDownload() {
-    if (!content) return;
+    if (!content || !documentId) return;
     setIsDownloading(true);
     try {
-      const res = await fetch("/api/generate/export", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content,
-          format: "docx",
-          type,
-          jobId,
-          resumeId: selectedResumeId || undefined,
-          filename: FILENAMES[type],
-        }),
-      });
+      const res = await fetch(
+        `/api/documents/${encodeURIComponent(documentId)}/export?format=docx&filename=${encodeURIComponent(FILENAMES[type])}`
+      );
 
       if (!res.ok) {
         toast.error("Export failed");
@@ -307,7 +282,7 @@ export function GeneratePanel({
               onClick={handleDownload}
               variant="outline"
               size="sm"
-              disabled={isDownloading}
+              disabled={isDownloading || !documentId}
             >
               {isDownloading ? "Preparing…" : "Download DOCX"}
             </Button>
