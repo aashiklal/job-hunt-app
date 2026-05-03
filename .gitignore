@@ -50,6 +50,9 @@ AGENTS.md
 # Generated DOCX artifacts (upload these to the admin panel, don't commit them)
 *.docx
 
+# Local fixtures used by export diagnostic harness
+/tmp/
+
 docs/
 
 

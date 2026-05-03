@@ -1,32 +1,16 @@
 import "server-only";
 import type { GeneratedDocument } from "@/lib/generated-documents";
 import { generatedDocumentBlocks } from "@/lib/generated-document-blocks";
-import { getParagraphText, stripThemeSampleText } from "@/lib/export/analyze-docx-theme";
 import { extractDocxStructure, getParagraphXmls, type DocxTextRegion } from "@/lib/export/extract-docx-structure";
 import { buildDOCXFromStyles } from "@/lib/export/build-from-styles";
 import { loadTemplate, setParaText } from "@/lib/export/from-template";
 import { buildFallbackPixelThemeMap, type PixelThemeMap, type PixelThemeRegionRole } from "@/lib/export/map-pixel-theme";
 import type { PixelThemeContract } from "@/lib/export/pixel-theme-contract";
 
-type ThemeParagraph = {
-  xml: string;
-  text: string;
-  isText: boolean;
-  hasSectPr: boolean;
-};
-
 type RenderResult = {
   buffer: Buffer;
   usedTheme: boolean;
 };
-
-function generatedParagraphs(doc: GeneratedDocument): string[] {
-  return generatedDocumentBlocks(doc).map((block) => block.text);
-}
-
-function cloneWithGeneratedText(paragraphXml: string, text: string): string {
-  return setParaText(paragraphXml, text.replace(/\{\{[A-Z_]+\}\}/g, ""));
-}
 
 export async function renderThemedDOCX(
   templateBuffer: Buffer,
@@ -45,74 +29,7 @@ export async function renderThemedDOCX(
   const mapped = await renderMappedPixelTheme(templateBuffer, doc, structure.regions, map);
   if (mapped.usedTheme) return mapped;
 
-  const { zip, paragraphs, header, sectPrParas, directSectPr } =
-    await loadTemplate(templateBuffer);
-
-  const themeParagraphs: ThemeParagraph[] = paragraphs.map((para) => {
-    const text = stripThemeSampleText(getParagraphText(para.xml));
-    return {
-      xml: para.xml,
-      text,
-      isText: text.length > 0,
-      hasSectPr: para.hasSectPr,
-    };
-  });
-
-  const textTemplates = themeParagraphs.filter((para) => para.isText && !para.hasSectPr);
-  if (textTemplates.length < 2) {
-    return { buffer: Buffer.alloc(0), usedTheme: false };
-  }
-
-  const generated = generatedParagraphs(doc);
-  if (!generated.length) {
-    return { buffer: Buffer.alloc(0), usedTheme: false };
-  }
-
-  let generatedIndex = 0;
-  const overflowTemplate =
-    [...textTemplates].sort((a, b) => b.text.length - a.text.length)[0]?.xml ??
-    textTemplates[textTemplates.length - 1].xml;
-  const outputXmls: string[] = [];
-
-  for (const para of themeParagraphs) {
-    if (para.hasSectPr) continue;
-    if (!para.isText) {
-      outputXmls.push(para.xml);
-      continue;
-    }
-
-    const nextText = generated[generatedIndex];
-    generatedIndex++;
-    if (nextText) {
-      outputXmls.push(cloneWithGeneratedText(para.xml, nextText));
-    }
-  }
-
-  while (generatedIndex < generated.length) {
-    outputXmls.push(cloneWithGeneratedText(overflowTemplate, generated[generatedIndex]));
-    generatedIndex++;
-  }
-
-  const docXml = [
-    header,
-    outputXmls.join("\n"),
-    sectPrParas,
-    directSectPr,
-    "</w:body>",
-    "</w:document>",
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-  zip.file("word/document.xml", docXml);
-
-  const buffer = await zip.generateAsync({
-    type: "nodebuffer",
-    compression: "DEFLATE",
-    compressionOptions: { level: 6 },
-  });
-
-  return { buffer: buffer as Buffer, usedTheme: true };
+  return { buffer: Buffer.alloc(0), usedTheme: false };
 }
 
 type RoleQueues = Partial<Record<PixelThemeRegionRole, string[]>>;
