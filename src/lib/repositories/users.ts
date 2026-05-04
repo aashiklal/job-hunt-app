@@ -156,6 +156,10 @@ export async function countNewSince(date: Date): Promise<number> {
   return User.countDocuments({ createdAt: { $gte: date } });
 }
 
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export async function countByStatusWithSearch(search?: string): Promise<{
   pending: number;
   approved: number;
@@ -165,9 +169,9 @@ export async function countByStatusWithSearch(search?: string): Promise<{
   const filter = search
     ? {
         $or: [
-          { email: { $regex: search, $options: "i" } },
-          { firstName: { $regex: search, $options: "i" } },
-          { lastName: { $regex: search, $options: "i" } },
+          { email: { $regex: escapeRegex(search), $options: "i" } },
+          { firstName: { $regex: escapeRegex(search), $options: "i" } },
+          { lastName: { $regex: escapeRegex(search), $options: "i" } },
         ],
       }
     : {};
@@ -189,9 +193,9 @@ export async function listPaginated(opts: {
   const filter: Record<string, unknown> = { status: opts.status };
   if (opts.search) {
     filter["$or"] = [
-      { email: { $regex: opts.search, $options: "i" } },
-      { firstName: { $regex: opts.search, $options: "i" } },
-      { lastName: { $regex: opts.search, $options: "i" } },
+      { email: { $regex: escapeRegex(opts.search), $options: "i" } },
+      { firstName: { $regex: escapeRegex(opts.search), $options: "i" } },
+      { lastName: { $regex: escapeRegex(opts.search), $options: "i" } },
     ];
   }
   const skip = (opts.page - 1) * opts.limit;
