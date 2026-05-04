@@ -8,6 +8,7 @@ import * as users from "@/lib/repositories/users";
 import * as subscriptions from "@/lib/repositories/subscriptions";
 import * as auditLog from "@/lib/repositories/audit-log";
 import * as plans from "@/lib/repositories/plans";
+import * as usageRepo from "@/lib/repositories/usage";
 import { getCurrentUsage } from "@/lib/usage";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,12 +44,13 @@ export default async function Page({
   const target = await users.getById(userId);
   if (!target) notFound();
 
-  const [subscription, usage, auditEntries] = await Promise.all([
+  const [subscription, usage, auditEntries, spendHistory] = await Promise.all([
     subscriptions.getByUserId(userId),
     getCurrentUsage(userId),
     auditLog
       .listForTargetUser(userId)
       .then((docs) => docs.map(auditLog.toAuditLogItem)),
+    usageRepo.listForUser(userId),
   ]);
 
   let planDefault = ctx.plan.aiSpendLimitUSD ?? 5.0;
@@ -79,6 +81,14 @@ export default async function Page({
   const isOut = remaining <= 0 && usage.limit > 0;
   const isLow = !isOut && remaining < 1.0 && usage.limit > 0;
   const fmtUSD = (n: number) => `$${n.toFixed(2)}`;
+  const formatPeriod = (period: string) => {
+    const [year, month] = period.split("-");
+    return new Date(parseInt(year), parseInt(month) - 1, 1).toLocaleDateString(
+      "en-US",
+      { month: "long", year: "numeric" }
+    );
+  };
+  const totalSpend = spendHistory.reduce((sum, e) => sum + e.aiSpendUSD, 0);
 
   // Map to design tokens only: destructive for over-limit, muted-foreground for low, primary for normal
   const barColor = isOut ? "bg-destructive" : "bg-primary";
@@ -253,6 +263,51 @@ export default async function Page({
                 />
               )}
             </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Spend history card */}
+      <Card className="border border-border/60 shadow-xs transition-shadow duration-200 ease-[var(--ease-out-expo)] hover:shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg font-medium">Spend history</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {spendHistory.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted-foreground">
+              No spend recorded yet.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Month</TableHead>
+                    <TableHead className="text-right">AI spend</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {spendHistory.map((entry) => (
+                    <TableRow key={entry.period}>
+                      <TableCell className="text-sm text-foreground">
+                        {formatPeriod(entry.period)}
+                      </TableCell>
+                      <TableCell className="text-right text-sm tabular-nums text-foreground">
+                        {fmtUSD(entry.aiSpendUSD)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  <TableRow className="border-t-2 border-border">
+                    <TableCell className="text-sm font-medium text-foreground">
+                      All time
+                    </TableCell>
+                    <TableCell className="text-right text-sm font-semibold tabular-nums text-foreground">
+                      {fmtUSD(totalSpend)}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

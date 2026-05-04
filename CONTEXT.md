@@ -35,7 +35,7 @@ All Mongoose-backed. Models live in `src/lib/models/`. Every read/write goes thr
 - **Offer** - Compensation breakdown (base, equity, bonus, leave, location, level, notes). Used by the multi-offer comparison route.
 - **StarStory** - Behavioral interview rough drafts. AI polish writes the STAR-formatted output back to the same record.
 - **Subscription** - Per-user. Holds the active plan key plus optional admin-set custom limits (`customLimits.aiSpendLimitUSD`).
-- **Usage** - Monthly USD AI spend keyed by `period: "YYYY-MM"`. 90-day TTL.
+- **Usage** - Monthly USD AI spend keyed by `period: "YYYY-MM"`. No TTL — records persist indefinitely so spend history is always available.
 - **AuditLog** - Admin actions (approve, reject, set/clear limit, toggle admin). 90-day TTL.
 - **Template** - Global, admin-only DOCX templates. Unique on `type` (`resume` or `cover_letter`). One template per type, no per-user templates.
 - **Plan** - Feature flags + `aiSpendLimitUSD`. Seeded via `npm run seed:plans`. Some flags (`pdfParsingEnabled`, `pdfExportEnabled`, `docxParsingEnabled`) exist on the schema but are not enforced anywhere - keep until enforcement is wired in.
