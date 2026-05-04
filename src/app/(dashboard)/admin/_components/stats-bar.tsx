@@ -12,7 +12,7 @@ export function StatsBar({
   newSignupsCount,
 }: StatsBarProps) {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       <div className="bg-card border border-border rounded-lg p-4">
         <p className="text-2xl font-semibold">{counts.approved}</p>
         <p className="text-sm text-muted-foreground">approved users</p>
@@ -41,7 +41,10 @@ export function StatsBar({
       <div className="bg-card border border-border rounded-lg p-4">
         <p className="text-2xl font-semibold">{activeUserCount}</p>
         <p className="text-sm text-muted-foreground">active this month</p>
-        <p className="mt-1 text-lg font-medium">{newSignupsCount} new this week</p>
+        <div className="mt-2 pt-2 border-t border-border">
+          <p className="text-lg font-medium">{newSignupsCount}</p>
+          <p className="text-sm text-muted-foreground">new this week</p>
+        </div>
       </div>
     </div>
   );
