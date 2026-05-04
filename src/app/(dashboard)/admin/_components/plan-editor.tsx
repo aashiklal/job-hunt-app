@@ -33,6 +33,15 @@ function PlanRow({ plan }: PlanRowProps) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
+  function handleOpenChange(next: boolean) {
+    if (!next) {
+      setSpendValue(String(plan.aiSpendLimitUSD));
+      setResumesValue(String(plan.maxResumes));
+      setJobsValue(String(plan.maxJobs));
+    }
+    setOpen(next);
+  }
+
   const [spendValue, setSpendValue] = useState(String(plan.aiSpendLimitUSD));
   const [resumesValue, setResumesValue] = useState(String(plan.maxResumes));
   const [jobsValue, setJobsValue] = useState(String(plan.maxJobs));
@@ -42,7 +51,7 @@ function PlanRow({ plan }: PlanRowProps) {
     const maxResumes = parseInt(resumesValue, 10);
     const maxJobs = parseInt(jobsValue, 10);
 
-    if (Number.isNaN(aiSpendLimitUSD) || aiSpendLimitUSD < -1) {
+    if (Number.isNaN(aiSpendLimitUSD) || (aiSpendLimitUSD !== -1 && aiSpendLimitUSD < 0)) {
       toast.error("Spend limit must be -1 (unlimited) or a non-negative number");
       return;
     }
@@ -81,9 +90,9 @@ function PlanRow({ plan }: PlanRowProps) {
       <td className="py-3 pr-4 text-foreground hidden md:table-cell">{formatLimit(plan.maxResumes)}</td>
       <td className="py-3 pr-4 text-foreground hidden md:table-cell">{formatLimit(plan.maxJobs)}</td>
       <td className="py-3 text-right">
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" aria-label={`Edit ${plan.name} plan`}>
               Edit
             </Button>
           </DialogTrigger>
@@ -156,6 +165,7 @@ export function PlanEditor({ plans }: { plans: IPlanListItem[] }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
+        <caption className="sr-only">Plan limits</caption>
         <thead>
           <tr className="border-b border-border">
             <th className="py-3 text-left font-medium text-muted-foreground">Plan</th>

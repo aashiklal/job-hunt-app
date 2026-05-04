@@ -125,7 +125,10 @@ export const clearUserCustomLimit = defineAdminAction(
 
 const updatePlanSchema = z.object({
   planId: z.string().min(1),
-  aiSpendLimitUSD: z.number().min(-1),
+  aiSpendLimitUSD: z.number().refine(
+    (v) => v === -1 || v >= 0,
+    { message: "Spend limit must be -1 (unlimited) or a non-negative number" }
+  ),
   maxResumes: z.number().int().min(-1),
   maxJobs: z.number().int().min(-1),
 });
