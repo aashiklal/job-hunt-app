@@ -235,6 +235,30 @@ export async function getBulkSpend(
 }
 
 /**
+ * Returns total platform AI spend and the count of users who have spent
+ * anything in the current billing period. Used by the admin stats bar.
+ */
+export async function getPlatformStats(): Promise<{
+  totalSpendUSD: number;
+  activeUserCount: number;
+}> {
+  await connectDB();
+  const period = getCurrentPeriod();
+  const result = await Usage.aggregate([
+    { $match: { period } },
+    {
+      $group: {
+        _id: null,
+        totalSpendUSD: { $sum: "$aiSpendUSD" },
+        activeUserCount: { $sum: { $cond: [{ $gt: ["$aiSpendUSD", 0] }, 1, 0] } },
+      },
+    },
+  ]);
+  const row = result[0] as { totalSpendUSD: number; activeUserCount: number } | undefined;
+  return { totalSpendUSD: row?.totalSpendUSD ?? 0, activeUserCount: row?.activeUserCount ?? 0 };
+}
+
+/**
  * Wraps an AI call with quota enforcement and spend recording.
  * Sequence: checkBudget → fn() → calculateCost → addSpend.
  * Re-throws QuotaExceededError so routes continue to return 429.

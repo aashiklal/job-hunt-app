@@ -137,6 +137,71 @@ export async function countApproved(): Promise<number> {
   return User.countDocuments({ status: "approved" });
 }
 
+export async function countByStatus(): Promise<{
+  pending: number;
+  approved: number;
+  rejected: number;
+}> {
+  await connectDB();
+  const [pending, approved, rejected] = await Promise.all([
+    User.countDocuments({ status: "pending" }),
+    User.countDocuments({ status: "approved" }),
+    User.countDocuments({ status: "rejected" }),
+  ]);
+  return { pending, approved, rejected };
+}
+
+export async function countNewSince(date: Date): Promise<number> {
+  await connectDB();
+  return User.countDocuments({ createdAt: { $gte: date } });
+}
+
+export async function countByStatusWithSearch(search?: string): Promise<{
+  pending: number;
+  approved: number;
+  rejected: number;
+}> {
+  await connectDB();
+  const filter = search
+    ? {
+        $or: [
+          { email: { $regex: search, $options: "i" } },
+          { firstName: { $regex: search, $options: "i" } },
+          { lastName: { $regex: search, $options: "i" } },
+        ],
+      }
+    : {};
+  const [pending, approved, rejected] = await Promise.all([
+    User.countDocuments({ ...filter, status: "pending" }),
+    User.countDocuments({ ...filter, status: "approved" }),
+    User.countDocuments({ ...filter, status: "rejected" }),
+  ]);
+  return { pending, approved, rejected };
+}
+
+export async function listPaginated(opts: {
+  status: "pending" | "approved" | "rejected";
+  search?: string;
+  page: number;
+  limit: number;
+}): Promise<{ users: IUser[]; total: number }> {
+  await connectDB();
+  const filter: Record<string, unknown> = { status: opts.status };
+  if (opts.search) {
+    filter["$or"] = [
+      { email: { $regex: opts.search, $options: "i" } },
+      { firstName: { $regex: opts.search, $options: "i" } },
+      { lastName: { $regex: opts.search, $options: "i" } },
+    ];
+  }
+  const skip = (opts.page - 1) * opts.limit;
+  const [users, total] = await Promise.all([
+    User.find(filter).sort({ createdAt: -1 }).skip(skip).limit(opts.limit),
+    User.countDocuments(filter),
+  ]);
+  return { users, total };
+}
+
 export async function deleteByClerkId(clerkId: string): Promise<boolean> {
   await connectDB();
   const result = await User.findOneAndDelete({ clerkId });

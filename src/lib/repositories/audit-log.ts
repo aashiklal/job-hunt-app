@@ -24,9 +24,20 @@ export async function create(input: CreateAuditLogInput): Promise<IAuditLog> {
   });
 }
 
-export async function listRecent(limit: number = 100): Promise<IAuditLog[]> {
+export async function listRecent(opts: {
+  limit?: number;
+  offset?: number;
+  action?: AuditAction;
+}): Promise<{ entries: IAuditLog[]; total: number }> {
   await connectDB();
-  return AuditLog.find().sort({ createdAt: -1 }).limit(limit);
+  const filter = opts.action ? { action: opts.action } : {};
+  const limit = opts.limit ?? 25;
+  const offset = opts.offset ?? 0;
+  const [entries, total] = await Promise.all([
+    AuditLog.find(filter).sort({ createdAt: -1 }).skip(offset).limit(limit),
+    AuditLog.countDocuments(filter),
+  ]);
+  return { entries, total };
 }
 
 export async function listForTargetUser(

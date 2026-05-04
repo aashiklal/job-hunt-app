@@ -8,7 +8,8 @@ export type AuditAction =
   | "user.custom_limit_set"
   | "user.custom_limit_cleared"
   | "template.uploaded"
-  | "template.deleted";
+  | "template.deleted"
+  | "plan.updated";
 
 export type IAuditLog = {
   adminId: Types.ObjectId;
@@ -37,6 +38,7 @@ const AuditLogSchema = new Schema<IAuditLog>(
         "user.custom_limit_cleared",
         "template.uploaded",
         "template.deleted",
+        "plan.updated",
       ],
       required: true,
     },
