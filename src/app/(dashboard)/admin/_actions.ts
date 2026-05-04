@@ -6,6 +6,7 @@ import { defineAdminAction } from "@/lib/actions";
 import * as users from "@/lib/repositories/users";
 import * as subscriptions from "@/lib/repositories/subscriptions";
 import * as auditLog from "@/lib/repositories/audit-log";
+import * as plans from "@/lib/repositories/plans";
 
 const userIdSchema = z.string().min(1, "userId is required");
 
@@ -119,6 +120,32 @@ export const clearUserCustomLimit = defineAdminAction(
     revalidatePath("/admin");
     revalidatePath(`/admin/${userId}`);
     return { userId };
+  }
+);
+
+const updatePlanSchema = z.object({
+  planId: z.string().min(1),
+  aiSpendLimitUSD: z.number().min(-1),
+  maxResumes: z.number().int().min(-1),
+  maxJobs: z.number().int().min(-1),
+});
+
+export const updatePlan = defineAdminAction(
+  async (ctx, input: z.infer<typeof updatePlanSchema>) => {
+    const { planId, aiSpendLimitUSD, maxResumes, maxJobs } = updatePlanSchema.parse(input);
+    const updated = await plans.update(planId, { aiSpendLimitUSD, maxResumes, maxJobs });
+    if (!updated) throw new Error("Plan not found");
+    const adminId = (ctx.user._id as { toString(): string }).toString();
+    await auditLog.create({
+      adminId,
+      adminEmail: ctx.user.email,
+      targetUserId: adminId,
+      targetUserEmail: ctx.user.email,
+      action: "plan.updated",
+      details: { planKey: updated.key, aiSpendLimitUSD, maxResumes, maxJobs },
+    });
+    revalidatePath("/admin");
+    return { planKey: updated.key };
   }
 );
 

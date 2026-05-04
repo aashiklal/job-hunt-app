@@ -23,6 +23,10 @@ export function formatAuditAction(
       return `Uploaded ${details?.templateType ?? "template"} template`;
     case "template.deleted":
       return `Deleted ${details?.templateType ?? "template"} template`;
+    case "plan.updated": {
+      const key = details?.planKey;
+      return `Updated ${typeof key === "string" ? key : "unknown"} plan limits`;
+    }
     default:
       return action;
   }
