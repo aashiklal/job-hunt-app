@@ -43,7 +43,7 @@ export function AuditFilters() {
         id="audit-action-filter"
         value={currentAction}
         onChange={handleChange}
-        className="text-sm border border-border rounded-md px-2 py-1.5 bg-background text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="text-sm border border-border rounded-md px-2 py-1.5 bg-background text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         <option value="">All actions</option>
         {(Object.entries(AUDIT_ACTION_LABELS) as [AuditAction, string][]).map(

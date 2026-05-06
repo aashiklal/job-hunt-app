@@ -81,10 +81,8 @@ function runStructuralAssertions(
       lastBody: -1,
       signoff: -1,
     };
-    if (cl.recipient || cl.salutation || true) {
-      const sal = `Dear ${cl.recipient ?? "Hiring Manager"}`;
-      positions.salutation = xml.indexOf(sal);
-    }
+    const sal = `Dear ${cl.recipient ?? "Hiring Manager"}`;
+    positions.salutation = xml.indexOf(sal);
     for (const p of cl.bodyParagraphs ?? []) {
       const head = p.slice(0, 30);
       const idx = xml.indexOf(head);

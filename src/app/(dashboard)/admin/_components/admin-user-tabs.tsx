@@ -20,6 +20,14 @@ type AdminUserTabsProps = {
   totalPages: number;
 };
 
+const USER_STATUSES = ["pending", "approved", "rejected"] as const;
+
+function parseTab(value: string | null): (typeof USER_STATUSES)[number] {
+  return USER_STATUSES.includes(value as (typeof USER_STATUSES)[number])
+    ? (value as (typeof USER_STATUSES)[number])
+    : "approved";
+}
+
 export function AdminUserTabs({
   adminId,
   pending,
@@ -35,7 +43,7 @@ export function AdminUserTabs({
 }: AdminUserTabsProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const activeTab = searchParams.get("tab") ?? "approved";
+  const activeTab = parseTab(searchParams.get("tab"));
 
   function handleTabChange(tab: string) {
     const params = new URLSearchParams(searchParams.toString());
