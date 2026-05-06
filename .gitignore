@@ -46,6 +46,7 @@ next-env.d.ts
 # AI agent instructions (generated on init, not source-controlled)
 CLAUDE.md
 AGENTS.md
+CONTEXT.md
 
 # Generated DOCX artifacts (upload these to the admin panel, don't commit them)
 *.docx
