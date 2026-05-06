@@ -142,7 +142,7 @@ export function StarStoryForm({ mode, storyId, initialValues }: Props) {
               <FormLabel>Your story</FormLabel>
               <FormControl>
                 <Textarea
-                  placeholder="Write your raw story here. It doesn't need to be perfect -- that's what the polish feature is for."
+                  placeholder="Write your raw story here. It doesn't need to be perfect; that's what the polish feature is for."
                   rows={8}
                   {...field}
                 />

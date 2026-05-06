@@ -25,20 +25,13 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 
-// ---------------------------------------------------------------------------
-// ThemeToggle — styled as a full-width nav-item button so it sits naturally
-// in the stacked sidebar footer. Shows the icon + label for the *next* state
-// (Vercel convention: "Dark mode" when light, "Light mode" when dark).
-// ---------------------------------------------------------------------------
-
 function ThemeToggle({ collapsed }: { collapsed?: boolean }) {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setMounted(true); }, []);
 
-  // Render a stable placeholder until the client knows the resolved theme,
-  // preventing a server/client HTML mismatch (hydration error).
+  // Keep the server and client markup stable until the theme is resolved.
   if (!mounted) {
     return (
       <div
@@ -66,10 +59,6 @@ function ThemeToggle({ collapsed }: { collapsed?: boolean }) {
     </button>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Nav
-// ---------------------------------------------------------------------------
 
 const navItems = [
   { label: "Jobs", href: "/jobs", icon: Briefcase },
@@ -141,10 +130,6 @@ function NavLinks({
   );
 }
 
-// ---------------------------------------------------------------------------
-// SidebarContent — shared between the fixed desktop sidebar and mobile Sheet
-// ---------------------------------------------------------------------------
-
 function SidebarContent({
   onNavigate,
   isAdmin,
@@ -160,7 +145,6 @@ function SidebarContent({
 }) {
   return (
     <div className="flex flex-col h-full px-3 py-4 overflow-hidden">
-      {/* Logo row + collapse toggle */}
       <div className={`mb-5 flex items-center px-1 ${collapsed ? "justify-center" : "justify-between"}`}>
         <Link
           href="/"
@@ -189,10 +173,8 @@ function SidebarContent({
         )}
       </div>
 
-      {/* Nav — grows to fill space above footer */}
       <NavLinks onNavigate={onNavigate} isAdmin={isAdmin} collapsed={collapsed} />
 
-      {/* Footer — UsageWidget -> ThemeToggle -> UserButton */}
       <div className="mt-2 flex flex-col">
         {usageWidget && !collapsed && (
           <div className="border-t border-border pb-1 pt-2">
@@ -212,10 +194,6 @@ function SidebarContent({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Shell
-// ---------------------------------------------------------------------------
-
 export default function DashboardShell({
   children,
   isAdmin,
@@ -229,11 +207,8 @@ export default function DashboardShell({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
-    // flex-col on mobile so the sticky header is in normal flow (no pt-14 needed);
-    // flex-row on md+ so sidebar and main sit side-by-side.
     <div className="flex min-h-screen flex-col bg-background md:flex-row">
 
-      {/* Desktop sidebar — frosted glass, soft right-cast shadow */}
       <aside
         className={`fixed inset-y-0 left-0 z-30 hidden shrink-0 flex-col border-r border-border bg-background/80 shadow-[2px_0_12px_rgba(0,0,0,0.04)] backdrop-blur-xl transition-[width] duration-200 ease-[var(--ease-out-expo)] md:flex ${sidebarCollapsed ? "w-16" : "w-60"}`}
       >
@@ -245,7 +220,6 @@ export default function DashboardShell({
         />
       </aside>
 
-      {/* Mobile top bar — sticky (in flow), frosted glass */}
       <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-xl md:hidden">
         <div className="flex items-center gap-3">
           <button
@@ -268,7 +242,6 @@ export default function DashboardShell({
         <UserButton />
       </header>
 
-      {/* Mobile drawer — Sheet behaviour unchanged */}
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
         <SheetContent side="left" className="w-64 p-0">
           <SheetHeader className="sr-only">
@@ -282,7 +255,6 @@ export default function DashboardShell({
         </SheetContent>
       </Sheet>
 
-      {/* Main content — offset by sidebar width on desktop */}
       <main
         className={`flex-1 p-6 md:p-8 transition-[margin] duration-200 ease-[var(--ease-out-expo)] ${sidebarCollapsed ? "md:ml-16" : "md:ml-60"}`}
       >

@@ -31,7 +31,7 @@ export const requireApprovedUserWithPlan = cache(
     let user = await users.getByClerkId(userId);
 
     if (!user) {
-      // Webhook hasn't fired yet (e.g. local dev) — try merging a bootstrap
+      // Webhook may not have fired yet in local dev, so try merging a bootstrap
       // placeholder that was pre-provisioned by email.
       const clerk = await clerkClient();
       const clerkUser = await clerk.users.getUser(userId);
@@ -48,7 +48,7 @@ export const requireApprovedUserWithPlan = cache(
         });
       }
 
-      // Truly new user — create a pending record (webhook substitute for local dev)
+      // Truly new user. Create a pending record as a local-dev webhook substitute.
       if (!user) {
         user = await userAccess.ensureUserForClerkSession({
           clerkId: userId,

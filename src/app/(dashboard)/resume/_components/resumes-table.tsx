@@ -48,7 +48,7 @@ export function ResumesTable({ resumes }: Props) {
                 {resume.isDefault ? (
                   <Badge variant="secondary">Default</Badge>
                 ) : (
-                  <span className="text-muted-foreground">—</span>
+                  <span className="text-muted-foreground">-</span>
                 )}
               </TableCell>
               <TableCell className="hidden text-sm text-muted-foreground md:table-cell">

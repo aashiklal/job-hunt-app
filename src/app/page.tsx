@@ -9,7 +9,7 @@ import * as jobs from "@/lib/repositories/jobs";
 import * as documents from "@/lib/repositories/documents";
 
 export const metadata: Metadata = {
-  title: "JobHunt — Land your next role",
+  title: "JobHunt: Land your next role",
   description:
     "AI-powered job application tracker. Analyze job descriptions, generate cover letters, and track every application in one place.",
 };
@@ -19,7 +19,7 @@ const features = [
     icon: Briefcase,
     title: "Track everything",
     description:
-      "Kanban pipeline and list view for every application — from wishlist to offer.",
+      "Kanban pipeline and list view for every application, from wishlist to offer.",
   },
   {
     icon: FileText,
@@ -55,7 +55,7 @@ const steps = [
     icon: Sparkles,
     title: "Generate and track",
     description:
-      "Get a tailored cover letter, resume, and full JD analysis in seconds — then track every stage in your pipeline.",
+      "Get a tailored cover letter, resume, and full JD analysis in seconds, then track every stage in your pipeline.",
   },
 ];
 
@@ -127,7 +127,7 @@ export default async function LandingPage() {
         </h1>
         <p className="mx-auto mt-6 max-w-xl text-base text-muted-foreground md:text-lg">
           Track applications, analyze job descriptions, and generate tailored
-          cover letters — all in one place.
+          cover letters in one place.
         </p>
         <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
           {userId ? (

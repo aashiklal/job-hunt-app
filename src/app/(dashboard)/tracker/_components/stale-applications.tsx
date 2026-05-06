@@ -22,7 +22,7 @@ export function StaleApplications({ jobs }: Props) {
             Stale applications
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground/70">
-            No status update in 14+ days — worth a follow-up?
+            No status update in 14+ days. Worth a follow-up?
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">

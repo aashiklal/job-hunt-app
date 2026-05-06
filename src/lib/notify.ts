@@ -39,7 +39,7 @@ async function getAdminEmails(): Promise<string[]> {
 
 /**
  * Fire-and-forget email to all admins when a new user signs up.
- * Safe to `await` — errors are caught and logged so they never break the webhook response.
+ * Safe to await because errors are caught and logged instead of breaking the webhook response.
  */
 export async function notifyAdminsNewSignup(user: {
   email: string;

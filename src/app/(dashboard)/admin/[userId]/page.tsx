@@ -28,7 +28,7 @@ import { SetCustomLimitDialog } from "../_components/set-custom-limit-dialog";
 import { formatAuditAction } from "../_lib/format-audit";
 
 export const metadata: Metadata = {
-  title: "User Detail — Admin",
+  title: "User Detail: Admin",
   description: "View and manage a user's access, limits, and activity.",
 };
 
@@ -155,8 +155,8 @@ export default async function Page({
                   {target.status === "approved"
                     ? "This user can sign in and use the app."
                     : target.status === "pending"
-                      ? "Waiting for approval — the user cannot sign in yet."
-                      : "Access has been revoked — the user cannot sign in."}
+                      ? "Waiting for approval. The user cannot sign in yet."
+                      : "Access has been revoked. The user cannot sign in."}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
@@ -184,7 +184,7 @@ export default async function Page({
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {target.isAdmin
                     ? "Can access the admin panel and manage other users."
-                    : "Standard user — no admin privileges."}
+                    : "Standard user. No admin privileges."}
                 </p>
               </div>
               <div className="shrink-0">
@@ -209,7 +209,7 @@ export default async function Page({
         <CardContent className="space-y-3">
           {usage.limit === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No subscription found — approve this user first.
+              No subscription found. Approve this user first.
             </p>
           ) : (
             <>
@@ -250,7 +250,7 @@ export default async function Page({
                 <p className="text-xs text-muted-foreground">
                   Budget from plan:{" "}
                   <span className="font-medium text-foreground">
-                    {usage.planKey ?? "—"}
+                    {usage.planKey ?? "-"}
                   </span>{" "}
                   ({fmtUSD(planDefault)} / month)
                 </p>
@@ -354,7 +354,7 @@ export default async function Page({
                           ? Object.entries(entry.details)
                               .map(([k, v]) => `${k}: ${v}`)
                               .join(", ")
-                          : "—"}
+                          : "-"}
                       </TableCell>
                     </TableRow>
                   ))}

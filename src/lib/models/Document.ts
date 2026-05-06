@@ -60,7 +60,7 @@ const DocumentSchema = new Schema<IDocument>(
   { timestamps: true }
 );
 
-// One row per (user, job, type) — new generations overwrite previous ones via upsert
+// One row per (user, job, type). New generations overwrite previous ones via upsert.
 DocumentSchema.index({ userId: 1, jobId: 1, type: 1 }, { unique: true });
 
 const Doc: Model<IDocument> =

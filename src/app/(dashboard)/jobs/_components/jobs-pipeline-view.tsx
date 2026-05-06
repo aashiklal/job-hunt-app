@@ -57,10 +57,6 @@ function optimisticReducer(
   return jobs;
 }
 
-// ---------------------------------------------------------------------------
-// DraggableCard — desktop only
-// ---------------------------------------------------------------------------
-
 function DraggableCard({ job }: { job: JobListItem }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
@@ -102,10 +98,6 @@ function DraggableCard({ job }: { job: JobListItem }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// DroppableColumn — desktop only
-// ---------------------------------------------------------------------------
-
 function DroppableColumn({
   status,
   label,
@@ -122,7 +114,6 @@ function DroppableColumn({
 
   return (
     <div className="w-72 flex-shrink-0 flex flex-col gap-2">
-      {/* Column header */}
       <div className="flex items-center justify-between px-1">
         <span className="text-sm font-semibold">{label}</span>
         <Badge variant="secondary" className="text-xs">
@@ -130,7 +121,6 @@ function DroppableColumn({
         </Badge>
       </div>
 
-      {/* Column body — droppable area */}
       <div
         ref={setNodeRef}
         className={`flex flex-col gap-2 min-h-24 rounded-lg p-2 transition-colors ${
@@ -149,10 +139,6 @@ function DroppableColumn({
   );
 }
 
-// ---------------------------------------------------------------------------
-// MobileCard — mobile only; status changed via Select, no drag
-// ---------------------------------------------------------------------------
-
 function MobileCard({
   job,
   onMove,
@@ -163,7 +149,6 @@ function MobileCard({
   return (
     <Card>
       <CardContent className="p-3 space-y-2">
-        {/* Tappable content area navigates to detail */}
         <Link href={`/jobs/${job._id}`} className="block space-y-1">
           <p className="font-semibold text-sm leading-tight">{job.company}</p>
           <p className="text-sm text-muted-foreground leading-tight">
@@ -176,7 +161,6 @@ function MobileCard({
             {formatDistanceToNow(new Date(job.updatedAt), { addSuffix: true })}
           </p>
         </Link>
-        {/* Status picker — sits outside the Link so taps don't navigate */}
         <Select
           value={job.status}
           onValueChange={(v) => onMove(v as JobStatus)}
@@ -197,10 +181,6 @@ function MobileCard({
   );
 }
 
-// ---------------------------------------------------------------------------
-// JobsPipelineView
-// ---------------------------------------------------------------------------
-
 type Props = {
   jobs: JobListItem[];
 };
@@ -209,7 +189,6 @@ export function JobsPipelineView({ jobs }: Props) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [activeCard, setActiveCard] = useState<JobListItem | null>(null);
-  // Mobile: which column is currently visible
   const [mobileStatus, setMobileStatus] = useState<JobStatus>("applied");
 
   const [optimisticJobs, applyOptimistic] = useOptimistic(
@@ -221,7 +200,6 @@ export function JobsPipelineView({ jobs }: Props) {
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
-  // Build grouped map from optimistic state — used by both views
   const grouped = new Map<JobStatus, JobListItem[]>();
   for (const col of COLUMNS) grouped.set(col.status, []);
   for (const job of optimisticJobs) {
@@ -232,7 +210,6 @@ export function JobsPipelineView({ jobs }: Props) {
     list.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }
 
-  // Shared move handler — called by mobile Select onChange and desktop DnD
   function handleMove(jobId: string, toStatus: JobStatus) {
     const job = optimisticJobs.find((j) => j._id === jobId);
     if (!job || job.status === toStatus) return;
@@ -272,9 +249,7 @@ export function JobsPipelineView({ jobs }: Props) {
 
   return (
     <>
-      {/* ── Mobile view (< md) ─────────────────────────────────────────── */}
       <div className="md:hidden space-y-3">
-        {/* Column selector */}
         <Select
           value={mobileStatus}
           onValueChange={(v) => setMobileStatus(v as JobStatus)}
@@ -294,7 +269,6 @@ export function JobsPipelineView({ jobs }: Props) {
           </SelectContent>
         </Select>
 
-        {/* Cards for the selected column */}
         {mobileJobs.length === 0 ? (
           <div className="flex items-center justify-center py-12">
             <p className="text-sm text-muted-foreground">No jobs here</p>
@@ -312,7 +286,6 @@ export function JobsPipelineView({ jobs }: Props) {
         )}
       </div>
 
-      {/* ── Desktop view (≥ md) ────────────────────────────────────────── */}
       <div className="hidden md:block">
         <DndContext
           sensors={sensors}

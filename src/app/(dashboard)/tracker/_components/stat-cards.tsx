@@ -27,7 +27,7 @@ export function StatCards({ responseRate, totalActive, appliedThisMonth }: Props
     <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
       <StatCard
         label="Response rate"
-        value={responseRate !== null ? `${responseRate}%` : "—"}
+        value={responseRate !== null ? `${responseRate}%` : "-"}
         sub={
           responseRate !== null
             ? "of applications moved past Applied"

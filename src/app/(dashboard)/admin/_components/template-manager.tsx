@@ -103,7 +103,7 @@ export function TemplateManager({
       }));
 
       if (data.warnings?.length > 0) {
-        toast.warning(`Theme uploaded with ${data.warnings.length} warning(s) -- check the theme summary.`);
+        toast.warning(`Theme uploaded with ${data.warnings.length} warning(s). Check the theme summary.`);
       } else {
         toast.success("Theme saved");
       }
@@ -225,7 +225,7 @@ export function TemplateManager({
                     <span className="font-medium text-muted-foreground">Theme Capacity: </span>
                     <span className="text-foreground">
                       {themeSummary.themeCapacity
-                        ? `${themeSummary.themeCapacity.level} -- ${themeSummary.themeCapacity.guidance}`
+                        ? `${themeSummary.themeCapacity.level}: ${themeSummary.themeCapacity.guidance}`
                         : "unavailable"}
                     </span>
                   </div>
@@ -240,7 +240,7 @@ export function TemplateManager({
                     <span className="text-foreground">
                       {themeSummary.mappedStyleCount > 0
                         ? `${themeSummary.mappedStyleCount} mapped`
-                        : "none -- re-upload to enable style matching"}
+                        : "none. Re-upload to enable style matching"}
                     </span>
                   </div>
                   <div>
@@ -248,7 +248,7 @@ export function TemplateManager({
                     <span className="text-foreground">
                       {themeSummary.mappedRegionCount > 0
                         ? `${themeSummary.mappedRegionCount} mapped`
-                        : "none -- re-upload to enable design matching"}
+                        : "none. Re-upload to enable design matching"}
                     </span>
                   </div>
                   <div>
@@ -269,7 +269,7 @@ export function TemplateManager({
                     <div>
                       <span className="font-medium text-muted-foreground">Theme Capacity: </span>
                       <span className="text-foreground">
-                        {existingCapacity.level} -- {existingCapacity.guidance}
+                        {existingCapacity.level}: {existingCapacity.guidance}
                       </span>
                     </div>
                   )}
@@ -278,7 +278,7 @@ export function TemplateManager({
                     <span className="text-foreground">
                       {(existingStyleCount ?? 0) > 0
                         ? `${existingStyleCount} mapped`
-                        : "none -- re-upload to enable style matching"}
+                        : "none. Re-upload to enable style matching"}
                     </span>
                   </div>
                   <div>
@@ -286,7 +286,7 @@ export function TemplateManager({
                     <span className="text-foreground">
                       {(existingRegionCount ?? 0) > 0
                         ? `${existingRegionCount} mapped`
-                        : "none -- re-upload to enable design matching"}
+                        : "none. Re-upload to enable design matching"}
                     </span>
                   </div>
                 </div>

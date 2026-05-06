@@ -5,7 +5,7 @@ import { cloneParagraphWithText, extractParagraphs } from "@/lib/export/docx-xml
 /**
  * Replace a template paragraph's text while preserving its run formatting.
  *
- * The template's run structure is the source of truth for styling — we never
+ * The template's run structure is the source of truth for styling. We never
  * hard-code bold, color, or any other property. Instead:
  *
  * - 1 template run  → single replacement run with the same rPr
@@ -19,7 +19,7 @@ export function setParaText(paraXml: string, newText: string): string {
   return cloneParagraphWithText(paraXml, newText);
 }
 
-// ─── ZIP helpers ──────────────────────────────────────────────────────────────
+// ZIP helpers
 
 export async function loadTemplate(templateBuffer: Buffer) {
   const zip = await JSZip.loadAsync(templateBuffer);

@@ -117,7 +117,7 @@ export async function upsertFromClerk(args: {
 
 /**
  * Merges a Clerk user into an existing bootstrap placeholder found by email.
- * Sets clerkId and profile fields only — does NOT touch status or isAdmin.
+ * Sets clerkId and profile fields only. Does not touch status or isAdmin.
  * Used by the user.created webhook when a pre-provisioned record already exists.
  */
 export async function claimByEmail(

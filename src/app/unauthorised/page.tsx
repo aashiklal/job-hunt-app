@@ -3,7 +3,7 @@ import { ShieldOff, Briefcase } from "lucide-react";
 import SignOutButton from "@/components/auth/SignOutButton";
 
 export const metadata: Metadata = {
-  title: "Access Denied — Job Hunt",
+  title: "Access Denied: Job Hunt",
   description: "You are not authorised to access this application.",
 };
 

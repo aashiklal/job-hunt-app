@@ -11,7 +11,7 @@ import { JobsListView } from "./_components/jobs-list-view";
 import { JobsPipelineView } from "./_components/jobs-pipeline-view";
 
 export const metadata: Metadata = {
-  title: "Jobs — Job Hunt",
+  title: "Jobs: Job Hunt",
   description: "Browse and manage your job applications.",
 };
 
@@ -57,7 +57,7 @@ export default async function JobsPage() {
                     1.
                   </span>
                   <span className="text-foreground">
-                    Save your base resume — paste it in, or upload a PDF or DOCX
+                    Save your base resume. Paste it in, or upload a PDF or DOCX
                   </span>
                 </li>
                 <li className="flex gap-3">

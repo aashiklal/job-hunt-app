@@ -26,7 +26,7 @@ function docxColor(hex: string): string {
   return hex.replace(/^#/, "").toUpperCase();
 }
 
-// Detect date ranges at the end of a string (e.g. "Jan 2020 - Dec 2021", "2020 – Present")
+// Detect date ranges at the end of a string (e.g. "Jan 2020 - Dec 2021", "2020 - Present")
 const DATE_RANGE_RE =
   /\s*(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+)?\d{4}\s*[-–—]\s*(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{4}|Present|\d{4})$/i;
 
@@ -99,7 +99,7 @@ export async function generateDOCX(
 ): Promise<Buffer> {
   const rawLines = parseMarkdown(content);
 
-  // Drop blank lines that immediately follow a heading — the heading already
+  // Drop blank lines that immediately follow a heading because the heading already
   // has built-in `after` spacing, and the extra empty paragraph creates a
   // visible gap in the exported document.
   const lines = rawLines.filter((line, i) => {

@@ -133,17 +133,17 @@ Allowed roles:
 applicant_name, applicant_contact, date, recipient, company, role, salutation, summary, section_heading, experience_heading, project_heading, education_heading, skill_line, bullet, body_paragraph, closing, signoff, footer, decorative_sample.
 
 General rules:
-- Existing text is sample content only — do not treat it as real data.
+- Existing text is sample content only - do not treat it as real data.
 - Map applicant header/name/contact dynamically; never leave sample header text static.
 - Mark regions that should receive repeated content as repeatable: true.
 - Decorative text, blank spacers, visual dividers, and horizontal rules should use decorative_sample.
 - Include every region id exactly once.
 
 For RESUME documents:
-- applicant_name: the candidate's full name — usually the first and visually largest text on the page.
+- applicant_name: the candidate's full name - usually the first and visually largest text on the page.
 - applicant_contact: lines containing location, phone/email, social links (LinkedIn, GitHub), or visa/work rights. Typically 1-3 lines; each separate line is its own region.
 - section_heading: section titles such as PROFESSIONAL SUMMARY, TECHNICAL SKILLS, PROFESSIONAL EXPERIENCE, PROJECTS, EDUCATION, CERTIFICATIONS (or any capitalisation). Short, standalone lines that label a section.
-- experience_heading: lines combining a job title + company name, often with a date range or location — e.g. "Software Engineer, Acme Corp | Jan 2022 - Present". Longer than section_heading.
+- experience_heading: lines combining a job title + company name, often with a date range or location - e.g. "Software Engineer, Acme Corp | Jan 2022 - Present". Longer than section_heading.
 - project_heading: lines that are a project name, optionally followed by a tech stack summary.
 - education_heading: lines combining a degree name + institution, e.g. "Bachelor of Science, University of Sydney".
 - skill_line: lines in "Category: item, item, item" format, or comma-separated skill lists. Usually inside the Skills section.
@@ -152,13 +152,13 @@ For RESUME documents:
 - footer: references line ("References available upon request") or visa/work-rights statement at the very bottom of the document.
 
 For COVER LETTER documents:
-- applicant_name: candidate's full name at the top of the letter — usually bold or large.
-- applicant_contact: contact detail lines near the top (location, phone, email) — typically 1-3 short lines.
+- applicant_name: candidate's full name at the top of the letter - usually bold or large.
+- applicant_contact: contact detail lines near the top (location, phone, email) - typically 1-3 short lines.
 - date: the date line (e.g. "2 May 2026" or "May 2, 2026").
 - recipient: the hiring manager's name or title (e.g. "Ms Jane Smith" or "Hiring Manager").
 - company: the company name line (standalone, not part of the salutation).
 - salutation: the greeting line starting with "Dear".
-- body_paragraph: the main letter paragraphs — typically 3-4 paragraphs. Mark as repeatable: true.
+- body_paragraph: the main letter paragraphs - typically 3-4 paragraphs. Mark as repeatable: true.
 - closing: a closing sentence such as "Thank you for your consideration." or "I look forward to hearing from you."
 - signoff: the farewell phrase + candidate name, e.g. "Sincerely, / John Smith".
 - footer: any footer text below the signature.`;

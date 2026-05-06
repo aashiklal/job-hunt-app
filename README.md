@@ -1,6 +1,6 @@
 # Job Hunt
 
-A full-stack AI-powered job application tracker. Track every application through a Kanban pipeline, generate tailored resumes and cover letters with Claude, and stay on top of your job search — all in one place.
+A full-stack AI-powered job application tracker. Track every application through a Kanban pipeline, generate tailored resumes and cover letters with Claude, and stay on top of your job search in one place.
 
 ---
 
@@ -18,13 +18,13 @@ A full-stack AI-powered job application tracker. Track every application through
 - Plan-gated limits enforced at both the UI and server action layer
 
 **AI Generation**
-- Tailored resume generation — rewrites your resume to match a specific job description
-- Cover letter generation — produces a targeted, professional cover letter
-- JD analysis — structured breakdown of the job description with key requirements and fit signals
+- Tailored resume generation: rewrites your resume to match a specific job description
+- Cover letter generation: produces a targeted, professional cover letter
+- JD analysis: structured breakdown of the job description with key requirements and fit signals
 - All AI usage is metered in USD against a monthly budget; admins can set per-user overrides
 
 **DOCX Export**
-- Export AI-generated content as a DOCX file
+- Export generated content as a DOCX file
 - Template priority: user-uploaded template → admin global template → generic fallback
 - Template-driven formatting preserves the original run styles (fonts, sizes, bold, etc.)
 - Slot-fill output is cached per document so re-exports are instant unless the template changes
@@ -160,7 +160,7 @@ sign-up → pending → (admin approves) → approved → dashboard
                   → (admin rejects)  → rejected  → can re-request
 ```
 
-Admin routes are inside the `(dashboard)` group and additionally gate on `isAdmin: true` — non-admins receive a 404.
+Admin routes are inside the `(dashboard)` group and additionally gate on `isAdmin: true`. Non-admins receive a 404.
 
 ---
 
@@ -189,7 +189,7 @@ src/
       webhooks/clerk/         # Clerk user sync webhook
       generate/               # AI generation (streaming + non-streaming)
       generate/export/        # DOCX export
-      jobs/parse/             # Quick import — AI job posting parser
+      jobs/parse/             # Quick import: AI job posting parser
       resume/parse-pdf/       # PDF text extraction
       resume/parse-docx/      # DOCX text extraction
       admin/templates/        # Global DOCX template management
@@ -209,7 +209,7 @@ src/
 
 ## Deployment
 
-The app is designed for [Vercel](https://vercel.com). Set all environment variables from the section above in the Vercel project settings, then push to your connected branch. The production URL is resolved automatically via `VERCEL_PROJECT_PRODUCTION_URL` — no extra config needed for admin notification links to work.
+The app is designed for [Vercel](https://vercel.com). Set all environment variables from the section above in the Vercel project settings, then push to your connected branch. The production URL is resolved automatically via `VERCEL_PROJECT_PRODUCTION_URL`, with no extra config needed for admin notification links to work.
 
 After the first deployment, run the seed script once against your production database:
 

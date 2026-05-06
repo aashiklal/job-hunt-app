@@ -56,7 +56,7 @@ export function UserTable({
             const name =
               user.firstName || user.lastName
                 ? [user.firstName, user.lastName].filter(Boolean).join(" ")
-                : "—";
+                : "-";
             const spent = spendMap?.[id] ?? 0;
             return (
               <TableRow
@@ -96,7 +96,7 @@ export function UserTable({
                 )}
                 <TableCell onClick={(e) => e.stopPropagation()}>
                   {isSelf ? (
-                    <span className="text-sm text-muted-foreground">—</span>
+                    <span className="text-sm text-muted-foreground">-</span>
                   ) : (
                     <div className="flex items-center gap-2">
                       {showApprove && (

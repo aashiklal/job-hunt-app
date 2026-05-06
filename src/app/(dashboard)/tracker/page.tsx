@@ -10,7 +10,7 @@ import { WeeklyActivity } from "./_components/weekly-activity";
 import { WeeklyGoal } from "./_components/weekly-goal";
 
 export const metadata: Metadata = {
-  title: "Tracker — Job Hunt",
+  title: "Tracker: Job Hunt",
   description: "Analytics and insights for your job search.",
 };
 
@@ -55,7 +55,7 @@ export default async function TrackerPage() {
             Nothing to track yet
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Add some jobs and start applying — your stats will appear here.
+            Add some jobs and start applying. Your stats will appear here.
           </p>
           <Button asChild className="mt-4" variant="outline">
             <Link href="/jobs/new">Add your first job</Link>
@@ -71,23 +71,19 @@ export default async function TrackerPage() {
         Tracker
       </h1>
 
-      {/* Funnel — full width */}
       <ApplicationFunnel funnelCounts={stats.funnelCounts} />
 
-      {/* Stat cards — 3-up on md+, stacked on mobile */}
       <StatCards
         responseRate={stats.responseRate}
         totalActive={totalActive}
         appliedThisMonth={appliedThisMonth}
       />
 
-      {/* Two-column grid on desktop */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <WeeklyActivity data={weeklyData} />
         <WeeklyGoal weeklyData={weeklyData} />
       </div>
 
-      {/* Stale applications — full width, only shown when there are some */}
       {staleJobs.length > 0 && <StaleApplications jobs={staleJobs} />}
     </div>
   );

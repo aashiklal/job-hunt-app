@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ResumesTable } from "./_components/resumes-table";
 
 export const metadata: Metadata = {
-  title: "Resumes — Job Hunt",
+  title: "Resumes: Job Hunt",
   description: "Manage your base resumes for AI tailoring.",
 };
 

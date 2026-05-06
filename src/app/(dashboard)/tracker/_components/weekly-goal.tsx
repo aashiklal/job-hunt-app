@@ -81,7 +81,7 @@ export function WeeklyGoal({ weeklyData }: Props) {
               <p className="mt-1 text-xs text-muted-foreground">
                 {applied === goal
                   ? `You hit your target of ${goal} this week.`
-                  : `${applied} applied — ${applied - goal} ahead of target.`}
+                  : `${applied} applied, ${applied - goal} ahead of target.`}
               </p>
             </>
           ) : (

@@ -3,7 +3,7 @@ import { SignUp } from "@clerk/nextjs";
 import { Briefcase } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Sign Up — Job Hunt",
+  title: "Sign Up: Job Hunt",
   description: "Create your Job Hunt account",
 };
 

@@ -116,7 +116,7 @@ export function JobForm({ mode, initialValues, jobId }: Props) {
       if (fields.location) form.setValue("location", fields.location, { shouldDirty: true });
       if (fields.salary) form.setValue("salary", fields.salary, { shouldDirty: true });
       if (fields.description) form.setValue("jobDescription", fields.description, { shouldDirty: true });
-      toast.success("Fields filled — review and edit before saving.");
+      toast.success("Fields filled. Review and edit before saving.");
       setImportOpen(false);
       setImportText("");
       router.refresh();
@@ -301,7 +301,7 @@ export function JobForm({ mode, initialValues, jobId }: Props) {
               <FormItem>
                 <FormLabel>Salary</FormLabel>
                 <FormControl>
-                  <Input placeholder="$100k–$130k" {...field} />
+                  <Input placeholder="$100k-$130k" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

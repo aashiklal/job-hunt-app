@@ -179,9 +179,9 @@ export function GeneratePanel({
       URL.revokeObjectURL(url);
 
       if (fallback === "admin") {
-        toast.info("Your template didn't have enough structure — the default template was used instead.");
+        toast.info("Your template didn't have enough structure. The default template was used instead.");
       } else if (fallback === "generic") {
-        toast.info("Your template didn't have enough structure — a clean default format was used instead.");
+        toast.info("Your template didn't have enough structure. A clean default format was used instead.");
       } else {
         toast.success("Downloaded as DOCX");
       }

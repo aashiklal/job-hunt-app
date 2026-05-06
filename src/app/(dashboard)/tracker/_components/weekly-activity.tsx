@@ -45,7 +45,6 @@ export function WeeklyActivity({ data }: Props) {
                 key={week.weekStart}
                 className="group relative flex flex-1 flex-col items-center justify-end gap-1 h-full"
               >
-                {/* Count label — visible on hover or when non-zero */}
                 {week.count > 0 && (
                   <span className="absolute -top-5 text-[10px] font-medium tabular-nums text-foreground opacity-0 transition-opacity group-hover:opacity-100">
                     {week.count}
@@ -64,10 +63,9 @@ export function WeeklyActivity({ data }: Props) {
                   style={{
                     height: week.count === 0 ? "2px" : `${heightPct}%`,
                   }}
-                  title={`${week.count} application${week.count === 1 ? "" : "s"} — w/c ${formatWeekLabel(week.weekStart)}`}
+                  title={`${week.count} application${week.count === 1 ? "" : "s"}, w/c ${formatWeekLabel(week.weekStart)}`}
                 />
 
-                {/* Week label — hide alternating labels on narrow screens to avoid overlap */}
                 <span
                   className={`mt-1 text-[9px] leading-none text-muted-foreground/70 ${
                     data.indexOf(week) % 2 !== 0 ? "hidden sm:block" : ""

@@ -6,7 +6,7 @@ import Usage from "@/lib/models/Usage";
 import User from "@/lib/models/User";
 
 // ---------------------------------------------------------------------------
-// Pricing table — update if Anthropic changes rates
+// Pricing table. Update if Anthropic changes rates.
 // ---------------------------------------------------------------------------
 
 const MODEL_PRICING: Record<string, { inputPerMToken: number; outputPerMToken: number }> = {
@@ -90,9 +90,9 @@ function getSpendLimit(plan: IPlan, subscription: ISubscription): number {
  * Reads the user's current spend and throws `QuotaExceededError` if they are
  * at or over their monthly USD budget.
  *
- * Admins always pass — they have no cap.
+ * Admins always pass because they have no cap.
  *
- * This is a read-only check — it does NOT increment anything. Call
+ * This is a read-only check and does not increment anything. Call
  * `addSpend()` after a successful API call to record the actual cost.
  *
  * @throws {QuotaExceededError} when the user is at or above their budget.
@@ -174,7 +174,7 @@ export async function addSpend(
 /**
  * Returns the user's current USD spend and budget for the active period.
  * Admins return limit = -1 (unlimited).
- * Never throws — returns zeroed-out data when subscription or plan is missing.
+ * Never throws. Returns zeroed-out data when subscription or plan is missing.
  */
 export async function getCurrentUsage(
   userId: mongoose.Types.ObjectId | string
@@ -189,7 +189,7 @@ export async function getCurrentUsage(
   const periodEndsAt = getPeriodEndsAt();
   const period = getCurrentPeriod();
 
-  // Admins are unlimited — show spend but no cap
+  // Admins are unlimited, so show spend but no cap.
   const userDoc = await User.findById(userId).lean();
   if (userDoc?.isAdmin) {
     const usageDoc = await Usage.findOne({ userId, period }).lean();

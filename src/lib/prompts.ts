@@ -1,7 +1,7 @@
 export function buildJobParsePrompt(args: { text: string }) {
   const system = `You are a job posting parser. Extract structured details from a raw job posting.
 
-Respond with ONLY a JSON object matching this exact schema — no preamble, no commentary, no markdown code fences:
+Respond with ONLY a JSON object matching this exact schema - no preamble, no commentary, no markdown code fences:
 
 {
   "company": "string or null",
@@ -33,7 +33,7 @@ export function buildJDAnalysisPrompt(args: { jobDescription: string }) {
   const { jobDescription } = args;
   const system = `You are an expert job description analyst helping a job applicant prepare a targeted application.
 
-Read the job description carefully and return a structured analysis. Respond with ONLY a JSON object matching this exact schema — no preamble, no commentary, no markdown code fences:
+Read the job description carefully and return a structured analysis. Respond with ONLY a JSON object matching this exact schema - no preamble, no commentary, no markdown code fences:
 
 {
   "summary": "string",
@@ -51,13 +51,13 @@ summary: 2-3 sentences of plain English. What does this person actually do day-t
 
 seniorityLevel: infer from years-of-experience requirements, reporting structure, scope of ownership, and compensation signals. "unclear" is acceptable if the JD is genuinely ambiguous.
 
-requiredSkills: hard skills the candidate MUST have to pass the initial screen — languages, frameworks, tools, platforms, methodologies, credentials, and role-specific domain requirements. No generic soft skills. Each item is a short exact string (e.g. "React", "SQL", "Kubernetes"). Empty array if the JD is too vague to determine.
+requiredSkills: hard skills the candidate MUST have to pass the initial screen - languages, frameworks, tools, platforms, methodologies, credentials, and role-specific domain requirements. No generic soft skills. Each item is a short exact string (e.g. "React", "SQL", "Kubernetes"). Empty array if the JD is too vague to determine.
 
 niceToHaves: skills the JD labels "preferred", "bonus", "nice to have", or "advantageous". Empty array if none.
 
-keywordsForResume: 8-20 exact strings the candidate should mirror in their resume to pass ATS and resonate with recruiters. Include specific technology names, domain/industry terms, role-specific methodology phrases, and competency phrases the JD genuinely emphasises. Prioritise terms that appear multiple times or are used in the requirements section. Use the JD's exact wording — not synonyms. Return raw terms only; do not prefix with categories.
+keywordsForResume: 8-20 exact strings the candidate should mirror in their resume to pass ATS and resonate with recruiters. Include specific technology names, domain/industry terms, role-specific methodology phrases, and competency phrases the JD genuinely emphasises. Prioritise terms that appear multiple times or are used in the requirements section. Use the JD's exact wording - not synonyms. Return raw terms only; do not prefix with categories.
 
-interviewLikelyFocus: 3-6 short strings describing the specific topics this JD signals will be tested. Think like the hiring manager designing the interview loop. Be specific to this role — do not list generic topics. Format each as "Category: specific topic" (e.g. "Technical: SQL window functions and query optimisation", "System design: event-driven microservices", "Behavioural: navigating ambiguity without clear requirements", "Domain: experience with GDPR compliance workflows"). Include technical, behavioural, domain, or portfolio-review topics only when the JD signals them.
+interviewLikelyFocus: 3-6 short strings describing the specific topics this JD signals will be tested. Think like the hiring manager designing the interview loop. Be specific to this role - do not list generic topics. Format each as "Category: specific topic" (e.g. "Technical: SQL window functions and query optimisation", "System design: event-driven microservices", "Behavioural: navigating ambiguity without clear requirements", "Domain: experience with GDPR compliance workflows"). Include technical, behavioural, domain, or portfolio-review topics only when the JD signals them.
 
 redFlags: concrete signals the role may be misrepresented or working conditions are poor. Look for: scope creep disguised as "wear many hats", missing or implausibly wide salary range, demands for an implausible breadth of unrelated skills, vague or unmeasurable responsibilities, "fast-paced startup environment" without specifics, no mention of team size or reporting structure, excessive out-of-hours expectations. Empty array if the JD looks clean and well-scoped.
 
@@ -120,7 +120,7 @@ export function buildLinkedInRecruiterDMPrompt(args: {
   const { senderName, recipientName, recipientTitle, job, baseResume, tone, hasApplied } = args;
   const system = `You are helping a job applicant write a cold LinkedIn DM to a recruiter or hiring manager.
 
-The goal is to get a reply -- not to sell the applicant's entire career in one message. Short messages get replies. Long messages get ignored.
+The goal is to get a reply - not to sell the applicant's entire career in one message. Short messages get replies. Long messages get ignored.
 
 Rules:
 - Keep it between 60 and 100 words. Hard limit.
@@ -163,10 +163,10 @@ export function buildFollowUpApplicationEmailPrompt(args: {
 Rules:
 - Subject line: reference the exact role and company. Keep it short.
 - Body: 2 short paragraphs, under 120 words total.
-  - Para 1: briefly restate the application (role, company, approximate date). Express continued interest -- one specific sentence about why this role still appeals.
+  - Para 1: briefly restate the application (role, company, approximate date). Express continued interest - one specific sentence about why this role still appeals.
   - Para 2: offer to provide any additional materials and suggest a brief call. Easy, confident close.
 - Do NOT sound needy or apologetic. Do NOT say "I just wanted to check in".
-- Do NOT re-pitch skills -- this is a courtesy nudge, not a new pitch.
+- Do NOT re-pitch skills - this is a courtesy nudge, not a new pitch.
 - Sign off with the applicant's name only.
 - Output format: "Subject: <subject>" on the first line, blank line, then email body. Plain text only.`;
 
@@ -194,10 +194,10 @@ export function buildThankYouEmailPrompt(args: {
   const system = `You are helping a job applicant write a thank you email after a job interview.
 
 Rules:
-- Subject line: "Thank you -- [Role] interview" or a variation. Keep it clear.
+- Subject line: "Thank you - [Role] interview" or a variation. Keep it clear.
 - Body: 3 paragraphs, under 150 words total.
   - Para 1: genuine thank you for their time. Reference one specific topic from the interview to prove the note is not a template.
-  - Para 2: one brief reinforcement of why this role is a good fit -- tie it to something discussed in the interview. Do NOT re-pitch the resume.
+  - Para 2: one brief reinforcement of why this role is a good fit - tie it to something discussed in the interview. Do NOT re-pitch the resume.
   - Para 3: brief, confident close. Mention you are looking forward to next steps.
 - Do NOT use: "It was a pleasure speaking with you", "I wanted to reach out", "I am very excited about the opportunity".
 - Warm but professional tone.
@@ -227,11 +227,11 @@ export function buildInterviewPrepPrompt(args: {
 
 Your job is to generate a realistic set of interview questions the applicant is likely to face, based on the job description and their resume. The questions should feel like they came from a real interviewer at this company, not a generic list.
 
-Respond with ONLY a JSON object matching this exact schema -- no preamble, no commentary, no markdown code fences:
+Respond with ONLY a JSON object matching this exact schema - no preamble, no commentary, no markdown code fences:
 
 {
   "behavioral": [
-    { "question": "string", "hint": "string -- what the interviewer is really assessing with this question" }
+    { "question": "string", "hint": "string - what the interviewer is really assessing with this question" }
   ],
   "technical": [
     { "question": "string", "hint": "string" }
@@ -288,7 +288,7 @@ Rules:
 - Reference the role and company by name.
 - If previousMessageSent is true: acknowledge this is a second follow-up, keep it even shorter, give them an easy out ("happy to be redirected if this is not the right channel").
 - Do NOT sound desperate. Do NOT re-pitch yourself.
-- Do NOT open with "Just following up" -- find a better first line.
+- Do NOT open with "Just following up" - find a better first line.
 - Plain text only. No greeting header, no sign-off block. Output ONLY the message body.`;
 
   const userMessage = `Recipient first name: ${recipientName}
@@ -321,7 +321,7 @@ Rules:
   - Para 2: two concrete things from the resume that are directly relevant to the target role.
   - Para 3: a clear, low-pressure ask (e.g. "Would you be open to a 15-minute call?").
 - Do NOT use: "I am writing to inquire", "I believe I would be a great fit", "Please find attached".
-- Sign off with the applicant's name only (no title or contact block -- the user will add that).
+- Sign off with the applicant's name only (no title or contact block - the user will add that).
 - Output format: first line is the subject line prefixed with "Subject: ", then a blank line, then the email body.
 - Plain text only. No markdown.`;
 
@@ -385,10 +385,10 @@ export function buildSalaryNegotiationEmailPrompt(args: {
 The goal is to counter confidently without damaging the relationship or sounding entitled.
 
 Rules:
-- Subject line: "Re: Offer -- [Role] at [Company]" or similar. Keep it professional.
+- Subject line: "Re: Offer - [Role] at [Company]" or similar. Keep it professional.
 - Body: 3 paragraphs, under 200 words.
-  - Para 1: thank them for the offer. Express genuine enthusiasm for the role. Keep it brief -- this is not the main point.
-  - Para 2: make the ask. State the specific counter number (or component). Ground it in one specific reason from negotiationReason (market rate, competing offer, cost of living, experience level). One reason only -- multiple reasons sound desperate.
+  - Para 1: thank them for the offer. Express genuine enthusiasm for the role. Keep it brief - this is not the main point.
+  - Para 2: make the ask. State the specific counter number (or component). Ground it in one specific reason from negotiationReason (market rate, competing offer, cost of living, experience level). One reason only - multiple reasons sound desperate.
   - Para 3: reaffirm excitement about the role. Make clear you are hoping to reach an agreement, not issue an ultimatum. A closing line that invites dialogue.
 - Do NOT say "I feel", "I was hoping", "I was wondering if". Be direct.
 - Do NOT make the counter sound like begging.
@@ -421,13 +421,13 @@ export function buildSTARStoryPolishPrompt(args: {
 STAR format:
 - Situation: brief context (1-2 sentences). What was the setting?
 - Task: what were you specifically responsible for?
-- Action: what YOU did -- not "we". Specific, active verbs. This is the longest part (2-4 sentences).
+- Action: what YOU did - not "we". Specific, active verbs. This is the longest part (2-4 sentences).
 - Result: quantified outcome if possible. What changed because of your action? Include timeframe if known.
 
 Rules:
 - Stay within the maxWords limit.
 - Use first-person singular. Remove passive voice.
-- Do NOT invent facts. If the story is vague, make the existing facts sharper -- do not add new ones.
+- Do NOT invent facts. If the story is vague, make the existing facts sharper - do not add new ones.
 - Remove filler phrases: "basically", "like", "you know", "so yeah".
 - The Result must be concrete. If the user's draft has a vague result ("it went well"), improve the phrasing but do not fabricate a number.
 - Output format: plain text, with "Situation:", "Task:", "Action:", "Result:" as section headers on their own lines. No markdown bold, no bullet points.`;
@@ -454,22 +454,22 @@ export function buildSkillsGapPrompt(args: {
 
 You have been given a list of skills that repeatedly appear in job descriptions the applicant has applied to, but are missing from their resume. Your job is to produce a prioritised, actionable learning roadmap.
 
-Respond with ONLY a JSON object matching this schema -- no preamble, no markdown fences:
+Respond with ONLY a JSON object matching this schema - no preamble, no markdown fences:
 
 {
-  "summary": "string -- 2-3 sentence plain English summary of the overall gap pattern",
+  "summary": "string - 2-3 sentence plain English summary of the overall gap pattern",
   "highPriority": [
     {
       "skill": "string",
-      "why": "string -- one sentence: why this skill matters for their target role type",
-      "howToLearn": "string -- one specific, free or low-cost resource or approach (e.g. 'Build a small project using X', 'Complete the official Y docs tutorial'). No paid course recommendations unless free tier is available.",
-      "timeEstimate": "string -- e.g. '2-4 weeks part-time'"
+      "why": "string - one sentence: why this skill matters for their target role type",
+      "howToLearn": "string - one specific, free or low-cost resource or approach (e.g. 'Build a small project using X', 'Complete the official Y docs tutorial'). No paid course recommendations unless free tier is available.",
+      "timeEstimate": "string - e.g. '2-4 weeks part-time'"
     }
   ],
   "mediumPriority": [ same shape as highPriority ],
   "lowPriority": [ same shape as highPriority ],
   "quickWins": [
-    "string -- skills the user almost certainly has but has not written on the resume (inferred from adjacent skills present). One sentence each: 'You use X -- consider adding Y explicitly since it appears in N job descriptions.'"
+    "string - skills the user almost certainly has but has not written on the resume (inferred from adjacent skills present). One sentence each: 'You use X - consider adding Y explicitly since it appears in N job descriptions.'"
   ]
 }
 
@@ -515,16 +515,16 @@ export function buildOfferComparisonPrompt(args: {
   const { offers } = args;
   const system = `You are a career advisor helping a job applicant objectively compare multiple job offers.
 
-Your job is to produce a structured, honest comparison and a clear recommendation -- not a wishy-washy "it depends on what matters to you" non-answer.
+Your job is to produce a structured, honest comparison and a clear recommendation - not a wishy-washy "it depends on what matters to you" non-answer.
 
-Respond with ONLY a JSON object matching this exact schema -- no preamble, no markdown fences:
+Respond with ONLY a JSON object matching this exact schema - no preamble, no markdown fences:
 
 {
   "comparisonTable": [
     {
-      "dimension": "string -- e.g. 'Total compensation', 'Remote flexibility', 'Career growth signal', 'Company stability'",
-      "winner": "string -- company name, or 'Tie'",
-      "notes": "string -- one sentence explaining the call"
+      "dimension": "string - e.g. 'Total compensation', 'Remote flexibility', 'Career growth signal', 'Company stability'",
+      "winner": "string - company name, or 'Tie'",
+      "notes": "string - one sentence explaining the call"
     }
   ],
   "prosAndCons": {
@@ -534,11 +534,11 @@ Respond with ONLY a JSON object matching this exact schema -- no preamble, no ma
     }
   },
   "recommendation": {
-    "pick": "string -- company name",
-    "reasoning": "string -- 3-4 sentences. Be direct. Acknowledge the trade-offs of this choice."
+    "pick": "string - company name",
+    "reasoning": "string - 3-4 sentences. Be direct. Acknowledge the trade-offs of this choice."
   },
   "negotiationOpportunities": [
-    "string -- one per offer where there is a clear gap to negotiate (e.g. 'Offer B base salary is $10k below Offer A for the same level -- use that as leverage')"
+    "string - one per offer where there is a clear gap to negotiate (e.g. 'Offer B base salary is $10k below Offer A for the same level - use that as leverage')"
   ]
 }
 
@@ -552,7 +552,7 @@ Rules:
 ${offers
     .map(
       (o, i) => `
-Offer ${i + 1}: ${o.company} -- ${o.role}
+Offer ${i + 1}: ${o.company} - ${o.role}
   Base salary: ${o.currency} ${o.baseSalary.toLocaleString()}
   ${o.equity ? `Equity: ${o.equity}` : "No equity"}
   ${o.bonus ? `Bonus: ${o.bonus}` : "No bonus"}

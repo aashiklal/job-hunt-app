@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // convertToMarkdown preserves headings and bullets — better for AI tailoring.
+    // convertToMarkdown preserves headings and bullets, which helps AI tailoring.
     // The type declaration omits it (stale types), so cast through unknown to call it.
     // Fallback to raw text if markdown conversion fails on a malformed docx.
     const mammothAny = mammoth as unknown as {

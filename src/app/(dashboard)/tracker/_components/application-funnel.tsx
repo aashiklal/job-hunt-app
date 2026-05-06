@@ -27,7 +27,6 @@ export function ApplicationFunnel({ funnelCounts }: Props) {
         Application funnel
       </p>
 
-      {/* Horizontal stage flow — scrollable on small screens */}
       <div className="flex items-stretch gap-0 overflow-x-auto pb-1">
         {PIPELINE.map(({ status, label }, i) => {
           const count = funnelCounts[status];

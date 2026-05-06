@@ -6,7 +6,7 @@ export async function UsageWidget() {
   const usage = await getCurrentUsage(user._id.toString());
 
   if (usage.limit === 0) {
-    // No subscription or no plan — should never happen for an approved user
+    // Approved users should always have both a subscription and a plan.
     return null;
   }
 

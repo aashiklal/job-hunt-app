@@ -46,7 +46,7 @@ export function JobsListView({ jobs }: Props) {
                 <div className="max-w-[220px] truncate">{job.role}</div>
               </TableCell>
               <TableCell>
-                <div className="max-w-[140px] truncate">{job.location ?? "—"}</div>
+                <div className="max-w-[140px] truncate">{job.location ?? "-"}</div>
               </TableCell>
               <TableCell>
                 <StatusBadge status={job.status} />

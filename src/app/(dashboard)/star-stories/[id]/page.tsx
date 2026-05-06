@@ -9,7 +9,7 @@ import { DeleteStoryButton } from "../_components/delete-story-button";
 import { PolishPanel } from "../_components/polish-panel";
 
 export const metadata: Metadata = {
-  title: "STAR story -- Job Hunt",
+  title: "STAR story: Job Hunt",
   description: "Edit your behavioral interview story.",
 };
 

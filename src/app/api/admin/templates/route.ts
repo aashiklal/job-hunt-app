@@ -17,7 +17,7 @@ async function requireAdmin(clerkUserId: string) {
   return user;
 }
 
-/** POST /api/admin/templates — upload or replace a global document theme */
+/** POST /api/admin/templates: upload or replace a global document theme */
 export async function POST(req: NextRequest) {
   const { userId: clerkUserId } = await auth();
   if (!clerkUserId)
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(intake.response);
 }
 
-/** DELETE /api/admin/templates?type=resume — remove a global template */
+/** DELETE /api/admin/templates?type=resume: remove a global template */
 export async function DELETE(req: NextRequest) {
   const { userId: clerkUserId } = await auth();
   if (!clerkUserId)

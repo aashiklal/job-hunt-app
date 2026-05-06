@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { JobForm } from "../../_components/job-form";
 
 export const metadata: Metadata = {
-  title: "Edit Job — Job Hunt",
+  title: "Edit Job: Job Hunt",
   description: "Edit a job application.",
 };
 

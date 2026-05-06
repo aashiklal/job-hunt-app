@@ -16,7 +16,7 @@ import { RestoreJobButton } from "./_components/restore-job-button";
 import { PermanentDeleteButton } from "./_components/permanent-delete-button";
 
 export const metadata: Metadata = {
-  title: "Trash — Job Hunt",
+  title: "Trash: Job Hunt",
   description: "Restore or permanently delete job applications.",
 };
 
@@ -76,7 +76,7 @@ export default async function TrashPage() {
                         ? formatDistanceToNow(new Date(job.deletedAt), {
                             addSuffix: true,
                           })
-                        : "—"}
+                        : "-"}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
