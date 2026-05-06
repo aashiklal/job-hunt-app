@@ -6,6 +6,7 @@ import * as documents from "@/lib/repositories/documents";
 import * as templates from "@/lib/repositories/templates";
 import type { DocumentType } from "@/lib/repositories/documents";
 import { callMeteredStructured, callMeteredText } from "@/lib/ai-execution";
+import { jdAnalysisSchema, type JDAnalysis } from "@/lib/job-analysis";
 import {
   buildJDAnalysisPrompt,
   buildLinkedInConnectionNotePrompt,
@@ -33,16 +34,6 @@ import { buildPixelThemeContract } from "@/lib/export/pixel-theme-contract";
 
 const MODEL = "claude-sonnet-4-5";
 const MAX_TOKENS = 4096;
-
-const jdAnalysisSchema = z.object({
-  summary: z.string().min(1),
-  seniorityLevel: z.enum(["junior", "mid", "senior", "staff", "unclear"]),
-  requiredSkills: z.array(z.string().min(1)),
-  niceToHaves: z.array(z.string().min(1)),
-  keywordsForResume: z.array(z.string().min(1)),
-  interviewLikelyFocus: z.array(z.string().min(1)),
-  redFlags: z.array(z.string().min(1)),
-});
 
 const interviewPrepSchema = z.object({
   behavioral: z.array(z.object({ question: z.string(), hint: z.string() })),
@@ -111,7 +102,7 @@ type UserForGeneration = {
 };
 
 export type JobGenerationResult =
-  | { kind: "jd_analysis"; analysis: z.infer<typeof jdAnalysisSchema> }
+  | { kind: "jd_analysis"; analysis: JDAnalysis }
   | { kind: "interview_prep"; prep: z.infer<typeof interviewPrepSchema> }
   | { kind: "outreach"; content: string }
   | {

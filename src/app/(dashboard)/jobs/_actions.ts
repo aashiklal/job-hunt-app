@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { defineAction } from "@/lib/actions";
 import * as jobs from "@/lib/repositories/jobs";
+import * as documents from "@/lib/repositories/documents";
 import * as jobLifecycle from "@/lib/job-application-lifecycle";
+import { jdAnalysisSchema } from "@/lib/job-analysis";
+
+const MODEL = "claude-sonnet-4-5";
 
 const jobStatusSchema = z.enum([
   "saved",
@@ -27,10 +31,11 @@ const createJobSchema = z.object({
   status: jobStatusSchema.optional(),
   notes: z.string().max(10000).optional(),
   appliedAt: z.coerce.date().optional().nullable(),
+  initialAnalysis: jdAnalysisSchema.optional(),
 });
 
 const updateJobSchema = createJobSchema
-  .omit({ status: true })
+  .omit({ status: true, initialAnalysis: true })
   .partial()
   .extend({
     jobId: z.string().min(1),
@@ -47,8 +52,18 @@ const setStatusSchema = z.object({
 export const createJob = defineAction(
   async (ctx, input: z.infer<typeof createJobSchema>) => {
     const data = createJobSchema.parse(input);
-    const cleanData = { ...data, url: data.url === "" ? undefined : data.url };
+    const { initialAnalysis, ...jobData } = data;
+    const cleanData = { ...jobData, url: jobData.url === "" ? undefined : jobData.url };
     const job = await jobs.create(ctx.user._id.toString(), cleanData);
+    if (initialAnalysis) {
+      await documents.upsert(ctx.user._id.toString(), {
+        jobId: job._id.toString(),
+        type: "jd_analysis",
+        content: JSON.stringify(initialAnalysis),
+        structuredContent: initialAnalysis,
+        aiModel: MODEL,
+      });
+    }
     revalidatePath("/jobs");
     return { jobId: job._id.toString() };
   }

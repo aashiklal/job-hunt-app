@@ -8,7 +8,16 @@ Respond with ONLY a JSON object matching this exact schema - no preamble, no com
   "role": "string or null",
   "location": "string or null",
   "salary": "string or null",
-  "description": "string or null"
+  "description": "string or null",
+  "analysis": {
+    "summary": "string",
+    "seniorityLevel": "junior" | "mid" | "senior" | "staff" | "unclear",
+    "requiredSkills": ["string"],
+    "niceToHaves": ["string"],
+    "keywordsForResume": ["string"],
+    "interviewLikelyFocus": ["string"],
+    "redFlags": ["string"]
+  }
 }
 
 Rules:
@@ -17,6 +26,13 @@ Rules:
 - "location": city, region, remote status, or a combination. null if not found.
 - "salary": any salary or compensation range mentioned. null if not found.
 - "description": the full job description text, lightly cleaned (remove excessive whitespace/repeated lines). null if the input is too short to be a real job posting.
+- "analysis": structured job-description analysis for Fit Score and applicant decision support. Use the same cleaned job description as evidence.
+- "summary": 1-2 plain-English sentences about day-to-day work and success criteria.
+- "requiredSkills": hard requirements needed to pass screening. No generic soft skills.
+- "niceToHaves": skills labelled preferred, bonus, advantageous, or similar.
+- "keywordsForResume": 8-20 exact strings from the posting worth mirroring in a resume.
+- "interviewLikelyFocus": 3-6 likely interview topics signalled by the posting.
+- "redFlags": concrete concerns such as implausible scope, unclear salary, unrelated skill breadth, out-of-hours expectations, or vague responsibilities. Empty array if none.
 
 Respond with ONLY the JSON object.`;
 

@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { computeATSScore } from "@/lib/ats-score";
+import { computeFitScore, fitScoreBand } from "@/lib/fit-score";
 
 type Analysis = {
   requiredSkills: string[];
@@ -16,17 +16,10 @@ type Props = {
   defaultResumeContent: string;
 };
 
-function scoreLabel(score: number): { label: string; colour: string } {
-  if (score >= 85) return { label: "Strong match", colour: "text-green-600 dark:text-green-400" };
-  if (score >= 65) return { label: "Good match", colour: "text-yellow-600 dark:text-yellow-400" };
-  if (score >= 40) return { label: "Partial match", colour: "text-amber-600 dark:text-amber-400" };
-  return { label: "Weak match", colour: "text-destructive" };
-}
-
 export function ATSScorePanel({ analysis, defaultResumeContent }: Props) {
   const result = useMemo(() => {
-    if (!analysis) return null;
-    return computeATSScore({
+    if (!analysis || !defaultResumeContent.trim()) return null;
+    return computeFitScore({
       resumeText: defaultResumeContent,
       requiredSkills: analysis.requiredSkills,
       niceToHaves: analysis.niceToHaves,
@@ -38,36 +31,51 @@ export function ATSScorePanel({ analysis, defaultResumeContent }: Props) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>ATS keyword score</CardTitle>
+          <CardTitle>Fit Score</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            Run JD Analysis above to see how well your default resume matches the keywords.
+            Run JD Analysis above to see how well your default resume matches this job.
           </p>
         </CardContent>
       </Card>
     );
   }
 
-  if (!result) return null;
+  if (!result) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Fit Score</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Add a default resume to see how well it matches this job.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
-  const { label, colour } = scoreLabel(result.overallScore);
+  const band = fitScoreBand(result.overallScore);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>ATS keyword score</CardTitle>
+        <CardTitle>Fit Score</CardTitle>
         <p className="text-sm text-muted-foreground">
-          How well your default resume covers the keywords in this job description.
+          Resume-to-JD keyword coverage, not your chance of getting hired.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-baseline gap-2">
-          <span className={`text-4xl font-bold tabular-nums ${colour}`}>
+          <span className={`text-4xl font-bold tabular-nums ${band.colour}`}>
             {result.overallScore}
           </span>
           <span className="text-sm text-muted-foreground">/ 100</span>
-          <span className={`text-sm font-medium ${colour}`}>{label}</span>
+          <span className={`text-sm font-medium ${band.colour}`}>
+            {band.label}: {band.guidance}
+          </span>
         </div>
 
         <SkillBucket

@@ -4,11 +4,14 @@ import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { callMeteredStructured } from "@/lib/ai-execution";
 import * as users from "@/lib/repositories/users";
+import * as resumes from "@/lib/repositories/resumes";
 import { QuotaExceededError } from "@/lib/usage";
 import { buildJobParsePrompt } from "@/lib/prompts";
+import { computeFitScore } from "@/lib/fit-score";
+import { jdAnalysisSchema, type JDAnalysis } from "@/lib/job-analysis";
 
 const MODEL = "claude-sonnet-4-5";
-const MAX_TOKENS = 1024;
+const MAX_TOKENS = 3072;
 
 const requestSchema = z.object({
   text: z.string().min(50, "Paste at least 50 characters of job posting text.").max(50000),
@@ -28,6 +31,7 @@ const parsedSchema = z.object({
   location: z.string().nullable(),
   salary: z.string().nullable(),
   description: z.string().nullable(),
+  analysis: jdAnalysisSchema,
 });
 
 export async function POST(req: NextRequest) {
@@ -69,7 +73,23 @@ export async function POST(req: NextRequest) {
       maxTokens: MAX_TOKENS,
       schema: parsedSchema,
     });
-    return NextResponse.json({ fields: result.data });
+    const { analysis, ...fields } = result.data;
+    const defaultResume = await resumes.getDefault(userIdStr);
+    const fitScore = defaultResume
+      ? computeFitScore({
+          resumeText: defaultResume.content,
+          requiredSkills: analysis.requiredSkills,
+          niceToHaves: analysis.niceToHaves,
+          keywordsForResume: analysis.keywordsForResume,
+        })
+      : null;
+
+    return NextResponse.json({
+      fields,
+      analysis: analysis satisfies JDAnalysis,
+      fitScore,
+      hasDefaultResume: !!defaultResume,
+    });
   } catch (err) {
     if (err instanceof QuotaExceededError) {
       return NextResponse.json(
