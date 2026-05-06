@@ -133,10 +133,22 @@ export function JobForm({ mode, initialValues, jobId }: Props) {
         ...values,
         appliedAt: values.appliedAt ? new Date(values.appliedAt) : null,
       };
+      const editPayload = {
+        company: payload.company,
+        role: payload.role,
+        location: payload.location,
+        jobDescription: payload.jobDescription,
+        url: payload.url,
+        salary: payload.salary,
+        notes: payload.notes,
+        appliedAt: payload.appliedAt,
+        contactName: payload.contactName,
+        contactTitle: payload.contactTitle,
+      };
       const result =
         mode === "create"
           ? await createJob(payload)
-          : await updateJob({ ...payload, jobId: jobId! });
+          : await updateJob({ ...editPayload, jobId: jobId! });
 
       if (result.ok) {
         toast.success(mode === "create" ? "Job created." : "Changes saved.");
@@ -238,33 +250,35 @@ export function JobForm({ mode, initialValues, jobId }: Props) {
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="status"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Status</FormLabel>
-                <Select
-                  value={field.value}
-                  onValueChange={field.onChange}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {jobStatusOptions.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s.charAt(0).toUpperCase() + s.slice(1)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {mode === "create" && (
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status</FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {jobStatusOptions.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s.charAt(0).toUpperCase() + s.slice(1)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
 
           <FormField
             control={form.control}

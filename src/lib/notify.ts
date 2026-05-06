@@ -1,7 +1,8 @@
 /**
  * Admin notification helpers.
- * Server-only — never import this in Client Components.
  */
+import "server-only";
+
 import { Resend } from "resend";
 import { listAdmins } from "@/lib/repositories/users";
 

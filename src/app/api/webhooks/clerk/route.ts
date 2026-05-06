@@ -1,7 +1,6 @@
 import { headers } from "next/headers";
 import { Webhook } from "svix";
-import * as users from "@/lib/repositories/users";
-import { notifyAdminsNewSignup } from "@/lib/notify";
+import * as userAccess from "@/lib/user-access-lifecycle";
 
 type ClerkUserEventData = {
   id: string;
@@ -53,35 +52,19 @@ export async function POST(req: Request) {
     );
     const email = primaryEmail?.email_address ?? "";
 
-    // If a bootstrap placeholder exists for this email, merge into it
-    // (preserves isAdmin / status set by the bootstrap script).
-    const existing = email ? await users.getByEmail(email) : null;
-    if (existing) {
-      await users.claimByEmail(email, data.id, {
-        firstName: data.first_name ?? undefined,
-        lastName: data.last_name ?? undefined,
-      });
-    } else {
-      await users.upsertFromClerk({
-        clerkId: data.id,
-        email,
-        firstName: data.first_name ?? undefined,
-        lastName: data.last_name ?? undefined,
-      });
-      // Notify admins — only for genuine new signups, not bootstrap claims
-      await notifyAdminsNewSignup({
-        email,
-        firstName: data.first_name,
-        lastName: data.last_name,
-      });
-    }
+    await userAccess.syncNewClerkUser({
+      clerkId: data.id,
+      email,
+      firstName: data.first_name ?? undefined,
+      lastName: data.last_name ?? undefined,
+    });
   }
 
   if (type === "user.updated") {
     const primaryEmail = data.email_addresses.find(
       (e) => e.id === data.primary_email_address_id
     );
-    await users.updateProfileFromClerk(data.id, {
+    await userAccess.syncUpdatedClerkUser(data.id, {
       email: primaryEmail?.email_address,
       firstName: data.first_name ?? undefined,
       lastName: data.last_name ?? undefined,
@@ -89,7 +72,7 @@ export async function POST(req: Request) {
   }
 
   if (type === "user.deleted") {
-    await users.deleteByClerkId(data.id);
+    await userAccess.syncDeletedClerkUser(data.id);
   }
 
   return new Response("OK", { status: 200 });

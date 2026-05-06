@@ -2,9 +2,9 @@ import "server-only";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
-import { callStructured } from "@/lib/ai";
+import { callMeteredStructured } from "@/lib/ai-execution";
 import * as users from "@/lib/repositories/users";
-import { checkBudget, addSpend, calculateCost, QuotaExceededError } from "@/lib/usage";
+import { QuotaExceededError } from "@/lib/usage";
 import { buildJobParsePrompt } from "@/lib/prompts";
 
 const MODEL = "claude-sonnet-4-5";
@@ -58,8 +58,18 @@ export async function POST(req: NextRequest) {
   }
   const userIdStr = (user._id as { toString(): string }).toString();
 
+  const { system, userMessage } = buildJobParsePrompt({ text });
+
   try {
-    await checkBudget(userIdStr, "aiGeneration");
+    const result = await callMeteredStructured({
+      userId: userIdStr,
+      system,
+      userMessage,
+      model: MODEL,
+      maxTokens: MAX_TOKENS,
+      schema: parsedSchema,
+    });
+    return NextResponse.json({ fields: result.data });
   } catch (err) {
     if (err instanceof QuotaExceededError) {
       return NextResponse.json(
@@ -67,33 +77,10 @@ export async function POST(req: NextRequest) {
         { status: 429 }
       );
     }
-    return NextResponse.json({ error: "Internal error" }, { status: 500 });
-  }
-
-  const { system, userMessage } = buildJobParsePrompt({ text });
-
-  let parsed: ParsedJobFields;
-  let inputTokens: number;
-  let outputTokens: number;
-
-  try {
-    const result = await callStructured(
-      { system, userMessage, model: MODEL, maxTokens: MAX_TOKENS },
-      parsedSchema
-    );
-    parsed = result.data;
-    inputTokens = result.inputTokens;
-    outputTokens = result.outputTokens;
-  } catch (err) {
     console.error("[jobs/parse] parse failed:", err);
     return NextResponse.json(
       { error: "Failed to parse the job posting. Please try again." },
       { status: 502 }
     );
   }
-
-  const cost = calculateCost(MODEL, inputTokens, outputTokens);
-  await addSpend(userIdStr, "aiGeneration", cost).catch((err) => console.error("[addSpend failed]", err));
-
-  return NextResponse.json({ fields: parsed });
 }

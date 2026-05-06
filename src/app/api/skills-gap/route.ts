@@ -2,8 +2,8 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
-import { callStructured } from "@/lib/ai";
-import { checkBudget, addSpend, calculateCost, QuotaExceededError } from "@/lib/usage";
+import { callMeteredStructured } from "@/lib/ai-execution";
+import { QuotaExceededError } from "@/lib/usage";
 import { buildSkillsGapPrompt } from "@/lib/prompts";
 import * as users from "@/lib/repositories/users";
 import * as jobs from "@/lib/repositories/jobs";
@@ -81,18 +81,6 @@ export async function POST() {
   const appliedRoles = [...new Set(jobList.map((j) => j.role))];
 
   try {
-    await checkBudget(userIdStr, "aiGeneration");
-  } catch (err) {
-    if (err instanceof QuotaExceededError) {
-      return NextResponse.json(
-        { error: "QUOTA_EXCEEDED", message: err.message, limit: err.limit, used: err.used, periodEndsAt: err.periodEndsAt.toISOString() },
-        { status: 429 }
-      );
-    }
-    throw err;
-  }
-
-  try {
     const { system, userMessage } = buildSkillsGapPrompt({
       missingRequired,
       missingNiceToHave,
@@ -100,18 +88,23 @@ export async function POST() {
       appliedRoles,
     });
 
-    const { data, inputTokens, outputTokens } = await callStructured(
-      { system, userMessage, model: MODEL, maxTokens: 2048 },
-      skillsGapSchema
-    );
-
-    const cost = calculateCost(MODEL, inputTokens, outputTokens);
-    await addSpend(userIdStr, "aiGeneration", cost).catch((err) =>
-      console.error("[addSpend failed]", err)
-    );
+    const { data } = await callMeteredStructured({
+      userId: userIdStr,
+      system,
+      userMessage,
+      model: MODEL,
+      maxTokens: 2048,
+      schema: skillsGapSchema,
+    });
 
     return NextResponse.json({ gap: data });
   } catch (err) {
+    if (err instanceof QuotaExceededError) {
+      return NextResponse.json(
+        { error: "QUOTA_EXCEEDED", message: err.message, limit: err.limit, used: err.used, periodEndsAt: err.periodEndsAt.toISOString() },
+        { status: 429 }
+      );
+    }
     console.error("[skills-gap] generation failed:", err);
     return NextResponse.json({ error: "Generation failed." }, { status: 500 });
   }

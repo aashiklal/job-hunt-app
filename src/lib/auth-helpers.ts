@@ -6,7 +6,7 @@ import User, { IUser } from "@/lib/models/User";
 import Plan, { IPlan } from "@/lib/models/Plan";
 import * as users from "@/lib/repositories/users";
 import * as subscriptions from "@/lib/repositories/subscriptions";
-import { notifyAdminsNewSignup } from "@/lib/notify";
+import * as userAccess from "@/lib/user-access-lifecycle";
 import { ISubscription } from "@/lib/models/Subscription";
 
 export async function getCurrentUser(): Promise<IUser | null> {
@@ -40,7 +40,9 @@ export const requireApprovedUserWithPlan = cache(
       )?.emailAddress;
 
       if (primaryEmail) {
-        user = await users.claimByEmail(primaryEmail, userId, {
+        user = await userAccess.ensureUserForClerkSession({
+          clerkId: userId,
+          email: primaryEmail,
           firstName: clerkUser.firstName ?? undefined,
           lastName: clerkUser.lastName ?? undefined,
         });
@@ -48,17 +50,11 @@ export const requireApprovedUserWithPlan = cache(
 
       // Truly new user — create a pending record (webhook substitute for local dev)
       if (!user) {
-        await users.createFromClerk({
+        user = await userAccess.ensureUserForClerkSession({
           clerkId: userId,
-          email: primaryEmail ?? "",
+          email: "",
           firstName: clerkUser.firstName ?? undefined,
           lastName: clerkUser.lastName ?? undefined,
-        });
-        // Notify admins — fire-and-forget, errors are swallowed inside
-        await notifyAdminsNewSignup({
-          email: primaryEmail ?? "",
-          firstName: clerkUser.firstName,
-          lastName: clerkUser.lastName,
         });
         redirect("/pending");
       }

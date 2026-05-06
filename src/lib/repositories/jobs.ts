@@ -65,7 +65,6 @@ export type JobUpdateInput = {
   jobDescription?: string;
   url?: string;
   salary?: string;
-  status?: JobStatus;
   notes?: string;
   appliedAt?: Date | null;
   contactName?: string;
@@ -148,7 +147,6 @@ export async function update(
     "jobDescription",
     "url",
     "salary",
-    "status",
     "notes",
     "appliedAt",
     "contactName",

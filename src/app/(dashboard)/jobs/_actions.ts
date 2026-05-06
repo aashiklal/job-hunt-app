@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { defineAction } from "@/lib/actions";
 import * as jobs from "@/lib/repositories/jobs";
-import { InvalidTransitionError, isValidTransition } from "@/lib/repositories/jobs";
+import * as jobLifecycle from "@/lib/job-application-lifecycle";
 
 const jobStatusSchema = z.enum([
   "saved",
@@ -29,11 +29,14 @@ const createJobSchema = z.object({
   appliedAt: z.coerce.date().optional().nullable(),
 });
 
-const updateJobSchema = createJobSchema.partial().extend({
-  jobId: z.string().min(1),
-  contactName: z.string().max(200).optional(),
-  contactTitle: z.string().max(300).optional(),
-});
+const updateJobSchema = createJobSchema
+  .omit({ status: true })
+  .partial()
+  .extend({
+    jobId: z.string().min(1),
+    contactName: z.string().max(200).optional(),
+    contactTitle: z.string().max(300).optional(),
+  });
 
 const jobIdSchema = z.object({ jobId: z.string().min(1) });
 const setStatusSchema = z.object({
@@ -68,12 +71,11 @@ export const updateJob = defineAction(
 export const setJobStatus = defineAction(
   async (ctx, input: z.infer<typeof setStatusSchema>) => {
     const { jobId, status } = setStatusSchema.parse(input);
-    const current = await jobs.getById(ctx.user._id.toString(), jobId);
-    if (!current) throw new Error("Job not found");
-    if (!isValidTransition(current.status, status)) {
-      throw new InvalidTransitionError(current.status, status);
-    }
-    const updated = await jobs.setStatus(ctx.user._id.toString(), jobId, status);
+    const updated = await jobLifecycle.moveJobStatus(
+      ctx.user._id.toString(),
+      jobId,
+      status
+    );
     if (!updated) {
       throw new Error("Job not found");
     }
@@ -86,7 +88,7 @@ export const setJobStatus = defineAction(
 export const softDeleteJob = defineAction(
   async (ctx, input: z.infer<typeof jobIdSchema>) => {
     const { jobId } = jobIdSchema.parse(input);
-    const deleted = await jobs.softDelete(ctx.user._id.toString(), jobId);
+    const deleted = await jobLifecycle.moveJobToTrash(ctx.user._id.toString(), jobId);
     if (!deleted) {
       throw new Error("Job not found");
     }
@@ -99,7 +101,10 @@ export const softDeleteJob = defineAction(
 export const hardDeleteJob = defineAction(
   async (ctx, input: z.infer<typeof jobIdSchema>) => {
     const { jobId } = jobIdSchema.parse(input);
-    const deleted = await jobs.hardDelete(ctx.user._id.toString(), jobId);
+    const deleted = await jobLifecycle.permanentlyDeleteJob(
+      ctx.user._id.toString(),
+      jobId
+    );
     if (!deleted) {
       throw new Error("Job not found in trash");
     }
@@ -111,7 +116,10 @@ export const hardDeleteJob = defineAction(
 export const restoreJob = defineAction(
   async (ctx, input: z.infer<typeof jobIdSchema>) => {
     const { jobId } = jobIdSchema.parse(input);
-    const restored = await jobs.restore(ctx.user._id.toString(), jobId);
+    const restored = await jobLifecycle.restoreJobFromTrash(
+      ctx.user._id.toString(),
+      jobId
+    );
     if (!restored) {
       throw new Error("Job not found");
     }

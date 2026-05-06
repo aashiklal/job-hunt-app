@@ -138,6 +138,16 @@ USD-based monthly cap, not generation-count-based.
 
 Non-AI plan limits (e.g. `plan.maxResumes`) are enforced twice: in the `new/page.tsx` (redirect away from a form they cannot submit) and in the `_actions.ts` (guard against direct API calls). `-1` means unlimited.
 
+## Planned architecture terms
+
+These names were settled during the architecture review and should be used for future refactors:
+
+- **AI execution** - the shared module that should check budget, call Anthropic, read token usage, record spend, and return the AI result. Spend-recording failure should be logged but should not discard a successful AI result.
+- **Job AI generation** - the module that should own `POST /api/generate` behaviour behind a small interface: loading the Job, selecting the Resume when needed, choosing prompts/schemas, calling AI execution, normalizing output, saving the Document, and returning a typed result to the route.
+- **Job application lifecycle** - the module that should own status transitions and trash actions. General Job edits should not change `status`; status changes should go through the lifecycle rules.
+- **Template intake** - the global Template upload pipeline: DOCX analysis, structure/style extraction, AI mapping, Pixel Theme contract building, storage, and response summary. Failed analysis should prevent saving the Template.
+- **User access lifecycle** - the module that should own signup, bootstrap email claim, pending/approved/rejected transitions, rejected-user access requests, Subscription creation on approval, admin toggling, and admin audit entries.
+
 ## What is intentionally not built
 
 - **No `/settings` route.** Weekly goal is hardcoded at 5 in `tracker/_components/weekly-goal.tsx`.

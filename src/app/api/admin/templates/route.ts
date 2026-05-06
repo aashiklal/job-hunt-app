@@ -4,12 +4,7 @@ import * as users from "@/lib/repositories/users";
 import * as templates from "@/lib/repositories/templates";
 import * as auditLog from "@/lib/repositories/audit-log";
 import type { TemplateType } from "@/lib/repositories/templates";
-import { analyzeDocxTheme } from "@/lib/export/analyze-docx-theme";
-import { extractDocxStructure } from "@/lib/export/extract-docx-structure";
-import { extractDocxStyles } from "@/lib/export/extract-docx-styles";
-import { mapPixelTheme } from "@/lib/export/map-pixel-theme";
-import { mapStylesToRoles } from "@/lib/export/map-styles-to-roles";
-import { buildPixelThemeContract } from "@/lib/export/pixel-theme-contract";
+import { uploadGlobalTemplate } from "@/lib/template-intake";
 
 const DOCX_MIME =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -65,37 +60,19 @@ export async function POST(req: NextRequest) {
 
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  let themeAnalysis: Awaited<ReturnType<typeof analyzeDocxTheme>>;
-  let mapped: Awaited<ReturnType<typeof mapPixelTheme>>;
-  let styleMapped: Awaited<ReturnType<typeof mapStylesToRoles>>;
+  let intake: Awaited<ReturnType<typeof uploadGlobalTemplate>>;
   try {
-    themeAnalysis = await analyzeDocxTheme(buffer, type as "resume" | "cover_letter");
-    const structure = await extractDocxStructure(buffer);
-    const styles = await extractDocxStyles(buffer);
-    mapped = await mapPixelTheme(structure, type as "resume" | "cover_letter");
-    styleMapped = await mapStylesToRoles(styles, type as "resume" | "cover_letter");
+    intake = await uploadGlobalTemplate({
+      type: type as TemplateType,
+      fileName: file.name,
+      fileData: buffer,
+    });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Could not parse DOCX structure" },
       { status: 422 }
     );
   }
-  const contract = buildPixelThemeContract({
-    docType: type as "resume" | "cover_letter",
-    themeAnalysis,
-    pixelThemeMap: mapped.map,
-    styleRoleMap: styleMapped.map,
-  });
-
-  await templates.upsert(
-    type as TemplateType,
-    buffer,
-    file.name,
-    themeAnalysis,
-    mapped.map,
-    styleMapped.map,
-    "claude-haiku-4-5-20251001"
-  );
 
   const adminIdStr = (admin._id as { toString(): string }).toString();
   await auditLog.create({
@@ -108,30 +85,11 @@ export async function POST(req: NextRequest) {
       templateType: type,
       fileName: file.name,
       fileSize: file.size,
-      themeAnalysis,
-      mappedRegions: mapped.map.regions.length,
-      mappedStyles: Object.values(styleMapped.map.roleStyles).filter(Boolean).length,
-      mappingInputTokens: mapped.inputTokens,
-      mappingOutputTokens: mapped.outputTokens,
-      styleMappingInputTokens: styleMapped.inputTokens,
-      styleMappingOutputTokens: styleMapped.outputTokens,
+      ...intake.auditDetails,
     },
   });
 
-  return NextResponse.json({
-    ok: true,
-    themeAnalysis,
-    pixelThemeMap: {
-      regionCount: mapped.map.regions.length,
-      roles: mapped.map.regions.map((region) => region.role),
-    },
-    styleRoleMap: {
-      mappedStyleCount: Object.values(styleMapped.map.roleStyles).filter(Boolean).length,
-      sectionHeadingCase: styleMapped.map.sectionHeadingCase,
-    },
-    themeCapacity: contract?.capacity ?? null,
-    warnings: contract?.warnings ?? [...mapped.map.warnings, ...styleMapped.map.warnings],
-  });
+  return NextResponse.json(intake.response);
 }
 
 /** DELETE /api/admin/templates?type=resume — remove a global template */

@@ -2,8 +2,8 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
-import { callStructured } from "@/lib/ai";
-import { checkBudget, addSpend, calculateCost, QuotaExceededError } from "@/lib/usage";
+import { callMeteredStructured } from "@/lib/ai-execution";
+import { QuotaExceededError } from "@/lib/usage";
 import { buildOfferComparisonPrompt } from "@/lib/prompts";
 import * as users from "@/lib/repositories/users";
 import * as offers from "@/lib/repositories/offers";
@@ -44,18 +44,6 @@ export async function POST() {
   }
 
   try {
-    await checkBudget(userIdStr, "aiGeneration");
-  } catch (err) {
-    if (err instanceof QuotaExceededError) {
-      return NextResponse.json(
-        { error: "QUOTA_EXCEEDED", message: err.message, limit: err.limit, used: err.used, periodEndsAt: err.periodEndsAt.toISOString() },
-        { status: 429 }
-      );
-    }
-    throw err;
-  }
-
-  try {
     const normalizedOffers = offerList.map((o) => ({
       ...o,
       equity: o.equity ?? undefined,
@@ -65,18 +53,23 @@ export async function POST() {
     }));
     const { system, userMessage } = buildOfferComparisonPrompt({ offers: normalizedOffers });
 
-    const { data, inputTokens, outputTokens } = await callStructured(
-      { system, userMessage, model: MODEL, maxTokens: 2048 },
-      offerComparisonSchema
-    );
-
-    const cost = calculateCost(MODEL, inputTokens, outputTokens);
-    await addSpend(userIdStr, "aiGeneration", cost).catch((err) =>
-      console.error("[addSpend failed]", err)
-    );
+    const { data } = await callMeteredStructured({
+      userId: userIdStr,
+      system,
+      userMessage,
+      model: MODEL,
+      maxTokens: 2048,
+      schema: offerComparisonSchema,
+    });
 
     return NextResponse.json({ comparison: data });
   } catch (err) {
+    if (err instanceof QuotaExceededError) {
+      return NextResponse.json(
+        { error: "QUOTA_EXCEEDED", message: err.message, limit: err.limit, used: err.used, periodEndsAt: err.periodEndsAt.toISOString() },
+        { status: 429 }
+      );
+    }
     console.error("[offers/compare] generation failed:", err);
     return NextResponse.json({ error: "Generation failed." }, { status: 500 });
   }

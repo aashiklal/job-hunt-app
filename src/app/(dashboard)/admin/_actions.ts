@@ -7,6 +7,7 @@ import * as users from "@/lib/repositories/users";
 import * as subscriptions from "@/lib/repositories/subscriptions";
 import * as auditLog from "@/lib/repositories/audit-log";
 import * as plans from "@/lib/repositories/plans";
+import * as userAccess from "@/lib/user-access-lifecycle";
 
 const userIdSchema = z.string().min(1, "userId is required");
 
@@ -35,19 +36,8 @@ async function getAuditContext(
 export const approveUser = defineAdminAction(
   async (ctx, input: { userId: string }) => {
     const userId = userIdSchema.parse(input.userId);
-    const auditCtx = await getAuditContext(ctx, userId);
-    if (!auditCtx) {
-      throw new Error("Target user not found");
-    }
-    await users.setStatus(userId, "approved");
-    const subscription = await subscriptions.ensureForUser(userId);
-    if (!subscription) {
-      throw new Error("Failed to create subscription for approved user.");
-    }
-    await auditLog.create({
-      ...auditCtx,
-      action: "user.approved",
-    });
+    const approved = await userAccess.approveUser(ctx.user, userId);
+    if (!approved) throw new Error("Target user not found");
     revalidatePath("/admin");
     revalidatePath(`/admin/${userId}`);
     return { userId };
@@ -57,18 +47,8 @@ export const approveUser = defineAdminAction(
 export const rejectUser = defineAdminAction(
   async (ctx, input: { userId: string }) => {
     const userId = userIdSchema.parse(input.userId);
-    if (ctx.user._id.toString() === userId) {
-      throw new Error("You cannot reject your own account.");
-    }
-    const auditCtx = await getAuditContext(ctx, userId);
-    if (!auditCtx) {
-      throw new Error("Target user not found");
-    }
-    await users.setStatus(userId, "rejected");
-    await auditLog.create({
-      ...auditCtx,
-      action: "user.rejected",
-    });
+    const rejected = await userAccess.rejectUser(ctx.user, userId);
+    if (!rejected) throw new Error("Target user not found");
     revalidatePath("/admin");
     revalidatePath(`/admin/${userId}`);
     return { userId };
@@ -155,27 +135,12 @@ export const updatePlan = defineAdminAction(
 export const toggleUserAdmin = defineAdminAction(
   async (ctx, input: { userId: string }) => {
     const userId = userIdSchema.parse(input.userId);
-    if (ctx.user._id.toString() === userId) {
-      throw new Error("You cannot change your own admin status.");
-    }
-    const target = await users.getById(userId);
-    if (!target) {
-      throw new Error("Target user not found");
-    }
-    const newAdminState = !target.isAdmin;
-    const updated = await users.setAdmin(userId, newAdminState);
+    const updated = await userAccess.toggleAdmin(ctx.user, userId);
     if (!updated) {
-      throw new Error("Failed to update admin status");
-    }
-    const auditCtx = await getAuditContext(ctx, userId);
-    if (auditCtx) {
-      await auditLog.create({
-        ...auditCtx,
-        action: newAdminState ? "user.admin_granted" : "user.admin_revoked",
-      });
+      throw new Error("Target user not found");
     }
     revalidatePath("/admin");
     revalidatePath(`/admin/${userId}`);
-    return { userId, isAdmin: newAdminState };
+    return { userId, isAdmin: updated.isAdmin };
   }
 );

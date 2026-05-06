@@ -2,10 +2,10 @@ import "server-only";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
-import anthropic from "@/lib/anthropic";
+import { callMeteredText } from "@/lib/ai-execution";
 import * as users from "@/lib/repositories/users";
 import * as starStories from "@/lib/repositories/star-stories";
-import { withBudget, QuotaExceededError } from "@/lib/usage";
+import { QuotaExceededError } from "@/lib/usage";
 import { buildSTARStoryPolishPrompt } from "@/lib/prompts";
 
 const MODEL = "claude-sonnet-4-5";
@@ -52,35 +52,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Story not found" }, { status: 404 });
   }
 
-  // 5. Call Anthropic inside withBudget (checks quota, records spend)
   try {
-    const polished = await withBudget(
-      userIdStr,
-      MODEL,
-      async () => {
-        const { system, userMessage } = buildSTARStoryPolishPrompt({
-          roughDraft: story.roughDraft,
-          title: story.title,
-          maxWords: maxWords ?? 200,
-        });
-
-        const response = await anthropic.messages.create({
-          model: MODEL,
-          max_tokens: 1024,
-          system,
-          messages: [{ role: "user", content: userMessage }],
-        });
-
-        const text =
-          response.content[0].type === "text" ? response.content[0].text : "";
-
-        return {
-          result: text,
-          inputTokens: response.usage.input_tokens,
-          outputTokens: response.usage.output_tokens,
-        };
-      }
-    );
+    const { system, userMessage } = buildSTARStoryPolishPrompt({
+      roughDraft: story.roughDraft,
+      title: story.title,
+      maxWords: maxWords ?? 200,
+    });
+    const { content: polished } = await callMeteredText({
+      userId: userIdStr,
+      model: MODEL,
+      maxTokens: 1024,
+      system,
+      userMessage,
+    });
 
     await starStories.savePolished(userIdStr, storyId, polished);
 

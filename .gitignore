@@ -56,3 +56,6 @@ AGENTS.md
 docs/
 
 
+
+# clerk configuration (can include secrets)
+/.clerk/
