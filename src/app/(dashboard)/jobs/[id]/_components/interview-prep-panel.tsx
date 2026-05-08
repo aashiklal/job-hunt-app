@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { GenerationProgressBar } from "@/components/GenerationProgressBar";
 
 type SeniorityLevel = "junior" | "mid" | "senior" | "staff" | "unclear";
 
@@ -159,6 +160,8 @@ export function InterviewPrepPanel({
         <Button onClick={handleGenerate} disabled={isLoading}>
           {isLoading ? "Generating..." : prep ? "Regenerate" : "Generate questions"}
         </Button>
+
+        <GenerationProgressBar isLoading={isLoading} durationMs={7000} />
 
         {prep && (
           <div className="space-y-6 pt-2 border-t border-border">

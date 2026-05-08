@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import Link from "next/link";
+import { GenerationProgressBar } from "@/components/GenerationProgressBar";
 
 type ResumeOption = {
   _id: string;
@@ -316,6 +317,8 @@ export function GeneratePanel({
             )}
           </div>
         </div>
+
+        <GenerationProgressBar isLoading={isStreaming} durationMs={10000} />
 
         {/* Output area */}
         {(content || isStreaming) && (

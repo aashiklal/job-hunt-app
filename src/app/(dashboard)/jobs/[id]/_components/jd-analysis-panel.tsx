@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { GenerationProgressBar } from "@/components/GenerationProgressBar";
 
 type Analysis = {
   summary: string;
@@ -97,6 +98,8 @@ export function JDAnalysisPanel({
             </p>
           )}
         </div>
+
+        <GenerationProgressBar isLoading={isLoading} durationMs={7000} />
 
         {analysis && (
           <div className="space-y-4 pt-2 border-t">

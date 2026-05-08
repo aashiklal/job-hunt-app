@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { JobStatus } from "@/lib/repositories/jobs";
+import { GenerationProgressBar } from "@/components/GenerationProgressBar";
 
 type OutreachType =
   | "linkedin_note"
@@ -501,6 +502,8 @@ export function OutreachPanel({ type, jobId, job, initialContent }: Props) {
             <Button onClick={handleGenerate} disabled={isLoading}>
               {isLoading ? "Generating..." : content ? "Regenerate" : "Generate"}
             </Button>
+
+            <GenerationProgressBar isLoading={isLoading} durationMs={3000} />
 
             {content && (
               <div className="space-y-2">

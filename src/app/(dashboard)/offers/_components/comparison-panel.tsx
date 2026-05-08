@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { GenerationProgressBar } from "@/components/GenerationProgressBar";
 
 type ComparisonRow = {
   dimension: string;
@@ -71,6 +72,8 @@ export function ComparisonPanel({ offerCount }: Props) {
         <Button onClick={handleCompare} disabled={isLoading}>
           {isLoading ? "Comparing..." : result ? "Re-compare" : "Compare offers"}
         </Button>
+
+        <GenerationProgressBar isLoading={isLoading} durationMs={6000} />
 
         {result && (
           <div className="space-y-8">
