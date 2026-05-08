@@ -69,6 +69,7 @@ export const generatedDocumentSchema = z.discriminatedUnion("kind", [
 ]);
 
 export type GeneratedResume = z.infer<typeof generatedResumeSchema>;
+export type GeneratedCoverLetter = z.infer<typeof generatedCoverLetterSchema>;
 export type GeneratedDocument = z.infer<typeof generatedDocumentSchema>;
 
 type JobForGeneration = {
@@ -134,6 +135,7 @@ Include only projects that directly reinforce a JD requirement. 2-3 bullets per 
 
 ### Education
 Keep as-is from the base resume. Do not reorder or embellish.
+For gradDate, preserve the FULL date range exactly as shown in the base resume (e.g. "Feb 2022 - Dec 2023"). Use the same 3-letter month abbreviation format as experience dateRange. Do NOT truncate to just the end date.
 
 ### Certifications
 Keep only certifications relevant to the role. Drop the rest.
@@ -162,7 +164,7 @@ JSON schema:
   "skills": [{"category":"string","items":["string"]}],
   "experience": [{"jobTitle":"string","company":"string","dateRange":"string","subtitle":"string|null","bullets":["string"]}],
   "projects": [{"name":"string","techStack":"string|null","bullets":["string"]}],
-  "education": [{"degree":"string","school":"string","gradDate":"string|null","notes":"string|null"}],
+  "education": [{"degree":"string","school":"string","gradDate":"string|null — full date range e.g. \"Feb 2022 - Dec 2023\"","notes":"string|null"}],
   "certifications": ["string"],
   "footer": "string|null"
 }`;

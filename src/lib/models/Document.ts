@@ -24,6 +24,8 @@ export type IDocument = {
   inputTokens?: number;
   outputTokens?: number;
   resumeIdUsed?: Types.ObjectId;
+  latexBodyCache?: string;
+  latexBodyCachedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 } & Document;
@@ -56,6 +58,8 @@ const DocumentSchema = new Schema<IDocument>(
     inputTokens: { type: Number },
     outputTokens: { type: Number },
     resumeIdUsed: { type: Schema.Types.ObjectId, ref: "Resume" },
+    latexBodyCache: { type: String },
+    latexBodyCachedAt: { type: Date },
   },
   { timestamps: true }
 );

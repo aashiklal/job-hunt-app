@@ -7,22 +7,27 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ThemeCapacity } from "@/lib/export/pixel-theme-contract";
 
+type SlotType = "resume" | "cover_letter";
+
 type SlotInfo = {
-  type: "resume" | "cover_letter";
+  type: SlotType;
   label: string;
   hint: string;
+  accept: string;
 };
 
 const SLOTS: SlotInfo[] = [
   {
     type: "resume",
-    label: "Resume Theme",
+    label: "Resume theme (DOCX)",
     hint: "Upload a .docx visual reference.",
+    accept: "application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx",
   },
   {
     type: "cover_letter",
-    label: "Cover Letter Theme",
+    label: "Cover letter theme (DOCX)",
     hint: "Upload a .docx visual reference.",
+    accept: "application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx",
   },
 ];
 
@@ -41,7 +46,7 @@ type ThemeSummary = {
 type Props = {
   current: Partial<
     Record<
-      "resume" | "cover_letter",
+      SlotType,
       {
         fileName: string;
         mappedRegionCount?: number;
@@ -63,16 +68,16 @@ export function TemplateManager({
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [busy, setBusy] = useState<"resume" | "cover_letter" | null>(null);
-  const [summary, setSummary] = useState<Partial<Record<"resume" | "cover_letter", ThemeSummary>>>({});
+  const [busy, setBusy] = useState<SlotType | null>(null);
+  const [summary, setSummary] = useState<Partial<Record<SlotType, ThemeSummary>>>({});
   const resumeInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
-  function inputRefFor(type: "resume" | "cover_letter") {
+  function inputRefFor(type: SlotType) {
     return type === "resume" ? resumeInputRef : coverInputRef;
   }
 
-  async function handleUpload(file: File, type: "resume" | "cover_letter") {
+  async function handleUpload(file: File, type: SlotType) {
     setBusy(type);
     try {
       const formData = new FormData();
@@ -101,7 +106,6 @@ export function TemplateManager({
           warnings: data.warnings ?? [],
         },
       }));
-
       if (data.warnings?.length > 0) {
         toast.warning(`Theme uploaded with ${data.warnings.length} warning(s). Check the theme summary.`);
       } else {
@@ -116,7 +120,7 @@ export function TemplateManager({
     }
   }
 
-  async function handleRemove(type: "resume" | "cover_letter") {
+  async function handleRemove(type: SlotType) {
     setBusy(type);
     try {
       const res = await fetch(`${apiBase}?type=${type}`, { method: "DELETE" });
@@ -151,7 +155,7 @@ export function TemplateManager({
         <p className="text-sm text-muted-foreground">{description}</p>
       </CardHeader>
       <CardContent className="space-y-4">
-        {SLOTS.map(({ type, label, hint }) => {
+        {SLOTS.map(({ type, label, hint, accept }) => {
           const existing = current[type];
           const isBusy = busy === type;
           const themeSummary = summary[type];
@@ -178,7 +182,7 @@ export function TemplateManager({
                     ref={inputRefFor(type)}
                     type="file"
                     aria-label={`Upload ${label} template`}
-                    accept="application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx"
+                    accept={accept}
                     className="hidden"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
@@ -231,9 +235,7 @@ export function TemplateManager({
                   </div>
                   <div>
                     <span className="font-medium text-muted-foreground">Theme text paragraphs: </span>
-                    <span className="text-foreground">
-                      {themeSummary.textParagraphCount}
-                    </span>
+                    <span className="text-foreground">{themeSummary.textParagraphCount}</span>
                   </div>
                   <div>
                     <span className="font-medium text-muted-foreground">Style roles: </span>
@@ -296,8 +298,7 @@ export function TemplateManager({
         })}
 
         <p className="text-xs text-muted-foreground">
-          Only .docx files are supported. Existing text is treated as sample content;
-          it will not be copied into user exports.
+          Existing text in uploaded DOCX files is treated as sample content and will not be copied into user exports.
         </p>
       </CardContent>
     </Card>

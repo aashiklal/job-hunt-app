@@ -69,6 +69,8 @@ export function GeneratePanel({
   const [isStreaming, setIsStreaming] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(initialContent !== null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isDownloadingTex, setIsDownloadingTex] = useState(false);
+  const [isCopyingTex, setIsCopyingTex] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const noResumes = resumes.length === 0;
@@ -192,6 +194,66 @@ export function GeneratePanel({
     }
   }
 
+  async function handleDownloadTex() {
+    if (!content || !documentId) return;
+    setIsDownloadingTex(true);
+    try {
+      const res = await fetch(
+        `/api/documents/${encodeURIComponent(documentId)}/export?format=tex&filename=${encodeURIComponent(FILENAMES[type])}`
+      );
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        toast.error(err?.error ?? "Export failed");
+        return;
+      }
+
+      const fallback = res.headers.get("X-Template-Fallback");
+      const text = await res.text();
+      const blob = new Blob([text], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${FILENAMES[type]}.tex`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      if (fallback === "generic") {
+        toast.info("No LaTeX template found. A clean default format was used.");
+      } else {
+        toast.success("Downloaded as LaTeX");
+      }
+    } catch {
+      toast.error("Download failed");
+    } finally {
+      setIsDownloadingTex(false);
+    }
+  }
+
+  async function handleCopyTex() {
+    if (!documentId) return;
+    setIsCopyingTex(true);
+    try {
+      const res = await fetch(
+        `/api/documents/${encodeURIComponent(documentId)}/export?format=tex`
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        toast.error(err?.error ?? "Copy failed");
+        return;
+      }
+      const text = await res.text();
+      await navigator.clipboard.writeText(text);
+      toast.success("Copied as LaTeX");
+    } catch {
+      toast.error("Copy failed");
+    } finally {
+      setIsCopyingTex(false);
+    }
+  }
+
   // Empty state: no resumes saved at all
   if (noResumes) {
     return (
@@ -285,6 +347,22 @@ export function GeneratePanel({
               disabled={isDownloading || !documentId}
             >
               {isDownloading ? "Preparing…" : "Download DOCX"}
+            </Button>
+            <Button
+              onClick={handleCopyTex}
+              variant="outline"
+              size="sm"
+              disabled={isCopyingTex || !documentId}
+            >
+              {isCopyingTex ? "Copying…" : "Copy .tex"}
+            </Button>
+            <Button
+              onClick={handleDownloadTex}
+              variant="outline"
+              size="sm"
+              disabled={isDownloadingTex || !documentId}
+            >
+              {isDownloadingTex ? "Preparing…" : "Download .tex"}
             </Button>
           </div>
         )}

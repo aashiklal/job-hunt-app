@@ -583,3 +583,85 @@ Return the JSON comparison.`;
 
   return { system, userMessage };
 }
+
+export function buildLatexBodyPrompt(
+  fullTemplate: string,
+  resume: Record<string, unknown>
+): string {
+  return `You are a LaTeX document generator. Your task is to generate the body of a LaTeX resume document.
+
+You are given:
+1. A complete LaTeX template (study it for the preamble commands, custom macros, and section structure)
+2. Structured resume data in JSON format
+
+TEMPLATE:
+---
+${fullTemplate}
+---
+
+RESUME DATA (JSON):
+---
+${JSON.stringify(resume, null, 2)}
+---
+
+RULES:
+- Use the custom commands defined in the template preamble (e.g. \\jobrow, \\skillrow, \\section*, etc.)
+- Use ONLY the data from RESUME DATA - do NOT copy any text content from the template
+- Follow the same section ordering and structural patterns shown in the template body
+- Escape these LaTeX special characters in all text content: & % $ # _ { } ~ ^ \\
+- URLs: whenever any data field contains a URL (starting with http:// or https://), render it as \\href{url}{display text}. Copy the URL character-for-character as the first argument -- do NOT escape, encode, or modify any character in the URL (no backslashes, no percent changes). Use surrounding context as display text or the URL itself if no label exists.
+- For URLs in \\href{url}{text}: the URL portion does not need LaTeX escaping; only escape the display text
+- Education dates: use the gradDate value VERBATIM in the right column of the date row (e.g. \\jobrow) - it may be a full range like "Feb 2022 - Dec 2023". Never truncate, reformat, or split it.
+- NEVER use -- anywhere in any content. -- is a LaTeX en dash and signals machine-generated text. Use a plain hyphen - for separators in any context (certifications, job titles, bullet points, dates within ranges, etc.).
+- Dash handling: keep plain hyphens as plain hyphens (-). Only use --- (em dash) if and only if the source text explicitly contains a Unicode em dash character. Never introduce -- or --- into content that does not have a dash in the source.
+- Do NOT add \\noindent before any block unless the template explicitly uses \\noindent before that element type. Follow the template's indentation pattern exactly.
+- Do NOT add \\vspace{} commands unless that exact element type already has a \\vspace in the template. Vertical spacing is controlled by the preamble; invented \\vspace values break the template rhythm.
+- Do NOT over-escape. Only escape these seven characters: & % $ # _ { }. Do NOT escape apostrophes, colons, parentheses, slashes, or any other character not in that list.
+- Output ONLY the document body - everything that would appear between \\begin{document} and \\end{document}
+- Do NOT include \\begin{document} or \\end{document} tags
+- No explanations, no markdown, no code fences (no \`\`\`latex or \`\`\` markers) - raw LaTeX only
+
+Generate the document body now:`;
+}
+
+export function buildCoverLetterLatexBodyPrompt(
+  fullTemplate: string,
+  coverLetter: Record<string, unknown>
+): string {
+  return `You are a LaTeX document generator. Your task is to generate the body of a LaTeX cover letter document.
+
+You are given:
+1. A complete LaTeX template (study it for the preamble commands, custom macros, and structural patterns)
+2. Structured cover letter data in JSON format
+
+TEMPLATE:
+---
+${fullTemplate}
+---
+
+COVER LETTER DATA (JSON):
+---
+${JSON.stringify(coverLetter, null, 2)}
+---
+
+RULES:
+- Use the custom commands defined in the template preamble
+- Use ONLY the data from COVER LETTER DATA - do NOT copy any text content from the template
+- Follow the same structural patterns shown in the template body (header, date, salutation, paragraphs, signoff)
+- Escape these LaTeX special characters in all text content: & % $ # _ { }
+- For URLs in \\href{url}{text}: the URL portion does not need LaTeX escaping; only escape the display text
+- If recipient is null, use "Hiring Manager" as the salutation name
+- Do NOT include a GitHub link in the contact bar - cover letters show phone, email, location, LinkedIn, and website only
+- URLs: whenever any data field contains a URL (starting with http:// or https://), render it as \\href{url}{display text}. Copy the URL character-for-character as the first argument -- do NOT escape, encode, or modify any character in the URL (no backslashes, no percent changes). Use surrounding context as display text or the URL itself if no label exists.
+- NEVER use -- anywhere in any content. -- is a LaTeX en dash and signals machine-generated text. Use a plain hyphen - where a separator is needed.
+- Dash handling: keep plain hyphens as plain hyphens (-). Only use --- (em dash) if and only if the source text explicitly contains a Unicode em dash character. Never introduce -- into content.
+- Do NOT add \\noindent before any block unless the template explicitly uses \\noindent before that element type.
+- Do NOT add \\vspace{} commands unless that exact element type already has a \\vspace in the template.
+- Do NOT over-escape. Only escape these six characters: & % $ # _ { }. Do NOT escape apostrophes, colons, parentheses, slashes, or any other character not in that list.
+- Output ONLY the document body - everything that would appear between \\begin{document} and \\end{document}
+- Do NOT include \\begin{document} or \\end{document} tags
+- No explanations, no markdown, no code fences (no \`\`\`latex or \`\`\` markers) - raw LaTeX only
+
+Generate the document body now:`;
+}
+

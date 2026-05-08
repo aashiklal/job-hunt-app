@@ -20,7 +20,7 @@ export type TemplateMeta = {
 
 function toMeta(doc: ITemplate): TemplateMeta {
   const contract = buildPixelThemeContract({
-    docType: doc.type,
+    docType: doc.type as "resume" | "cover_letter",
     themeAnalysis: doc.themeAnalysis ?? null,
     pixelThemeMap: doc.pixelThemeMap ?? null,
     styleRoleMap: doc.styleRoleMap ?? null,

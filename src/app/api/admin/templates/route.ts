@@ -52,7 +52,9 @@ export async function POST(req: NextRequest) {
       { status: 413 }
     );
 
-  if (file.type !== DOCX_MIME && !file.name.toLowerCase().endsWith(".docx"))
+  const isDocxFile =
+    file.type === DOCX_MIME || file.name.toLowerCase().endsWith(".docx");
+  if (!isDocxFile)
     return NextResponse.json(
       { error: "Only .docx files are supported as templates." },
       { status: 400 }
@@ -69,7 +71,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Could not parse DOCX structure" },
+      { error: err instanceof Error ? err.message : "Could not process template" },
       { status: 422 }
     );
   }

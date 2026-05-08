@@ -110,6 +110,45 @@ export async function upsert(
   return toDocItem(doc);
 }
 
+export type LatexCacheFields = {
+  latexBodyCache: string | null;
+  latexBodyCachedAt: Date | null;
+};
+
+export async function getLatexCache(
+  userId: string,
+  documentId: string
+): Promise<LatexCacheFields | null> {
+  await connectDB();
+  const doc = await Doc.findOne({ _id: documentId, userId }, {
+    latexBodyCache: 1,
+    latexBodyCachedAt: 1,
+  });
+  if (!doc) return null;
+  return {
+    latexBodyCache: doc.latexBodyCache ?? null,
+    latexBodyCachedAt: doc.latexBodyCachedAt ?? null,
+  };
+}
+
+export async function setLatexCache(
+  userId: string,
+  documentId: string,
+  body: string
+): Promise<void> {
+  await connectDB();
+  await Doc.findOneAndUpdate(
+    { _id: documentId, userId },
+    {
+      $set: {
+        latexBodyCache: body,
+        latexBodyCachedAt: new Date(),
+      },
+    },
+    { returnDocument: "after" }
+  );
+}
+
 export async function listByType(
   userId: string,
   type: DocumentType
