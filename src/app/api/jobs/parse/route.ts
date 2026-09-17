@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     if (err instanceof QuotaExceededError) {
       return NextResponse.json(
-        { error: "QUOTA_EXCEEDED", message: err.message },
+        { error: "QUOTA_EXCEEDED", message: err.message, budgetScope: err.budgetScope },
         { status: 429 }
       );
     }

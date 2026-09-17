@@ -13,6 +13,8 @@ const eslintConfig = defineConfig([
       "src/lib/repositories/**",
       "src/lib/auth-helpers.ts",
       "src/lib/usage.ts",
+      // Tests may import pure helpers that live next to a model (e.g. isValidTransition)
+      "src/**/*.test.ts",
     ],
     rules: {
       "no-restricted-imports": [
@@ -36,6 +38,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local git worktrees carry their own .next output; never lint them.
+    ".worktrees/**",
   ]),
 ]);
 

@@ -1,138 +1,165 @@
-# Job Hunt
+# JobHunt
 
-A full-stack AI-powered job application tracker. Track every application through a Kanban pipeline, generate tailored resumes and cover letters with Claude, and stay on top of your job search in one place.
+An AI-assisted job search workspace. Track applications through a kanban pipeline, tailor your resume and cover letter to each posting with Claude, prep for interviews, compare offers, and export finished documents as DOCX or LaTeX.
 
----
+[![CI](https://github.com/aashiklal/job-hunt-app/actions/workflows/ci.yml/badge.svg)](https://github.com/aashiklal/job-hunt-app/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## Features
+**Live demo:** <!-- TODO: paste the Vercel URL --> https://YOUR-VERCEL-URL
 
-**Job Tracker**
-- Add jobs manually or paste a job posting for AI-assisted quick import (extracts company, role, location, salary, and description automatically)
-- Kanban pipeline view with drag-and-drop status management
-- Table list view for scanning at a glance
-- Soft-delete with a trash bin and restore support
-
-**Resume Management**
-- Upload PDF or DOCX resumes and extract the text automatically
-- Store multiple resume versions and set a default
-- Plan-gated limits enforced at both the UI and server action layer
-
-**AI Generation**
-- Tailored resume generation: rewrites your resume to match a specific job description
-- Cover letter generation: produces a targeted, professional cover letter
-- JD analysis: structured breakdown of the job description with key requirements and fit signals
-- All AI usage is metered in USD against a monthly budget; admins can set per-user overrides
-
-**DOCX Export**
-- Export generated content as a DOCX file
-- Template priority: user-uploaded template → admin global template → generic fallback
-- Template-driven formatting preserves the original run styles (fonts, sizes, bold, etc.)
-- Slot-fill output is cached per document so re-exports are instant unless the template changes
-
-**Dashboard & Analytics**
-- Application funnel chart, stat cards, and weekly activity view
-- Stale application alerts
-- Weekly goal widget
-
-**Admin Panel**
-- Approve, reject, and manage user access
-- Set or clear per-user AI spend overrides
-- Toggle admin privileges
-- Full paginated audit log of every admin action
-- Real-time email notification when a new user signs up and is waiting for approval
+Sign up with any email and you land straight in the app with a one-time $0.50 AI credit, enough for one complete pass through the workflow with your own resume and a real job posting. A guided tour points at each step in order. Once the credit is spent, request full access with one click.
 
 ---
 
-## Tech Stack
+## Screenshots
+
+| Pipeline | Job detail with streaming generation |
+|---|---|
+| ![Kanban pipeline](docs/screenshots/pipeline.png) | ![Job detail](docs/screenshots/job-detail.png) |
+
+| Tracker | Admin |
+|---|---|
+| ![Tracker dashboard](docs/screenshots/tracker.png) | ![Admin panel](docs/screenshots/admin.png) |
+
+---
+
+## What it does
+
+**Track**
+- Kanban pipeline with drag-and-drop status changes (optimistic UI via React 19 `useOptimistic`), plus a table view.
+- Quick import: paste a job posting and Claude extracts company, role, location, salary, and description.
+- Soft delete with a trash bin and restore.
+- Tracker dashboard: funnel counts, response rate, weekly application chart, stale-application alerts, weekly goal.
+
+**Tailor**
+- Upload a PDF or DOCX resume; text is extracted server-side. Keep several versions and mark one as default.
+- Generate a tailored resume or cover letter for a specific job. Output streams in progressively as structured JSON is parsed on the fly.
+- JD analysis: required skills, nice-to-haves, keywords, likely interview focus, red flags.
+- Fit score and ATS score: deterministic keyword coverage of your resume against the analysed JD.
+- Skills gap: aggregates every analysed JD into a missing-skills list and learning roadmap.
+
+**Prepare**
+- Interview prep: behavioral, technical, role-specific, and culture-fit questions with hints, plus questions to ask them.
+- STAR stories: keep rough drafts of behavioral answers and polish them into STAR format.
+- Outreach: LinkedIn connection notes and DMs, follow-up, thank-you, check-in, cold, and salary negotiation emails.
+
+**Decide**
+- Offer tracker with side-by-side comparison, pros and cons, and negotiation hints.
+
+**Export**
+- DOCX export. If an admin has uploaded a template, output is rendered against it with a pixel-aware theming pipeline that preserves fonts, sizes, and run styles. Otherwise a clean generic layout is used.
+- LaTeX export (`.tex`) from a bundled template, cached per document.
+
+**Operate**
+- Every AI call is metered in USD per user per month against their plan's budget. Admins can set per-user overrides.
+- Admin panel: approve or reject users, toggle admin, adjust plan limits, view spend, and read a full audit log.
+- New sign-ups are approved instantly onto a free plan with a one-time $0.50 AI credit when `AUTO_APPROVE_SIGNUPS=true`, or held for admin approval when it is unset. A free-plan user can request full access (a monthly AI budget) at any time; an admin grants or declines it from `/admin`.
+
+---
+
+## Architecture
+
+```mermaid
+flowchart LR
+  Browser -->|session cookie| Proxy[proxy.ts: Clerk session check]
+  Proxy --> Layout["(dashboard)/layout.tsx\nrequireApprovedUserWithPlan()"]
+  Layout --> Pages[Server Components]
+  Pages -->|mutations| Actions["Server Actions\ndefineAction()"]
+  Pages -->|streaming, uploads| Routes["Route Handlers\napp/api/*"]
+  Actions --> Repos[Repositories\nsrc/lib/repositories]
+  Routes --> Repos
+  Routes --> Meter["Metered AI wrapper\ncheckBudget -> Claude -> addSpend"]
+  Meter --> Claude[(Anthropic API)]
+  Repos --> Mongo[(MongoDB)]
+  Clerk[(Clerk)] -->|webhooks| Routes
+```
+
+Request flow in one sentence: the proxy checks for a Clerk session, the dashboard layout resolves the user, subscription, and plan once per request, pages read through repositories, and every AI call goes through a metered wrapper that checks the budget before calling Claude and records spend after.
+
+### Engineering highlights
+
+- **Layering enforced by lint.** An ESLint `no-restricted-imports` rule blocks importing Mongoose models anywhere outside `src/lib/repositories`, so all data access goes through one layer.
+- **Ownership baked into every query.** Every repository function takes `userId` as its first argument and filters on it, so a user can never read or write another user's records by guessing an id.
+- **Uniform Server Action contract.** `defineAction()` and `defineAdminAction()` wrap auth, validation, and error mapping, and always return `{ ok, data | error }`.
+- **Metered AI spend.** Per-token USD accounting against either a monthly or a one-time lifetime budget depending on plan, with per-user overrides and an audit trail.
+- **Guided onboarding.** A driver.js coach mark walks a new user through one full pass of the workflow, computed live from their own records rather than seeded demo data.
+- **Progressive streaming of structured output.** The model streams JSON; the server parses the partial buffer with a lenient parser and renders a markdown preview that only ever grows, then validates the final message with zod before saving.
+- **Hardened route handlers.** Every API route authenticates, validates bodies with zod, caps upload sizes, returns precise status codes, and never leaks raw error messages.
+- **Tests and CI.** Vitest covers the pure logic (cost calculation, fit scoring, markdown rendering, streaming previews) and the route handler with mocked dependencies. GitHub Actions runs typecheck, lint, tests, and a production build on every push.
+
+---
+
+## Tech stack
 
 | Layer | Technology |
 |---|---|
-| Framework | Next.js 16 (App Router, Turbopack) |
-| UI | React 19, Tailwind CSS v4, shadcn/ui, Radix UI |
-| Auth | Clerk |
+| Framework | Next.js 16 (App Router, Turbopack), React 19, TypeScript strict |
+| UI | Tailwind CSS v4, shadcn/ui, Radix UI, lucide-react, next-themes, sonner, driver.js |
+| Auth | Clerk (hosted pages, Svix-verified webhooks) |
 | Database | MongoDB via Mongoose |
-| AI | Anthropic Claude (via `@anthropic-ai/sdk`) |
-| Drag and Drop | dnd-kit |
-| Forms | react-hook-form + Zod |
-| DOCX generation | docx, mammoth |
-| PDF extraction | unpdf |
-| Markdown rendering | react-markdown, remark-gfm |
-| Toast notifications | sonner |
-| Theming | next-themes |
-| Webhook verification | svix |
-| Email notifications | Resend |
-| Deployment | Vercel |
+| AI | Anthropic Claude via `@anthropic-ai/sdk`, streaming with `partial-json` |
+| Drag and drop | dnd-kit |
+| Forms | react-hook-form + zod |
+| Documents | docx, jszip, mammoth, unpdf |
+| Email | Resend (admin notifications), optional Telegram |
+| Tests | Vitest |
+| Hosting | Vercel |
 
 ---
 
-## Getting Started
+## Getting started
 
 ### Prerequisites
 
-- Node.js 20+
-- A MongoDB database (MongoDB Atlas free tier works)
+- Node.js 20 (see `.nvmrc`)
+- A MongoDB database (Atlas free tier works)
 - A [Clerk](https://clerk.com) application
 - An [Anthropic](https://console.anthropic.com) API key
-- A [Resend](https://resend.com) account (free tier works)
+- A [Resend](https://resend.com) account (optional, for admin sign-up emails)
 
-### Environment Variables
+### 1. Configure
 
-Create a `.env.local` file in the project root:
-
-```env
-MONGODB_URI=your_mongodb_connection_string
-ANTHROPIC_API_KEY=your_anthropic_api_key
-CLERK_SECRET_KEY=your_clerk_secret_key
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
-CLERK_WEBHOOK_SIGNING_SECRET=your_clerk_webhook_signing_secret
-
-# Email notifications (Resend)
-RESEND_API_KEY=your_resend_api_key
-RESEND_FROM_EMAIL=onboarding@resend.dev
+```bash
+cp .env.example .env.local
 ```
 
-> `RESEND_FROM_EMAIL` can be `onboarding@resend.dev` for testing (delivers only to your Resend account email). For production, verify a sending domain in Resend and use `noreply@yourdomain.com`.
+| Variable | Required | Purpose |
+|---|---|---|
+| `MONGODB_URI` | yes | MongoDB connection string |
+| `ANTHROPIC_API_KEY` | yes | Claude API key |
+| `CLERK_SECRET_KEY` | yes | Clerk server key |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | yes | Clerk browser key |
+| `NEXT_PUBLIC_CLERK_SIGN_IN_URL` / `NEXT_PUBLIC_CLERK_SIGN_UP_URL` | yes | `/sign-in` and `/sign-up` |
+| `CLERK_WEBHOOK_SIGNING_SECRET` | yes | Verifies Clerk webhooks |
+| `AUTO_APPROVE_SIGNUPS` | no | `true` approves sign-ups instantly on the free plan; unset requires admin approval |
+| `NEXT_PUBLIC_APP_URL` | no | Base URL used in notification links (Vercel sets it automatically) |
+| `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | no | Admin sign-up notifications |
+| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | no | Telegram sign-up notifications |
 
-### Installation
+### 2. Install and seed
 
 ```bash
 npm install
+npm run seed:plans      # creates the "personal" and "free" plans
 ```
 
-### Database Setup
-
-Seed the subscription plans (required before any user can access the dashboard):
-
-```bash
-npm run seed:plans
-```
-
-### Clerk Webhook
-
-The app syncs Clerk user events (`user.created`, `user.updated`, `user.deleted`) into MongoDB. Configure a webhook in the Clerk dashboard:
-
-1. Go to **Clerk Dashboard → Webhooks → Add Endpoint**
-2. Set the URL to `https://<your-domain>/api/webhooks/clerk`
-3. Subscribe to events: `user.created`, `user.updated`, `user.deleted`
-4. Copy the **Signing Secret** and set it as `CLERK_WEBHOOK_SIGNING_SECRET`
-
-For local development, use [ngrok](https://ngrok.com) to expose port 3000 and register the ngrok URL as the endpoint.
-
-### Run the Dev Server
+### 3. Run
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open http://localhost:3000. With `AUTO_APPROVE_SIGNUPS=true` the first account you create lands straight in the app on the free plan.
 
-The first user to sign up will be in `pending` status. Promote yourself to admin:
+To make yourself an admin:
 
 ```bash
-npm run bootstrap:admin
+npm run bootstrap:admin -- you@example.com
 ```
 
-Then approve yourself (and other users) from the `/admin` panel.
+### Clerk webhook (optional locally)
+
+The app syncs `user.created`, `user.updated`, and `user.deleted` into MongoDB. In production, add a webhook endpoint in the Clerk dashboard pointing at `https://<your-domain>/api/webhooks/clerk` and copy the signing secret into `CLERK_WEBHOOK_SIGNING_SECRET`. Locally the app creates the user record lazily on first request, so the webhook is only needed to test deletions.
 
 ---
 
@@ -140,89 +167,102 @@ Then approve yourself (and other users) from the `/admin` panel.
 
 | Command | Purpose |
 |---|---|
-| `npm run dev` | Start dev server (Turbopack, port 3000) |
-| `npm run build` | Production build |
-| `npm run start` | Start production server |
-| `npm run lint` | Run ESLint |
-| `npm run bootstrap:admin` | Promote a user to admin by email |
-| `npm run seed:plans` | Seed Plan documents into MongoDB |
-| `npm run backfill:subscriptions` | Create Subscription records for existing approved users |
-| `npm run test:generate` | Run a one-shot AI generation test against your local env |
+| `npm run dev` | Dev server (Turbopack) |
+| `npm run build` / `npm start` | Production build and server |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run lint` | ESLint |
+| `npm test` / `npm run test:watch` | Vitest |
+| `npm run seed:plans` | Upsert the plan documents |
+| `npm run bootstrap:admin -- <email>` | Promote a user to admin |
+| `npm run backfill:subscriptions` | Create subscriptions for pre-existing approved users |
+| `npm run test:generate` | Manual smoke test of the generation pipeline against a running server |
+| `npm run test:docx-export` | Manual fixture-driven DOCX export harness |
 
 ---
 
-## Access Control
+## Testing
 
-New users land in `pending` status after sign-up. Admins approve or reject access from `/admin`. The flow:
-
+```bash
+npm test
 ```
-sign-up → pending → (admin approves) → approved → dashboard
-                  → (admin rejects)  → rejected  → can re-request
-```
 
-Admin routes are inside the `(dashboard)` group and additionally gate on `isAdmin: true`. Non-admins receive a 404.
+Tests live next to the code as `*.test.ts` and run under Vitest with the `@` alias and a `server-only` stub (see `vitest.config.ts`). They mock the repository layer rather than hitting a database. Coverage today:
+
+- Cost calculation and quota errors (`src/lib/usage.test.ts`)
+- Fit score and bands (`src/lib/fit-score.test.ts`)
+- Job status transitions (`src/lib/models/Job.test.ts`)
+- Markdown parsing for export (`src/lib/export/parse-markdown.test.ts`)
+- Document rendering and progressive streaming previews (`src/lib/generated-documents.test.ts`)
+- Onboarding tour progress computation (`src/lib/onboarding.test.ts`)
+- Quota-exceeded copy for monthly vs lifetime plans (`src/lib/quota-copy.test.ts`)
+- Sign-up activation with and without auto-approval (`src/lib/user-access-lifecycle.test.ts`)
+- The generation route: auth, validation, error mapping, JSON and NDJSON responses (`src/app/api/generate/route.test.ts`)
 
 ---
 
-## AI Quota
-
-AI usage is tracked in USD per calendar month against each user's plan limit. Admins bypass the quota entirely and can set per-user custom limits from the admin panel.
-
----
-
-## Project Structure
+## Project structure
 
 ```
 src/
-  proxy.ts                    # Clerk auth proxy (Next.js 16 replacement for middleware.ts)
+  proxy.ts                        Clerk session check (Next.js 16 replacement for middleware)
   app/
-    layout.tsx                # Root layout
-    page.tsx                  # Public landing page
-    (dashboard)/              # Protected route group
-      layout.tsx              # Enforces approved user + plan check
-      DashboardShell.tsx      # Sidebar + mobile nav
-      jobs/                   # Job tracker (list, kanban, detail, create, edit, trash)
-      resume/                 # Resume management (list, create, edit)
-      tracker/                # Dashboard analytics
-      admin/                  # Admin panel (users, audit log)
+    page.tsx                      Public landing page
+    (dashboard)/                  Approved users only; layout resolves user + plan once per request
+      jobs/                       Pipeline, list, detail (AI panels), trash
+      resume/                     Resume CRUD with plan-limited count
+      offers/                     Offer CRUD + comparison
+      star-stories/               STAR story CRUD + polish
+      tracker/                    Funnel, weekly chart, stale alerts
+      admin/                      Users, per-user limits, audit log, templates
+      _components/                Usage widget, request-access button, onboarding tour
     api/
-      webhooks/clerk/         # Clerk user sync webhook
-      generate/               # AI generation (streaming + non-streaming)
-      generate/export/        # DOCX export
-      jobs/parse/             # Quick import: AI job posting parser
-      resume/parse-pdf/       # PDF text extraction
-      resume/parse-docx/      # DOCX text extraction
-      admin/templates/        # Global DOCX template management
+      generate/                   AI generation; NDJSON stream for resume and cover letter
+      documents/[id]/export/      DOCX and LaTeX export
+      jobs/parse/                 Quick import
+      skills-gap/, offers/compare/, star-stories/polish/
+      resume/parse-pdf/, resume/parse-docx/
+      admin/templates/            Admin DOCX template upload
+      webhooks/clerk/             Clerk user sync
   lib/
-    auth-helpers.ts           # requireApprovedUserWithPlan(), requireAdminWithPlan()
-    actions.ts                # defineAction() / defineAdminAction() wrappers
-    usage.ts                  # AI quota: checkBudget(), addSpend(), calculateCost()
-    anthropic.ts              # Anthropic SDK singleton (server-only)
-    prompts.ts                # All prompt builders
-    db/connect.ts             # MongoDB connection singleton
-    models/                   # Mongoose models
-    repositories/             # All database access (one file per model)
-    export/                   # DOCX export pipeline
+    auth-helpers.ts               requireApprovedUserWithPlan(), requireAdminWithPlan()
+    actions.ts                    defineAction() / defineAdminAction()
+    usage.ts                      checkBudget(), addSpend(), calculateCost(), MODEL_PRICING
+    ai.ts, ai-execution.ts        Structured and streaming Claude calls, metered wrappers
+    job-ai-generation.ts          Generation service for every AI type
+    generated-documents.ts        Zod schemas, markdown rendering, partial-document preview
+    onboarding.ts                  Getting-started tour progress, derived from the user's own data
+    user-access-lifecycle.ts      Sign-up, activation, approval, full-access requests, audit
+    models/                       Mongoose models
+    repositories/                 All database access (one file per model)
+    export/                       DOCX and LaTeX pipeline
+scripts/                          Seed, bootstrap, and manual test harnesses
+.github/workflows/ci.yml          Typecheck, lint, test, build
 ```
 
 ---
 
 ## Deployment
 
-The app is designed for [Vercel](https://vercel.com). Set all environment variables from the section above in the Vercel project settings, then push to your connected branch. The production URL is resolved automatically via `VERCEL_PROJECT_PRODUCTION_URL`, with no extra config needed for admin notification links to work.
-
-After the first deployment, run the seed script once against your production database:
+Designed for Vercel. Set the environment variables above in the project settings and push to `main`. After the first deploy, seed the plans against the production database:
 
 ```bash
-MONGODB_URI=your_production_uri npm run seed:plans
+MONGODB_URI=<production uri> npm run seed:plans
 ```
 
-### Admin Recovery
+Then add the Clerk webhook endpoint and promote your own account with `npm run bootstrap:admin`.
 
-If you ever get locked out of the admin panel:
+---
 
-```bash
-npx tsx scripts/bootstrap-admin.ts your@email.com
-```
+## Known limitations and roadmap
 
-Sets `status: "approved"` and `isAdmin: true` for that email. Safe to run multiple times.
+- AI routes are protected by the USD budget (monthly or lifetime, by plan) but have no per-minute rate limit.
+- Deleting a Clerk account removes the user record but does not yet cascade to their jobs, resumes, and documents.
+- There is no error reporting or structured logging beyond console output.
+- Cancelling a streaming generation part-way does not meter the tokens already consumed, because usage is only reported on the final message.
+- PDF export does not exist; use DOCX or LaTeX.
+
+---
+
+## License
+
+MIT. See [LICENSE](LICENSE).

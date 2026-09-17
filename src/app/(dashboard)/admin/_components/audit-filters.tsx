@@ -10,6 +10,8 @@ const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   "user.admin_revoked": "Revoked admin",
   "user.custom_limit_set": "Set custom budget",
   "user.custom_limit_cleared": "Cleared custom limit",
+  "user.upgrade_granted": "Granted full access",
+  "user.upgrade_declined": "Declined access request",
   "template.uploaded": "Uploaded template",
   "template.deleted": "Deleted template",
   "plan.updated": "Updated plan limits",

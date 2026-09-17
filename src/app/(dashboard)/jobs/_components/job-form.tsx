@@ -204,6 +204,7 @@ export function JobForm({ mode, initialValues, jobId }: Props) {
           <button
             type="button"
             onClick={() => setImportOpen((o) => !o)}
+            data-tour="quick-import"
             className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
             <span className="flex items-center gap-2">
@@ -229,6 +230,7 @@ export function JobForm({ mode, initialValues, jobId }: Props) {
                 size="sm"
                 onClick={handleExtract}
                 disabled={isExtracting || !importText.trim()}
+                data-tour="extract-details"
               >
                 {isExtracting ? "Extracting…" : "Extract details"}
               </Button>
@@ -441,7 +443,7 @@ export function JobForm({ mode, initialValues, jobId }: Props) {
         />
 
         <div className="flex items-center gap-3">
-          <Button type="submit" disabled={isPending}>
+          <Button type="submit" disabled={isPending} data-tour="submit-job">
             {isPending
               ? "Saving…"
               : mode === "create"

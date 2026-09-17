@@ -9,6 +9,8 @@ export type ISubscription = {
     aiSpendLimitUSD?: number;
   };
   currentPeriodEnd?: Date | null;
+  /** Set when the user requests full access; cleared on grant or decline. Null = no pending request. */
+  upgradeRequestedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 } & Document;
@@ -30,6 +32,7 @@ const SubscriptionSchema = new Schema<ISubscription>(
       required: false,
     },
     currentPeriodEnd: { type: Date, default: null },
+    upgradeRequestedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

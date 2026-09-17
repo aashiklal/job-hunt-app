@@ -132,6 +132,28 @@ export const updatePlan = defineAdminAction(
   }
 );
 
+export const grantFullAccess = defineAdminAction(
+  async (ctx, input: { userId: string }) => {
+    const userId = userIdSchema.parse(input.userId);
+    const updated = await userAccess.grantFullAccess(ctx.user, userId);
+    if (!updated) throw new Error("Target user not found");
+    revalidatePath("/admin");
+    revalidatePath(`/admin/${userId}`);
+    return { userId };
+  }
+);
+
+export const declineFullAccessRequest = defineAdminAction(
+  async (ctx, input: { userId: string }) => {
+    const userId = userIdSchema.parse(input.userId);
+    const updated = await userAccess.declineFullAccessRequest(ctx.user, userId);
+    if (!updated) throw new Error("Target user not found");
+    revalidatePath("/admin");
+    revalidatePath(`/admin/${userId}`);
+    return { userId };
+  }
+);
+
 export const toggleUserAdmin = defineAdminAction(
   async (ctx, input: { userId: string }) => {
     const userId = userIdSchema.parse(input.userId);

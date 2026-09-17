@@ -206,6 +206,15 @@ export async function listPaginated(opts: {
   return { users, total };
 }
 
+export async function dismissOnboarding(id: string): Promise<IUser | null> {
+  await connectDB();
+  return User.findByIdAndUpdate(
+    id,
+    { $set: { onboardingDismissedAt: new Date() } },
+    { returnDocument: "after" }
+  );
+}
+
 export async function deleteByClerkId(clerkId: string): Promise<boolean> {
   await connectDB();
   const result = await User.findOneAndDelete({ clerkId });

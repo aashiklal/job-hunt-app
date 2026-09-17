@@ -202,6 +202,32 @@ export default async function LandingPage() {
         </div>
       </section>
 
+      {/* How access works */}
+      <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:px-8">
+        <div className="mb-12 text-center">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            How access works
+          </p>
+          <h2 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+            Start free, upgrade when you are ready
+          </h2>
+        </div>
+        <div className="mx-auto grid max-w-3xl grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="rounded-xl border border-border/60 bg-card p-6 shadow-xs">
+            <h3 className="text-sm font-semibold text-foreground">Free</h3>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              $0.50 of AI credit, enough for one complete workflow. No expiry.
+            </p>
+          </div>
+          <div className="rounded-xl border border-border/60 bg-card p-6 shadow-xs">
+            <h3 className="text-sm font-semibold text-foreground">Full access</h3>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              A monthly AI budget, granted on request.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* Feature cards */}
       <section className="mx-auto max-w-6xl px-4 pb-20 sm:px-6 lg:px-8">
         <div className="mb-12 text-center">

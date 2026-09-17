@@ -15,7 +15,63 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import Link from "next/link";
-import { GenerationProgressBar } from "@/components/GenerationProgressBar";
+import { describeQuotaError } from "@/lib/quota-copy";
+
+type StreamEvent =
+  | { type: "partial"; markdown: string }
+  | {
+      type: "done";
+      documentId: string;
+      content: string;
+    }
+  | {
+      type: "error";
+      status: number;
+      error?: string;
+      message?: string;
+      used?: number;
+      limit?: number;
+      budgetScope?: "monthly" | "lifetime" | null;
+    };
+
+function describeError(body: {
+  status: number;
+  error?: string;
+  message?: string;
+  used?: number;
+  limit?: number;
+  budgetScope?: "monthly" | "lifetime" | null;
+}): string {
+  if (body.status === 429 && body.error === "QUOTA_EXCEEDED") {
+    return describeQuotaError(body);
+  }
+  if (body.status === 400 && body.error === "NO_RESUME") {
+    return body.message ?? "No resume available";
+  }
+  return body.message ?? body.error ?? "Generation failed";
+}
+
+/** Reads a newline-delimited JSON body and hands each parsed event to `onEvent`. */
+async function readNdjson(
+  body: ReadableStream<Uint8Array>,
+  onEvent: (event: StreamEvent) => void
+) {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let newline = buffer.indexOf("\n");
+    while (newline >= 0) {
+      const line = buffer.slice(0, newline).trim();
+      buffer = buffer.slice(newline + 1);
+      if (line) onEvent(JSON.parse(line) as StreamEvent);
+      newline = buffer.indexOf("\n");
+    }
+  }
+}
 
 type ResumeOption = {
   _id: string;
@@ -103,33 +159,50 @@ export function GeneratePanel({
         signal: controller.signal,
       });
 
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => null);
-        if (res.status === 429 && errBody?.error === "QUOTA_EXCEEDED") {
-          const spent = typeof errBody.used === "number" ? `$${errBody.used.toFixed(2)}` : "your full";
-          const limit = typeof errBody.limit === "number" ? `$${errBody.limit.toFixed(2)}` : "";
-          toast.error(
-            `Monthly AI budget reached (${spent} of ${limit} used). Quota resets soon.`
-          );
-        } else if (res.status === 400 && errBody?.error === "NO_RESUME") {
-          toast.error(errBody.message ?? "No resume available");
-        } else {
-          toast.error(errBody?.error ?? errBody?.message ?? "Generation failed");
-        }
+      if (!res.ok || !res.body) {
+        const errBody = await res.json().catch(() => ({}));
+        toast.error(describeError({ status: res.status, ...errBody }));
         setIsStreaming(false);
         return;
       }
 
-      const data = await res.json();
-      setContent(data.content ?? "");
-      setDocumentId(data.documentId ?? null);
+      // Partial previews arrive faster than React needs to paint; coalesce
+      // them to one state update per animation frame.
+      let pendingMarkdown: string | null = null;
+      let frame: number | null = null;
+      const flush = () => {
+        frame = null;
+        if (pendingMarkdown !== null) setContent(pendingMarkdown);
+        pendingMarkdown = null;
+      };
 
-      setHasGenerated(true);
+      let outcome: "done" | "error" | null = null;
+      await readNdjson(res.body, (event) => {
+        if (event.type === "partial") {
+          pendingMarkdown = event.markdown;
+          if (frame === null) frame = requestAnimationFrame(flush);
+          return;
+        }
+        if (frame !== null) cancelAnimationFrame(frame);
+        pendingMarkdown = null;
+        if (event.type === "done") {
+          outcome = "done";
+          setContent(event.content ?? "");
+          setDocumentId(event.documentId ?? null);
+          setHasGenerated(true);
+          return;
+        }
+        outcome = "error";
+        toast.error(describeError(event));
+      });
+
+      if (outcome === "done") {
+        toast.success(type === "resume" ? "Resume tailored" : "Cover letter ready");
+        router.refresh();
+      } else if (outcome === null) {
+        toast.error("Generation ended before a result arrived. Please try again.");
+      }
       setIsStreaming(false);
-      toast.success(
-        type === "resume" ? "Resume tailored" : "Cover letter ready"
-      );
-      router.refresh();
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") {
         toast.info("Generation cancelled");
@@ -311,14 +384,22 @@ export function GeneratePanel({
                 Cancel
               </Button>
             ) : (
-              <Button onClick={handleGenerate}>
+              <Button
+                onClick={handleGenerate}
+                data-tour={type === "resume" ? "generate-resume" : "generate-cover-letter"}
+              >
                 {hasGenerated ? "Regenerate" : "Generate"}
               </Button>
             )}
           </div>
         </div>
 
-        <GenerationProgressBar isLoading={isStreaming} durationMs={10000} />
+        {isStreaming && (
+          <p role="status" className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="inline-block size-1.5 animate-pulse rounded-full bg-primary" aria-hidden />
+            {content ? "Streaming from Claude" : "Reading your resume and the job description"}
+          </p>
+        )}
 
         {/* Output area */}
         {(content || isStreaming) && (
@@ -332,6 +413,12 @@ export function GeneratePanel({
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {content}
                 </ReactMarkdown>
+                {isStreaming && (
+                  <span
+                    className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-primary align-middle"
+                    aria-hidden
+                  />
+                )}
               </div>
             )}
           </div>

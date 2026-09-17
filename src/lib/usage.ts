@@ -37,21 +37,27 @@ export class QuotaExceededError extends Error {
   public readonly used: number;
   public readonly limit: number;
   public readonly periodEndsAt: Date;
+  public readonly budgetScope: "monthly" | "lifetime";
 
   constructor(args: {
     kind: string;
     used: number;
     limit: number;
     periodEndsAt: Date;
+    budgetScope?: "monthly" | "lifetime";
   }) {
-    super(
-      `Monthly AI budget exceeded ($${args.used.toFixed(4)} of $${args.limit.toFixed(2)} used). Resets ${args.periodEndsAt.toISOString()}.`
-    );
+    const budgetScope = args.budgetScope ?? "monthly";
+    const message =
+      budgetScope === "lifetime"
+        ? `Lifetime AI credit used up ($${args.used.toFixed(4)} of $${args.limit.toFixed(2)} used). Request full access to keep going.`
+        : `Monthly AI budget exceeded ($${args.used.toFixed(4)} of $${args.limit.toFixed(2)} used). Resets ${args.periodEndsAt.toISOString()}.`;
+    super(message);
     this.name = "QuotaExceededError";
     this.kind = args.kind;
     this.used = args.used;
     this.limit = args.limit;
     this.periodEndsAt = args.periodEndsAt;
+    this.budgetScope = budgetScope;
   }
 }
 
@@ -75,11 +81,33 @@ function getPeriodEndsAt(): Date {
   );
 }
 
-/** Returns the effective monthly spend limit in USD, honouring any admin override. */
+/** Returns the effective spend limit in USD, honouring any admin override. */
 function getSpendLimit(plan: IPlan, subscription: ISubscription): number {
   const customLimit = subscription.customLimits?.aiSpendLimitUSD;
   if (typeof customLimit === "number") return customLimit;
   return plan.aiSpendLimitUSD ?? 5.0;
+}
+
+/**
+ * Picks which spend figure counts against the budget. Monthly plans reset
+ * every calendar month; lifetime plans (e.g. the free tier) never reset, so
+ * every dollar ever spent counts against the cap.
+ */
+export function resolveSpend(
+  budgetScope: "monthly" | "lifetime",
+  currentPeriodSpend: number,
+  lifetimeSpend: number
+): number {
+  return budgetScope === "lifetime" ? lifetimeSpend : currentPeriodSpend;
+}
+
+/** Sums aiSpendUSD across every period for a user. Used for lifetime-scoped plans. */
+async function getLifetimeSpend(userId: mongoose.Types.ObjectId | string): Promise<number> {
+  const result = await Usage.aggregate([
+    { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+    { $group: { _id: null, total: { $sum: "$aiSpendUSD" } } },
+  ]);
+  return (result[0] as { total: number } | undefined)?.total ?? 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -127,10 +155,14 @@ export async function checkBudget(
   }
 
   const limitUSD = getSpendLimit(plan as IPlan, subscription);
+  const budgetScope = (plan as IPlan).budgetScope ?? "monthly";
   const period = getCurrentPeriod();
 
   const usageDoc = await Usage.findOne({ userId, period }).lean();
-  const spentUSD = (usageDoc as { aiSpendUSD?: number } | null)?.aiSpendUSD ?? 0;
+  const currentPeriodSpend = (usageDoc as { aiSpendUSD?: number } | null)?.aiSpendUSD ?? 0;
+  const lifetimeSpend =
+    budgetScope === "lifetime" ? await getLifetimeSpend(userId) : 0;
+  const spentUSD = resolveSpend(budgetScope, currentPeriodSpend, lifetimeSpend);
 
   if (limitUSD !== -1 && spentUSD >= limitUSD) {
     throw new QuotaExceededError({
@@ -138,6 +170,7 @@ export async function checkBudget(
       used: spentUSD,
       limit: limitUSD,
       periodEndsAt,
+      budgetScope,
     });
   }
 
@@ -183,6 +216,7 @@ export async function getCurrentUsage(
   limit: number;
   periodEndsAt: Date;
   planKey: string | null;
+  budgetScope: "monthly" | "lifetime" | null;
 }> {
   await connectDB();
 
@@ -193,24 +227,34 @@ export async function getCurrentUsage(
   const userDoc = await User.findById(userId).lean();
   if (userDoc?.isAdmin) {
     const usageDoc = await Usage.findOne({ userId, period }).lean();
-    return { used: (usageDoc as { aiSpendUSD?: number } | null)?.aiSpendUSD ?? 0, limit: -1, periodEndsAt, planKey: null };
+    return {
+      used: (usageDoc as { aiSpendUSD?: number } | null)?.aiSpendUSD ?? 0,
+      limit: -1,
+      periodEndsAt,
+      planKey: null,
+      budgetScope: null,
+    };
   }
 
   const subscription = await Subscription.findOne({ userId });
   if (!subscription) {
-    return { used: 0, limit: 0, periodEndsAt, planKey: null };
+    return { used: 0, limit: 0, periodEndsAt, planKey: null, budgetScope: null };
   }
 
   const plan = await Plan.findOne({ key: subscription.planKey }).lean();
   if (!plan) {
-    return { used: 0, limit: 0, periodEndsAt, planKey: subscription.planKey };
+    return { used: 0, limit: 0, periodEndsAt, planKey: subscription.planKey, budgetScope: null };
   }
 
+  const budgetScope = (plan as IPlan).budgetScope ?? "monthly";
   const usageDoc = await Usage.findOne({ userId, period }).lean();
-  const used = (usageDoc as { aiSpendUSD?: number } | null)?.aiSpendUSD ?? 0;
+  const currentPeriodSpend = (usageDoc as { aiSpendUSD?: number } | null)?.aiSpendUSD ?? 0;
+  const lifetimeSpend =
+    budgetScope === "lifetime" ? await getLifetimeSpend(userId) : 0;
+  const used = resolveSpend(budgetScope, currentPeriodSpend, lifetimeSpend);
   const limit = getSpendLimit(plan as IPlan, subscription);
 
-  return { used, limit, periodEndsAt, planKey: subscription.planKey };
+  return { used, limit, periodEndsAt, planKey: subscription.planKey, budgetScope };
 }
 
 /**

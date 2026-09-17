@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GeneratePanel } from "./generate-panel";
 import { JDAnalysisPanel } from "./jd-analysis-panel";
@@ -81,8 +82,21 @@ export function JobDetailTabs({
   initialCheckinEmail,
   initialSalaryNegotiation,
 }: Props) {
+  const [activeTab, setActiveTab] = useState<"documents" | "outreach" | "prep">("documents");
+
+  // Reads the tab from the URL hash once the client has mounted (kept out of
+  // the initial render so server and client markup match on hydration). This
+  // lets onboarding links jump straight to the relevant tab, e.g. "#prep".
+  useEffect(() => {
+    const hash = window.location.hash.replace("#", "");
+    if (hash === "documents" || hash === "outreach" || hash === "prep") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setActiveTab(hash);
+    }
+  }, []);
+
   return (
-    <Tabs defaultValue="documents">
+    <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)}>
       <TabsList className="w-full sm:w-auto">
         <TabsTrigger value="documents">Documents</TabsTrigger>
         <TabsTrigger value="outreach">Outreach</TabsTrigger>

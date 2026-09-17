@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireAdminWithPlan } from "@/lib/auth-helpers";
 import * as usersRepo from "@/lib/repositories/users";
+import * as subscriptionsRepo from "@/lib/repositories/subscriptions";
 import * as templates from "@/lib/repositories/templates";
 import * as auditLog from "@/lib/repositories/audit-log";
 import type { AuditAction } from "@/lib/repositories/audit-log";
@@ -33,6 +34,8 @@ const AUDIT_ACTIONS: AuditAction[] = [
   "user.admin_revoked",
   "user.custom_limit_set",
   "user.custom_limit_cleared",
+  "user.upgrade_granted",
+  "user.upgrade_declined",
   "template.uploaded",
   "template.deleted",
   "plan.updated",
@@ -161,6 +164,7 @@ export default async function AdminPage({
     planDocs,
     platformStats,
     newSignupsCount,
+    upgradeRequestUserIdList,
   ] = await Promise.all([
     usersRepo.countByStatus(),
     usersRepo.countByStatusWithSearch(search),
@@ -179,7 +183,9 @@ export default async function AdminPage({
     plansRepo.listAll(),
     getPlatformStats(),
     usersRepo.countNewSince(sevenDaysAgo),
+    subscriptionsRepo.listPendingUpgradeUserIds(),
   ]);
+  const upgradeRequestUserIds = new Set(upgradeRequestUserIdList);
 
   const currentUsers = paginatedUsers.users.map(usersRepo.toUserListItem);
   const approvedUserIds = currentUsers
@@ -277,6 +283,7 @@ export default async function AdminPage({
             spendLimit={planSpendLimit}
             page={safeUserPage}
             totalPages={userTotalPages}
+            upgradeRequestUserIds={upgradeRequestUserIds}
           />
         </TabsContent>
 

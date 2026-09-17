@@ -33,8 +33,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files (the example template is tracked on purpose)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -46,16 +47,12 @@ next-env.d.ts
 # AI agent instructions (generated on init, not source-controlled)
 CLAUDE.md
 AGENTS.md
-CONTEXT.md
 
 # Generated DOCX artifacts (upload these to the admin panel, don't commit them)
 *.docx
 
 # Local fixtures used by export diagnostic harness
 /tmp/
-
-docs/
-
 
 
 # clerk configuration (can include secrets)

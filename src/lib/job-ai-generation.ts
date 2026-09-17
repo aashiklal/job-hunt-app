@@ -5,7 +5,12 @@ import * as resumes from "@/lib/repositories/resumes";
 import * as documents from "@/lib/repositories/documents";
 import * as templates from "@/lib/repositories/templates";
 import type { DocumentType } from "@/lib/repositories/documents";
-import { callMeteredStructured, callMeteredText } from "@/lib/ai-execution";
+import { parse as parsePartialJson, Allow } from "partial-json";
+import {
+  callMeteredStructured,
+  callMeteredStructuredStream,
+  callMeteredText,
+} from "@/lib/ai-execution";
 import { jdAnalysisSchema, type JDAnalysis } from "@/lib/job-analysis";
 import {
   buildJDAnalysisPrompt,
@@ -23,9 +28,9 @@ import {
   buildStructuredCoverLetterPrompt,
   buildStructuredResumePrompt,
   fallbackContactFromResume,
-  generatedCoverLetterSchema,
+  generatedDocumentSchema,
   generatedDocumentToMarkdown,
-  generatedResumeSchema,
+  partialDocumentToMarkdown,
   sortExperienceByDate,
   type GeneratedDocument,
   type GeneratedResume,
@@ -83,6 +88,25 @@ export const jobGenerationRequestSchema = z.object({
 
 export type JobGenerationInput = z.infer<typeof jobGenerationRequestSchema>;
 
+export type JobGenerationOptions = {
+  /**
+   * Receives a markdown preview each time more of a resume or cover letter
+   * has streamed in. Only structured document types stream; other types
+   * ignore this callback.
+   */
+  onPartial?: (markdown: string) => void;
+  /** Aborts the upstream model call, e.g. when the client disconnects. */
+  signal?: AbortSignal;
+};
+
+export const STREAMED_TYPES: ReadonlySet<JobGenerationInput["type"]> = new Set([
+  "resume",
+  "cover_letter",
+]);
+
+/** Minimum gap between partial previews so the client is not flooded. */
+const PARTIAL_EMIT_INTERVAL_MS = 60;
+
 export class JobGenerationError extends Error {
   constructor(
     public readonly code: string,
@@ -136,7 +160,8 @@ function isOutreachType(
 
 export async function generateForJob(
   user: UserForGeneration,
-  input: JobGenerationInput
+  input: JobGenerationInput,
+  options: JobGenerationOptions = {}
 ): Promise<JobGenerationResult> {
   const userIdStr = user._id.toString();
   const job = await jobs.getById(userIdStr, input.jobId);
@@ -189,7 +214,26 @@ export async function generateForJob(
     job,
     resume,
     candidateName: senderName(user),
+    options,
   });
+}
+
+/**
+ * Turns the raw text streamed so far into a markdown preview. The model is
+ * asked for bare JSON, but a leading code fence is tolerated. Malformed
+ * prefixes (mid-token) are skipped until more text arrives.
+ */
+function previewFromStreamText(
+  type: "resume" | "cover_letter",
+  snapshot: string
+): string | null {
+  const text = snapshot.replace(/^\s*```(?:json)?\s*/i, "");
+  if (!text.trim()) return null;
+  try {
+    return partialDocumentToMarkdown(type, parsePartialJson(text, Allow.ALL));
+  } catch {
+    return null;
+  }
 }
 
 async function handleJDAnalysis(args: {
@@ -448,8 +492,9 @@ async function handleStructuredGeneration(args: {
   };
   resume: { _id: string; content: string };
   candidateName: string;
+  options: JobGenerationOptions;
 }): Promise<JobGenerationResult> {
-  const { userIdStr, jobId, type, job, resume, candidateName } = args;
+  const { userIdStr, jobId, type, job, resume, candidateName, options } = args;
   const adminTemplate = await templates.get(type);
   const themeContract = adminTemplate
     ? buildPixelThemeContract({
@@ -484,40 +529,55 @@ async function handleStructuredGeneration(args: {
           themeCapacity: themeContract?.capacity ?? null,
         });
 
-  const result =
-    type === "resume"
-      ? await callMeteredStructured({
-          userId: userIdStr,
-          system: built.system,
-          userMessage: built.userMessage,
-          model: MODEL,
-          maxTokens: MAX_TOKENS,
-          schema: generatedResumeSchema,
-        })
-      : await callMeteredStructured({
-          userId: userIdStr,
-          system: built.system,
-          userMessage: built.userMessage,
-          model: MODEL,
-          maxTokens: MAX_TOKENS,
-          schema: generatedCoverLetterSchema,
-        });
+  // The prompt fixes `kind`, so the discriminated union validates either shape.
+  const schema = generatedDocumentSchema;
+  const callParams = {
+    userId: userIdStr,
+    system: built.system,
+    userMessage: built.userMessage,
+    model: MODEL,
+    maxTokens: MAX_TOKENS,
+  };
 
-  const structuredContent =
-    type === "cover_letter"
+  let result: { data: GeneratedDocument; inputTokens: number; outputTokens: number };
+  if (options.onPartial) {
+    const emit = options.onPartial;
+    let lastEmitAt = 0;
+    let lastMarkdown = "";
+    result = await callMeteredStructuredStream({
+      ...callParams,
+      schema,
+      signal: options.signal,
+      onText: (snapshot) => {
+        const now = Date.now();
+        if (now - lastEmitAt < PARTIAL_EMIT_INTERVAL_MS) return;
+        const markdown = previewFromStreamText(type, snapshot);
+        if (markdown === null || markdown === lastMarkdown) return;
+        lastEmitAt = now;
+        lastMarkdown = markdown;
+        emit(markdown);
+      },
+    });
+  } else {
+    result = await callMeteredStructured({ ...callParams, schema });
+  }
+
+  const structuredContent: GeneratedDocument =
+    result.data.kind === "cover_letter"
       ? (() => {
+          const letter = result.data;
           const fallbackContact = fallbackContactFromResume(resume.content);
           return {
-            ...result.data,
-            name: result.data.name || candidateName,
+            ...letter,
+            name: letter.name || candidateName,
             contact: {
-              location: result.data.contact.location ?? fallbackContact.location,
-              phone: result.data.contact.phone ?? fallbackContact.phone,
-              email: result.data.contact.email ?? fallbackContact.email,
-              linkedin: result.data.contact.linkedin ?? fallbackContact.linkedin,
-              github: result.data.contact.github ?? fallbackContact.github,
-              website: result.data.contact.website ?? fallbackContact.website,
-              workRights: result.data.contact.workRights ?? fallbackContact.workRights,
+              location: letter.contact.location ?? fallbackContact.location,
+              phone: letter.contact.phone ?? fallbackContact.phone,
+              email: letter.contact.email ?? fallbackContact.email,
+              linkedin: letter.contact.linkedin ?? fallbackContact.linkedin,
+              github: letter.contact.github ?? fallbackContact.github,
+              website: letter.contact.website ?? fallbackContact.website,
+              workRights: letter.contact.workRights ?? fallbackContact.workRights,
             },
           };
         })()

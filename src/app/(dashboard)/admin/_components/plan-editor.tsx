@@ -86,7 +86,12 @@ function PlanRow({ plan }: PlanRowProps) {
         <span className="font-medium text-foreground">{plan.name}</span>
         <span className="ml-2 text-xs text-muted-foreground">({plan.key})</span>
       </td>
-      <td className="py-3 pr-4 text-foreground">{formatSpend(plan.aiSpendLimitUSD)}</td>
+      <td className="py-3 pr-4 text-foreground">
+        {formatSpend(plan.aiSpendLimitUSD)}
+        {plan.budgetScope === "lifetime" && plan.aiSpendLimitUSD !== -1 && (
+          <span className="ml-1 text-xs text-muted-foreground">(one-time)</span>
+        )}
+      </td>
       <td className="py-3 pr-4 text-foreground hidden md:table-cell">{formatLimit(plan.maxResumes)}</td>
       <td className="py-3 pr-4 text-foreground hidden md:table-cell">{formatLimit(plan.maxJobs)}</td>
       <td className="py-3 text-right">
@@ -103,7 +108,9 @@ function PlanRow({ plan }: PlanRowProps) {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor={`spend-${plan._id}`}>
-                  Monthly spend limit (USD, -1 for unlimited)
+                  {plan.budgetScope === "lifetime"
+                    ? "Lifetime spend limit (USD, -1 for unlimited)"
+                    : "Monthly spend limit (USD, -1 for unlimited)"}
                 </Label>
                 <Input
                   id={`spend-${plan._id}`}

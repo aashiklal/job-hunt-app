@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/table";
 import { UserActionButton } from "../_components/user-actions";
 import { ToggleAdminButton } from "../_components/toggle-admin-button";
+import { GrantAccessButton } from "../_components/grant-access-button";
+import { DeclineAccessButton } from "../_components/decline-access-button";
 import { ClearCustomLimitButton } from "../_components/clear-custom-limit-button";
 import { SetCustomLimitDialog } from "../_components/set-custom-limit-dialog";
 import { formatAuditAction } from "../_lib/format-audit";
@@ -195,6 +197,28 @@ export default async function Page({
                 />
               </div>
             </div>
+
+            {/* Full access request row */}
+            {subscription?.upgradeRequestedAt && (
+              <div className="flex items-center justify-between gap-4 px-6 py-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground">
+                    Full access requested
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Requested{" "}
+                    {formatDistanceToNow(new Date(subscription.upgradeRequestedAt), {
+                      addSuffix: true,
+                    })}
+                    .
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <GrantAccessButton userId={targetId} userLabel={displayName ?? target.email} />
+                  <DeclineAccessButton userId={targetId} userLabel={displayName ?? target.email} />
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -203,7 +227,7 @@ export default async function Page({
       <Card className="border border-border/60 shadow-xs transition-shadow duration-200 ease-[var(--ease-out-expo)] hover:shadow-sm">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg font-medium">
-            AI spend this month
+            {usage.budgetScope === "lifetime" ? "AI spend (lifetime)" : "AI spend this month"}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -226,12 +250,13 @@ export default async function Page({
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Resets{" "}
-                {new Date(usage.periodEndsAt).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
+                {usage.budgetScope === "lifetime"
+                  ? "One-time credit. Does not reset."
+                  : `Resets ${new Date(usage.periodEndsAt).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}`}
               </p>
               <Separator />
               {hasCustomLimit ? (
@@ -243,7 +268,8 @@ export default async function Page({
                     <ClearCustomLimitButton userId={targetId} />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Plan default: {fmtUSD(planDefault)} / month
+                    Plan default: {fmtUSD(planDefault)}
+                    {usage.budgetScope === "lifetime" ? " (one-time)" : " / month"}
                   </p>
                 </div>
               ) : (
@@ -252,7 +278,8 @@ export default async function Page({
                   <span className="font-medium text-foreground">
                     {usage.planKey ?? "-"}
                   </span>{" "}
-                  ({fmtUSD(planDefault)} / month)
+                  ({fmtUSD(planDefault)}
+                  {usage.budgetScope === "lifetime" ? ", one-time" : " / month"})
                 </p>
               )}
               {subscription && (

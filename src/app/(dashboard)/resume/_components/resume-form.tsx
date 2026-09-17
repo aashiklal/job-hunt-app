@@ -132,6 +132,7 @@ export function ResumeForm({ mode, initialValues, resumeId }: Props) {
             size="sm"
             disabled={isParsing}
             onClick={() => pdfInputRef.current?.click()}
+            data-tour="upload-resume"
           >
             {isParsing ? "Parsing…" : "Upload PDF"}
           </Button>
@@ -141,6 +142,7 @@ export function ResumeForm({ mode, initialValues, resumeId }: Props) {
             size="sm"
             disabled={isParsing}
             onClick={() => docxInputRef.current?.click()}
+            data-tour="upload-resume"
           >
             {isParsing ? "Parsing…" : "Upload DOCX"}
           </Button>
@@ -183,7 +185,7 @@ export function ResumeForm({ mode, initialValues, resumeId }: Props) {
         />
 
         <div className="flex items-center gap-3">
-          <Button type="submit" disabled={isPending}>
+          <Button type="submit" disabled={isPending} data-tour="submit-resume">
             {isPending
               ? "Saving…"
               : mode === "create"

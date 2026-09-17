@@ -44,7 +44,12 @@ export async function getById(
 
 export async function create(
   userId: string,
-  data: { title: string; tags: string[]; roughDraft: string; maxWords?: number }
+  data: {
+    title: string;
+    tags: string[];
+    roughDraft: string;
+    maxWords?: number;
+  }
 ): Promise<StarStoryItem> {
   await connectDB();
   const doc = await StarStory.create({

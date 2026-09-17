@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import anthropic from "@/lib/anthropic";
-import { callStructured } from "@/lib/ai";
+import { callStructured, streamStructured } from "@/lib/ai";
 import { addSpend, calculateCost, checkBudget } from "@/lib/usage";
 
 type MeteredCallParams = {
@@ -50,6 +50,44 @@ export async function callMeteredStructured<T>(
       maxTokens: params.maxTokens,
     },
     params.schema
+  );
+
+  await recordSpend({
+    userId: params.userId,
+    feature,
+    model: params.model,
+    inputTokens: result.inputTokens,
+    outputTokens: result.outputTokens,
+  });
+
+  return result;
+}
+
+/**
+ * Streaming variant of `callMeteredStructured`. Budget is checked before the
+ * stream opens and spend is recorded from the final message's token counts.
+ * Tokens consumed by a stream the client aborts are not metered, because the
+ * API only reports usage on the final message.
+ */
+export async function callMeteredStructuredStream<T>(
+  params: StructuredCallParams<T> & {
+    signal?: AbortSignal;
+    onText: (snapshot: string) => void;
+  }
+): Promise<{ data: T; inputTokens: number; outputTokens: number }> {
+  const feature = params.feature ?? "aiGeneration";
+  await checkBudget(params.userId, feature);
+
+  const result = await streamStructured(
+    {
+      system: params.system,
+      userMessage: params.userMessage,
+      model: params.model,
+      maxTokens: params.maxTokens,
+      signal: params.signal,
+    },
+    params.schema,
+    params.onText
   );
 
   await recordSpend({

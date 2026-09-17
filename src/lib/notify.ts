@@ -38,6 +38,19 @@ async function getAdminEmails(): Promise<string[]> {
 }
 
 /**
+ * NEXT_PUBLIC_APP_URL takes priority; falls back to Vercel's auto-injected
+ * production URL (server-only, no https prefix), then empty string.
+ */
+function resolveAppUrl(): string {
+  const rawUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : "");
+  return rawUrl.replace(/\/$/, "");
+}
+
+/**
  * Fire-and-forget email to all admins when a new user signs up.
  * Safe to await because errors are caught and logged instead of breaking the webhook response.
  */
@@ -51,16 +64,7 @@ export async function notifyAdminsNewSignup(user: {
 
   const displayName =
     [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email;
-
-  // NEXT_PUBLIC_APP_URL takes priority; fall back to Vercel's auto-injected
-  // production URL (server-only, no https prefix), then empty string.
-  const rawUrl =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    (process.env.VERCEL_PROJECT_PRODUCTION_URL
-      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-      : "");
-  const appUrl = rawUrl.replace(/\/$/, "");
-  const adminUrl = `${appUrl}/admin`;
+  const adminUrl = `${resolveAppUrl()}/admin`;
 
   const html = `
     <p>Hi,</p>
@@ -88,4 +92,79 @@ export async function notifyAdminsNewSignup(user: {
       console.error("[notify] Failed to send Telegram notification:", err)
     ),
   ]);
+}
+
+/**
+ * Fire-and-forget notification to all admins when a free-plan user requests
+ * full access. Never throws.
+ */
+export async function notifyAdminsUpgradeRequest(user: {
+  _id: { toString(): string };
+  email: string;
+  firstName?: string | null;
+  lastName?: string | null;
+}): Promise<void> {
+  const adminEmails = await getAdminEmails();
+  if (adminEmails.length === 0) return;
+
+  const displayName =
+    [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email;
+  const userUrl = `${resolveAppUrl()}/admin/${user._id.toString()}`;
+
+  const html = `
+    <p>Hi,</p>
+    <p><strong>${displayName}</strong> (${user.email}) has requested full access.</p>
+    <p><a href="${userUrl}">Review in the admin panel →</a></p>
+  `.trim();
+
+  const text = `${displayName} (${user.email}) has requested full access.\n\nReview here: ${userUrl}`;
+
+  const telegramText = `Full access requested: ${displayName} (${user.email})\n\nReview here: ${userUrl}`;
+
+  await Promise.allSettled([
+    getResend()
+      .emails.send({
+        from: FROM,
+        to: adminEmails,
+        subject: `Full access requested: ${displayName}`,
+        html,
+        text,
+      })
+      .catch((err) =>
+        console.error("[notify] Failed to send email notification:", err)
+      ),
+    sendTelegramMessage(telegramText).catch((err) =>
+      console.error("[notify] Failed to send Telegram notification:", err)
+    ),
+  ]);
+}
+
+/**
+ * Fire-and-forget email to the user when an admin grants them full access.
+ * Never throws.
+ */
+export async function notifyUserUpgraded(user: {
+  email: string;
+  firstName?: string | null;
+}): Promise<void> {
+  const greeting = user.firstName ? `Hi ${user.firstName},` : "Hi,";
+  const appUrl = resolveAppUrl();
+
+  const html = `
+    <p>${greeting}</p>
+    <p>You now have full access to Job Hunt. Your monthly AI budget has been upgraded.</p>
+    <p><a href="${appUrl}">Open the app →</a></p>
+  `.trim();
+
+  const text = `${greeting}\n\nYou now have full access to Job Hunt. Your monthly AI budget has been upgraded.\n\nOpen the app: ${appUrl}`;
+
+  await getResend()
+    .emails.send({
+      from: FROM,
+      to: [user.email],
+      subject: "You now have full access",
+      html,
+      text,
+    })
+    .catch((err) => console.error("[notify] Failed to send email notification:", err));
 }

@@ -2,7 +2,7 @@ import "server-only";
 import * as users from "@/lib/repositories/users";
 import * as subscriptions from "@/lib/repositories/subscriptions";
 import * as auditLog from "@/lib/repositories/audit-log";
-import { notifyAdminsNewSignup } from "@/lib/notify";
+import { notifyAdminsNewSignup, notifyAdminsUpgradeRequest, notifyUserUpgraded } from "@/lib/notify";
 import type { IUser } from "@/lib/repositories/users";
 
 type ClerkUserProfile = {
@@ -12,8 +12,41 @@ type ClerkUserProfile = {
   lastName?: string;
 };
 
+/** Plan given to users approved by an admin. */
+export const ADMIN_APPROVED_PLAN_KEY = "personal";
+/** Capped plan given to self-serve sign-ups when auto-approval is on. */
+export const AUTO_APPROVED_PLAN_KEY = "free";
+
 function idOf(user: { _id: unknown }) {
   return (user._id as { toString(): string }).toString();
+}
+
+/**
+ * Self-serve mode. When on, new sign-ups skip the admin approval queue and
+ * land instantly on the capped "free" plan. Read at call time so the flag
+ * can be flipped without a rebuild.
+ */
+export function isAutoApproveEnabled(): boolean {
+  return process.env.AUTO_APPROVE_SIGNUPS === "true";
+}
+
+/**
+ * Grants dashboard access: marks the user approved and ensures a
+ * subscription on the given plan.
+ */
+export async function activateUser(
+  userId: string,
+  planKey: string
+): Promise<IUser | null> {
+  const updated = await users.setStatus(userId, "approved");
+  if (!updated) return null;
+
+  const subscription = await subscriptions.ensureForUser(userId, planKey);
+  if (!subscription) {
+    throw new Error("Failed to create subscription for approved user.");
+  }
+
+  return updated;
 }
 
 async function claimOrCreatePendingUser(
@@ -29,9 +62,13 @@ async function claimOrCreatePendingUser(
     if (claimed) return claimed;
   }
 
-  const user = await users.upsertFromClerk(profile);
+  let user = await users.upsertFromClerk(profile);
   if (!user) {
     throw new Error(`Failed to create pending user for Clerk ID ${profile.clerkId}.`);
+  }
+
+  if (user.status === "pending" && isAutoApproveEnabled()) {
+    user = (await activateUser(idOf(user), AUTO_APPROVED_PLAN_KEY)) ?? user;
   }
 
   if (options.notifyAdmins) {
@@ -83,13 +120,8 @@ export async function approveUser(admin: IUser, targetUserId: string) {
   const ctx = await auditContext(admin, targetUserId);
   if (!ctx) return null;
 
-  const updated = await users.setStatus(targetUserId, "approved");
+  const updated = await activateUser(targetUserId, ADMIN_APPROVED_PLAN_KEY);
   if (!updated) return null;
-
-  const subscription = await subscriptions.ensureForUser(targetUserId);
-  if (!subscription) {
-    throw new Error("Failed to create subscription for approved user.");
-  }
 
   await auditLog.create({
     ...ctx,
@@ -121,6 +153,53 @@ export async function requestAccessAgain(clerkId: string) {
   if (user && user.status === "rejected") {
     await users.setStatus(idOf(user), "pending");
   }
+}
+
+/** A free-plan user asks for full access. Always available, at any spend level. */
+export async function requestFullAccess(user: IUser): Promise<void> {
+  await subscriptions.requestUpgrade(idOf(user));
+  await notifyAdminsUpgradeRequest(user);
+}
+
+/** Admin grants a pending request: moves the user to the paid plan and clears the request. */
+export async function grantFullAccess(admin: IUser, targetUserId: string) {
+  const ctx = await auditContext(admin, targetUserId);
+  if (!ctx) return null;
+
+  const updated = await subscriptions.setPlan(targetUserId, ADMIN_APPROVED_PLAN_KEY);
+  if (!updated) {
+    throw new Error("User has no subscription. Approve them first.");
+  }
+
+  await auditLog.create({
+    ...ctx,
+    action: "user.upgrade_granted",
+  });
+
+  const target = await users.getById(targetUserId);
+  if (target) {
+    await notifyUserUpgraded(target);
+  }
+
+  return updated;
+}
+
+/** Admin declines a pending request: clears it silently, no email to the user. */
+export async function declineFullAccessRequest(admin: IUser, targetUserId: string) {
+  const ctx = await auditContext(admin, targetUserId);
+  if (!ctx) return null;
+
+  const updated = await subscriptions.clearUpgradeRequest(targetUserId);
+  if (!updated) {
+    throw new Error("User has no subscription.");
+  }
+
+  await auditLog.create({
+    ...ctx,
+    action: "user.upgrade_declined",
+  });
+
+  return updated;
 }
 
 export async function toggleAdmin(admin: IUser, targetUserId: string) {

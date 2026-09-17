@@ -61,6 +61,16 @@ export async function create(
   return toResumeListItem(doc);
 }
 
+/** Promotes the most recently updated remaining resume when no default is left. */
+async function ensureDefaultExists(userId: string): Promise<void> {
+  const hasDefault = await Resume.exists({ userId, isDefault: true });
+  if (hasDefault) return;
+  const next = await Resume.findOne({ userId }).sort({ updatedAt: -1 });
+  if (next) {
+    await Resume.findByIdAndUpdate(next._id, { $set: { isDefault: true } });
+  }
+}
+
 export async function countForUser(userId: string): Promise<number> {
   await connectDB();
   return Resume.countDocuments({ userId });
@@ -111,10 +121,7 @@ export async function deleteResume(
   await resume.deleteOne();
 
   if (wasDefault) {
-    const next = await Resume.findOne({ userId }).sort({ updatedAt: -1 });
-    if (next) {
-      await Resume.findByIdAndUpdate(next._id, { $set: { isDefault: true } });
-    }
+    await ensureDefaultExists(userId);
   }
 
   return true;

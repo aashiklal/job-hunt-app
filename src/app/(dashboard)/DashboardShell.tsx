@@ -134,12 +134,14 @@ function SidebarContent({
   onNavigate,
   isAdmin,
   usageWidget,
+  nextStepPill,
   collapsed,
   onToggleCollapse,
 }: {
   onNavigate?: () => void;
   isAdmin?: boolean;
   usageWidget?: React.ReactNode;
+  nextStepPill?: React.ReactNode;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
 }) {
@@ -176,6 +178,10 @@ function SidebarContent({
       <NavLinks onNavigate={onNavigate} isAdmin={isAdmin} collapsed={collapsed} />
 
       <div className="mt-2 flex flex-col">
+        {nextStepPill && !collapsed && (
+          <div className="border-t border-border pb-1 pt-2">{nextStepPill}</div>
+        )}
+
         {usageWidget && !collapsed && (
           <div className="border-t border-border pb-1 pt-2">
             {usageWidget}
@@ -198,10 +204,12 @@ export default function DashboardShell({
   children,
   isAdmin,
   usageWidget,
+  nextStepPill,
 }: {
   children: React.ReactNode;
   isAdmin?: boolean;
   usageWidget?: React.ReactNode;
+  nextStepPill?: React.ReactNode;
 }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -215,6 +223,7 @@ export default function DashboardShell({
         <SidebarContent
           isAdmin={isAdmin}
           usageWidget={usageWidget}
+          nextStepPill={nextStepPill}
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
         />
@@ -251,12 +260,13 @@ export default function DashboardShell({
             onNavigate={() => setDrawerOpen(false)}
             isAdmin={isAdmin}
             usageWidget={usageWidget}
+            nextStepPill={nextStepPill}
           />
         </SheetContent>
       </Sheet>
 
       <main
-        className={`flex-1 p-6 md:p-8 transition-[margin] duration-200 ease-[var(--ease-out-expo)] ${sidebarCollapsed ? "md:ml-16" : "md:ml-60"}`}
+        className={`min-w-0 flex-1 p-6 md:p-8 transition-[margin] duration-200 ease-[var(--ease-out-expo)] ${sidebarCollapsed ? "md:ml-16" : "md:ml-60"}`}
       >
         {children}
       </main>

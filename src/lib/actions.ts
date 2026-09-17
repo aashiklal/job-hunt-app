@@ -8,7 +8,13 @@ import { QuotaExceededError } from "@/lib/usage";
 export type ActionContext = ApprovedUserContext;
 
 export type ActionError =
-  | { code: "QUOTA_EXCEEDED"; message: string; limit: number; periodEndsAt: string }
+  | {
+      code: "QUOTA_EXCEEDED";
+      message: string;
+      limit: number;
+      periodEndsAt: string;
+      budgetScope: "monthly" | "lifetime";
+    }
   | { code: "VALIDATION"; message: string; fieldErrors?: Record<string, string> }
   | { code: "NOT_FOUND"; message: string }
   | { code: "FORBIDDEN"; message: string }
@@ -43,6 +49,7 @@ function handleError(err: unknown): ActionResult<never> {
         message: err.message,
         limit: err.limit,
         periodEndsAt: err.periodEndsAt.toISOString(),
+        budgetScope: err.budgetScope,
       },
     };
   }

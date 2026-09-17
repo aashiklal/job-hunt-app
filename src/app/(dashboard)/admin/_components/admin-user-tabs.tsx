@@ -18,6 +18,7 @@ type AdminUserTabsProps = {
   spendLimit: number;
   page: number;
   totalPages: number;
+  upgradeRequestUserIds?: Set<string>;
 };
 
 const USER_STATUSES = ["pending", "approved", "rejected"] as const;
@@ -40,7 +41,9 @@ export function AdminUserTabs({
   spendLimit,
   page,
   totalPages,
+  upgradeRequestUserIds,
 }: AdminUserTabsProps) {
+  const pendingUpgradeCount = upgradeRequestUserIds?.size ?? 0;
   const router = useRouter();
   const searchParams = useSearchParams();
   const activeTab = parseTab(searchParams.get("tab"));
@@ -98,6 +101,15 @@ export function AdminUserTabs({
           <Badge className="ml-1.5 h-4 px-1.5 py-0 text-xs">
             {approvedCount}
           </Badge>
+          {pendingUpgradeCount > 0 && (
+            <Badge
+              variant="outline"
+              className="ml-1 h-4 px-1.5 py-0 text-xs"
+              title="Pending full access requests"
+            >
+              {pendingUpgradeCount} requested
+            </Badge>
+          )}
         </TabsTrigger>
         <TabsTrigger value="rejected">
           Rejected
@@ -136,6 +148,7 @@ export function AdminUserTabs({
             showReject
             spendMap={approvedSpend}
             spendLimit={spendLimit}
+            upgradeRequestUserIds={upgradeRequestUserIds}
           />
         )}
         {totalPages > 1 && paginationControls}

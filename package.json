@@ -7,11 +7,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "bootstrap:admin": "tsx scripts/bootstrap-admin.ts",
-    "seed:plans": "tsx scripts/seed-plans.ts",
+    "seed:plans": "tsx --conditions=react-server scripts/seed-plans.ts",
     "backfill:subscriptions": "tsx scripts/backfill-subscriptions.ts",
     "test:generate": "tsx scripts/test-generate.ts",
-    "test:docx-export": "tsx scripts/test-docx-export.ts",
+    "test:docx-export": "tsx --conditions=react-server scripts/test-docx-export.ts",
     "generate:cover-letter-template": "tsx scripts/generate-cover-letter-template.ts"
   },
   "dependencies": {
@@ -24,12 +27,14 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "docx": "^9.6.1",
+    "driver.js": "^1.8.0",
     "jszip": "^3.10.1",
     "lucide-react": "^1.7.0",
     "mammoth": "^1.12.0",
     "mongoose": "^9.4.1",
     "next": "^16.2.4",
     "next-themes": "^0.4.6",
+    "partial-json": "^0.1.7",
     "radix-ui": "^1.4.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -57,6 +62,7 @@
     "eslint-config-next": "16.2.2",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   }
 }

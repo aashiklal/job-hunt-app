@@ -101,7 +101,7 @@ export async function POST() {
   } catch (err) {
     if (err instanceof QuotaExceededError) {
       return NextResponse.json(
-        { error: "QUOTA_EXCEEDED", message: err.message, limit: err.limit, used: err.used, periodEndsAt: err.periodEndsAt.toISOString() },
+        { error: "QUOTA_EXCEEDED", message: err.message, limit: err.limit, used: err.used, periodEndsAt: err.periodEndsAt.toISOString(), budgetScope: err.budgetScope },
         { status: 429 }
       );
     }

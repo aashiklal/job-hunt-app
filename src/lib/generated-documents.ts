@@ -399,3 +399,121 @@ export function generatedDocumentToMarkdown(doc: GeneratedDocument): string {
 export function fallbackContactFromResume(markdown: string) {
   return parseResumeContactInfo(markdown);
 }
+
+// ---------------------------------------------------------------------------
+// Progressive rendering of a document that is still streaming in
+// ---------------------------------------------------------------------------
+
+type Raw = Record<string, unknown>;
+
+function asRecord(value: unknown): Raw {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Raw) : {};
+}
+
+function str(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function strArr(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((v): v is string => typeof v === "string" && v.length > 0)
+    : [];
+}
+
+function recArr(value: unknown): Raw[] {
+  return Array.isArray(value) ? value.map(asRecord) : [];
+}
+
+function contactOf(value: unknown): GeneratedResume["contact"] {
+  const c = asRecord(value);
+  return {
+    location: str(c.location),
+    phone: str(c.phone),
+    email: str(c.email),
+    linkedin: str(c.linkedin),
+    github: str(c.github),
+    website: str(c.website),
+    workRights: str(c.workRights),
+  };
+}
+
+/**
+ * Coerces the output of a lenient JSON parser (fed a prefix of the model's
+ * response) into a fully-shaped document. Missing scalars become null or "",
+ * missing arrays become [], and array items are dropped until the fields the
+ * renderer needs have arrived. Output only ever grows as more text streams in.
+ */
+export function normalizePartialDocument(
+  kind: "resume" | "cover_letter",
+  raw: unknown
+): GeneratedDocument {
+  const r = asRecord(raw);
+
+  if (kind === "cover_letter") {
+    return {
+      kind: "cover_letter",
+      name: str(r.name) ?? "",
+      contact: contactOf(r.contact),
+      date: str(r.date) ?? "",
+      recipient: str(r.recipient),
+      company: str(r.company) ?? "",
+      role: str(r.role) ?? "",
+      bodyParagraphs: strArr(r.bodyParagraphs),
+      closing: str(r.closing),
+      signoff: str(r.signoff) ?? "",
+    };
+  }
+
+  return {
+    kind: "resume",
+    name: str(r.name) ?? "",
+    contact: contactOf(r.contact),
+    summary: str(r.summary),
+    skills: recArr(r.skills).flatMap((s) => {
+      const category = str(s.category);
+      return category ? [{ category, items: strArr(s.items) }] : [];
+    }),
+    experience: recArr(r.experience).flatMap((e) => {
+      const jobTitle = str(e.jobTitle);
+      const company = str(e.company);
+      return jobTitle && company
+        ? [
+            {
+              jobTitle,
+              company,
+              dateRange: str(e.dateRange) ?? "",
+              subtitle: str(e.subtitle),
+              bullets: strArr(e.bullets),
+            },
+          ]
+        : [];
+    }),
+    projects: recArr(r.projects).flatMap((p) => {
+      const name = str(p.name);
+      return name ? [{ name, techStack: str(p.techStack), bullets: strArr(p.bullets) }] : [];
+    }),
+    education: recArr(r.education).flatMap((e) => {
+      const degree = str(e.degree);
+      const school = str(e.school);
+      return degree && school
+        ? [{ degree, school, gradDate: str(e.gradDate), notes: str(e.notes) }]
+        : [];
+    }),
+    certifications: strArr(r.certifications),
+    footer: str(r.footer),
+  };
+}
+
+/**
+ * Markdown preview for a document that is still streaming. Returns "" until
+ * the candidate's name has arrived so the preview never opens with an empty
+ * heading.
+ */
+export function partialDocumentToMarkdown(
+  kind: "resume" | "cover_letter",
+  raw: unknown
+): string {
+  const doc = normalizePartialDocument(kind, raw);
+  if (!doc.name) return "";
+  return generatedDocumentToMarkdown(doc);
+}

@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { UserActionButton } from "./user-actions";
 import type { UserListItem } from "@/lib/repositories/users";
 
@@ -20,6 +21,8 @@ type Props = {
   showReject: boolean;
   spendMap?: Record<string, number>;
   spendLimit?: number;
+  /** User ids with a pending full-access request. */
+  upgradeRequestUserIds?: Set<string>;
 };
 
 export function UserTable({
@@ -29,6 +32,7 @@ export function UserTable({
   showReject,
   spendMap,
   spendLimit,
+  upgradeRequestUserIds,
 }: Props) {
   const router = useRouter();
   const showSpend = !!spendMap;
@@ -65,7 +69,14 @@ export function UserTable({
                 onClick={() => router.push(`/admin/${id}`)}
               >
                 <TableCell className="text-foreground">
-                  <div className="max-w-[220px] truncate">{user.email}</div>
+                  <div className="flex max-w-[220px] items-center gap-1.5">
+                    <span className="truncate">{user.email}</span>
+                    {upgradeRequestUserIds?.has(id) && (
+                      <Badge variant="outline" className="shrink-0 text-[10px]">
+                        Requested access
+                      </Badge>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className="hidden text-foreground md:table-cell">
                   <div className="max-w-[160px] truncate">{name}</div>

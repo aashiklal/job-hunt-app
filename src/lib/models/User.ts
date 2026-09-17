@@ -8,6 +8,8 @@ export type IUser = {
   createdAt: Date;
   status: "pending" | "approved" | "rejected";
   isAdmin: boolean;
+  /** Set when the user dismisses the getting-started tour. Null/undefined = still show it. */
+  onboardingDismissedAt?: Date | null;
 } & Document;
 
 const UserSchema = new Schema<IUser>(
@@ -24,6 +26,7 @@ const UserSchema = new Schema<IUser>(
       index: true,
     },
     isAdmin: { type: Boolean, default: false },
+    onboardingDismissedAt: { type: Date, default: null },
   },
   { timestamps: false }
 );

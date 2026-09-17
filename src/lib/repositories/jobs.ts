@@ -56,6 +56,8 @@ export type JobCreateInput = {
   status?: JobStatus;
   notes?: string;
   appliedAt?: Date | null;
+  contactName?: string;
+  contactTitle?: string;
 };
 
 export type JobUpdateInput = {
@@ -129,6 +131,8 @@ export async function create(
     status: data.status ?? "saved",
     notes: data.notes,
     appliedAt: data.appliedAt ?? undefined,
+    contactName: data.contactName,
+    contactTitle: data.contactTitle,
     deletedAt: null,
   });
   return toJobListItem(doc);

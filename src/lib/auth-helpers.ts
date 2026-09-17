@@ -48,7 +48,9 @@ export const requireApprovedUserWithPlan = cache(
         });
       }
 
-      // Truly new user. Create a pending record as a local-dev webhook substitute.
+      // Truly new user. Create a record as a local-dev webhook substitute.
+      // The status checks below decide where they land, so auto-approved
+      // sign-ups go straight to the dashboard on their first request.
       if (!user) {
         user = await userAccess.ensureUserForClerkSession({
           clerkId: userId,
@@ -56,7 +58,6 @@ export const requireApprovedUserWithPlan = cache(
           firstName: clerkUser.firstName ?? undefined,
           lastName: clerkUser.lastName ?? undefined,
         });
-        redirect("/pending");
       }
     }
 

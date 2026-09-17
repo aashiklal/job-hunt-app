@@ -7,19 +7,99 @@ import {
   generateForJob,
   JobGenerationError,
   jobGenerationRequestSchema,
+  STREAMED_TYPES,
 } from "@/lib/job-ai-generation";
 
-function quotaResponse(err: QuotaExceededError) {
-  return NextResponse.json(
-    {
-      error: "QUOTA_EXCEEDED",
-      message: err.message,
-      limit: err.limit,
-      used: err.used,
-      periodEndsAt: err.periodEndsAt.toISOString(),
+type ErrorPayload = {
+  status: number;
+  body: Record<string, unknown>;
+};
+
+/** Maps a generation failure to the status and body both response modes share. */
+function toErrorPayload(err: unknown): ErrorPayload {
+  if (err instanceof QuotaExceededError) {
+    return {
+      status: 429,
+      body: {
+        error: "QUOTA_EXCEEDED",
+        message: err.message,
+        limit: err.limit,
+        used: err.used,
+        periodEndsAt: err.periodEndsAt.toISOString(),
+        budgetScope: err.budgetScope,
+      },
+    };
+  }
+  if (err instanceof JobGenerationError) {
+    return { status: err.status, body: { error: err.code, message: err.message } };
+  }
+  console.error("[generate] generation failed:", err);
+  return { status: 500, body: { error: "Generation failed." } };
+}
+
+/**
+ * Streams a resume or cover letter as newline-delimited JSON:
+ *   {"type":"partial","markdown":...}   repeated as the document fills in
+ *   {"type":"done",documentId,content,structuredContent}
+ *   {"type":"error",status,error,message,...}   if generation fails mid-stream
+ * The HTTP status is always 200 once the stream opens; errors travel in-band.
+ */
+function streamGeneration(
+  req: NextRequest,
+  user: Parameters<typeof generateForJob>[0],
+  input: Parameters<typeof generateForJob>[1]
+): Response {
+  const encoder = new TextEncoder();
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      let closed = false;
+      const send = (event: Record<string, unknown>) => {
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
+        } catch {
+          closed = true;
+        }
+      };
+
+      try {
+        const result = await generateForJob(user, input, {
+          signal: req.signal,
+          onPartial: (markdown) => send({ type: "partial", markdown }),
+        });
+        if (result.kind === "structured_document") {
+          send({
+            type: "done",
+            documentId: result.documentId,
+            content: result.content,
+            structuredContent: result.structuredContent,
+          });
+        }
+      } catch (err) {
+        if (!req.signal.aborted) {
+          const { status, body } = toErrorPayload(err);
+          send({ type: "error", status, ...body });
+        }
+      } finally {
+        closed = true;
+        try {
+          controller.close();
+        } catch {
+          // Client already disconnected.
+        }
+      }
     },
-    { status: 429 }
-  );
+  });
+
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      "X-Accel-Buffering": "no",
+    },
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -48,6 +128,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
+  if (STREAMED_TYPES.has(parseResult.data.type)) {
+    return streamGeneration(req, user, parseResult.data);
+  }
+
   try {
     const result = await generateForJob(user, parseResult.data);
     if (result.kind === "jd_analysis") {
@@ -65,19 +149,7 @@ export async function POST(req: NextRequest) {
       structuredContent: result.structuredContent,
     });
   } catch (err) {
-    if (err instanceof QuotaExceededError) {
-      return quotaResponse(err);
-    }
-    if (err instanceof JobGenerationError) {
-      return NextResponse.json(
-        {
-          error: err.code,
-          message: err.message,
-        },
-        { status: err.status }
-      );
-    }
-    console.error("[generate] generation failed:", err);
-    return NextResponse.json({ error: "Generation failed." }, { status: 500 });
+    const { status, body: errorBody } = toErrorPayload(err);
+    return NextResponse.json(errorBody, { status });
   }
 }

@@ -19,6 +19,10 @@ export function formatAuditAction(
     }
     case "user.custom_limit_cleared":
       return "Cleared custom limit";
+    case "user.upgrade_granted":
+      return "Granted full access";
+    case "user.upgrade_declined":
+      return "Declined access request";
     case "template.uploaded":
       return `Uploaded ${details?.templateType ?? "template"} template`;
     case "template.deleted":

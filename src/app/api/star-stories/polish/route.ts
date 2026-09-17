@@ -78,6 +78,7 @@ export async function POST(req: NextRequest) {
           limit: err.limit,
           used: err.used,
           periodEndsAt: err.periodEndsAt.toISOString(),
+          budgetScope: err.budgetScope,
         },
         { status: 429 }
       );

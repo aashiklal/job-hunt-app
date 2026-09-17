@@ -8,6 +8,7 @@ export type IPlanListItem = {
   key: string;
   name: string;
   aiSpendLimitUSD: number;
+  budgetScope: "monthly" | "lifetime";
   maxResumes: number;
   maxJobs: number;
   active: boolean;
@@ -19,6 +20,7 @@ export function toPlanListItem(doc: IPlan): IPlanListItem {
     key: doc.key,
     name: doc.name,
     aiSpendLimitUSD: doc.aiSpendLimitUSD,
+    budgetScope: doc.budgetScope,
     maxResumes: doc.maxResumes,
     maxJobs: doc.maxJobs,
     active: doc.active,

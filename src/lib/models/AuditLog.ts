@@ -7,6 +7,8 @@ export type AuditAction =
   | "user.admin_revoked"
   | "user.custom_limit_set"
   | "user.custom_limit_cleared"
+  | "user.upgrade_granted"
+  | "user.upgrade_declined"
   | "template.uploaded"
   | "template.deleted"
   | "plan.updated";
@@ -36,6 +38,8 @@ const AuditLogSchema = new Schema<IAuditLog>(
         "user.admin_revoked",
         "user.custom_limit_set",
         "user.custom_limit_cleared",
+        "user.upgrade_granted",
+        "user.upgrade_declined",
         "template.uploaded",
         "template.deleted",
         "plan.updated",
