@@ -1,5 +1,13 @@
+import {
+  APPLICATION_EVIDENCE_RULES,
+  APPLICATION_TAILORING_RULES,
+  JOB_ANALYSIS_EVIDENCE_RULES,
+} from "@/lib/tailoring-rules";
+
 export function buildJobParsePrompt(args: { text: string }) {
   const system = `You are a job posting parser. Extract structured details from a raw job posting.
+
+${JOB_ANALYSIS_EVIDENCE_RULES}
 
 Respond with ONLY a JSON object matching this exact schema - no preamble, no commentary, no markdown code fences:
 
@@ -32,7 +40,7 @@ Rules:
 - "niceToHaves": skills labelled preferred, bonus, advantageous, or similar.
 - "keywordsForResume": 8-20 exact strings from the posting worth mirroring in a resume.
 - "interviewLikelyFocus": 3-6 likely interview topics signalled by the posting.
-- "redFlags": concrete concerns such as implausible scope, unclear salary, unrelated skill breadth, out-of-hours expectations, or vague responsibilities. Empty array if none.
+- "redFlags": concrete concerns supported by the posting, such as conflicting scope or explicit excessive out-of-hours expectations. Label missing salary or unclear responsibilities as items to clarify, not evidence of poor conditions. Empty array if none.
 
 Respond with ONLY the JSON object.`;
 
@@ -48,6 +56,8 @@ Return the JSON.`;
 export function buildJDAnalysisPrompt(args: { jobDescription: string }) {
   const { jobDescription } = args;
   const system = `You are an expert job description analyst helping a job applicant prepare a targeted application.
+
+${JOB_ANALYSIS_EVIDENCE_RULES}
 
 Read the job description carefully and return a structured analysis. Respond with ONLY a JSON object matching this exact schema - no preamble, no commentary, no markdown code fences:
 
@@ -71,11 +81,11 @@ requiredSkills: hard skills the candidate MUST have to pass the initial screen -
 
 niceToHaves: skills the JD labels "preferred", "bonus", "nice to have", or "advantageous". Empty array if none.
 
-keywordsForResume: 8-20 exact strings the candidate should mirror in their resume to pass ATS and resonate with recruiters. Include specific technology names, domain/industry terms, role-specific methodology phrases, and competency phrases the JD genuinely emphasises. Prioritise terms that appear multiple times or are used in the requirements section. Use the JD's exact wording - not synonyms. Return raw terms only; do not prefix with categories.
+keywordsForResume: usually 8-20 distinct exact strings worth considering for a resume when supported by the applicant's background; use fewer for sparse postings. Include technology names, domain terms, methodologies, and competencies central to the actual work. Prioritise explicit requirements and core responsibilities over repetition. Use the JD's exact wording. Return raw terms only; do not prefix with categories.
 
 interviewLikelyFocus: 3-6 short strings describing the specific topics this JD signals will be tested. Think like the hiring manager designing the interview loop. Be specific to this role - do not list generic topics. Format each as "Category: specific topic" (e.g. "Technical: SQL window functions and query optimisation", "System design: event-driven microservices", "Behavioural: navigating ambiguity without clear requirements", "Domain: experience with GDPR compliance workflows"). Include technical, behavioural, domain, or portfolio-review topics only when the JD signals them.
 
-redFlags: concrete signals the role may be misrepresented or working conditions are poor. Look for: scope creep disguised as "wear many hats", missing or implausibly wide salary range, demands for an implausible breadth of unrelated skills, vague or unmeasurable responsibilities, "fast-paced startup environment" without specifics, no mention of team size or reporting structure, excessive out-of-hours expectations. Empty array if the JD looks clean and well-scoped.
+redFlags: concrete concerns supported by the wording, such as conflicting scope, mandatory unpaid work, or explicit excessive out-of-hours expectations. Explain the relevant signal briefly. Missing salary, team size, or reporting structure may be phrased as "Clarify: ..." when useful; do not treat omissions or phrases like "fast-paced" alone as proof of poor conditions. Empty array if there are no concrete concerns.
 
 Respond with ONLY the JSON object. No code fences. No preamble. No explanation.`;
 
@@ -99,6 +109,8 @@ export function buildLinkedInConnectionNotePrompt(args: {
   const { senderName, recipientName, recipientTitle, job, baseResume, connectionReason } = args;
   const system = `You are helping a job applicant write a LinkedIn connection request note.
 
+${APPLICATION_TAILORING_RULES}
+
 LinkedIn connection notes have a hard 300-character limit (including spaces). You MUST stay within 300 characters.
 
 Rules:
@@ -116,8 +128,8 @@ Role I am applying for: ${job.role}
 My name: ${senderName}
 ${connectionReason ? `Shared context: ${connectionReason}` : ""}
 
-Most relevant part of my background (use one fact from this):
-${baseResume.slice(0, 800)}
+My background (select one relevant fact from the entire resume):
+${baseResume}
 
 Write the connection note. Stay under 300 characters.`;
 
@@ -138,6 +150,8 @@ export function buildLinkedInRecruiterDMPrompt(args: {
 
 The goal is to get a reply - not to sell the applicant's entire career in one message. Short messages get replies. Long messages get ignored.
 
+${APPLICATION_TAILORING_RULES}
+
 Rules:
 - Keep it between 60 and 100 words. Hard limit.
 - Open with one specific sentence that shows you know the company or the role (not generic flattery).
@@ -156,11 +170,11 @@ Has already applied: ${hasApplied ? "yes" : "no"}
 Tone: ${tone}
 My name: ${senderName}
 
-Job description (excerpt for context, use to find one specific detail):
-${(job.jobDescription ?? "").slice(0, 600)}
+Job description (use to find one supported specific detail):
+${job.jobDescription ?? "(No job description provided)"}
 
 My background (use the single most relevant credential):
-${baseResume.slice(0, 800)}
+${baseResume}
 
 Write the LinkedIn DM. 60-100 words, plain text only.`;
 
@@ -176,10 +190,12 @@ export function buildFollowUpApplicationEmailPrompt(args: {
   const { senderName, recipientName, job, daysSinceApplied } = args;
   const system = `You are helping a job applicant write a polite follow-up email after submitting a job application with no response.
 
+${APPLICATION_EVIDENCE_RULES}
+
 Rules:
 - Subject line: reference the exact role and company. Keep it short.
 - Body: 2 short paragraphs, under 120 words total.
-  - Para 1: briefly restate the application (role, company, approximate date). Express continued interest - one specific sentence about why this role still appeals.
+  - Para 1: briefly restate the application (role, company, approximate date). Express continued interest in the named role without inventing a company-specific reason or background details.
   - Para 2: offer to provide any additional materials and suggest a brief call. Easy, confident close.
 - Do NOT sound needy or apologetic. Do NOT say "I just wanted to check in".
 - Do NOT re-pitch skills - this is a courtesy nudge, not a new pitch.
@@ -208,6 +224,8 @@ export function buildThankYouEmailPrompt(args: {
 }): { system: string; userMessage: string } {
   const { senderName, interviewerName, interviewerTitle, job, interviewTopics, interviewType } = args;
   const system = `You are helping a job applicant write a thank you email after a job interview.
+
+${APPLICATION_EVIDENCE_RULES}
 
 Rules:
 - Subject line: "Thank you - [Role] interview" or a variation. Keep it clear.
@@ -239,9 +257,11 @@ export function buildInterviewPrepPrompt(args: {
   focusAreas?: string;
 }): { system: string; userMessage: string } {
   const { job, baseResume, seniorityLevel, focusAreas } = args;
-  const system = `You are an expert technical interviewer helping a job applicant prepare for an upcoming interview.
+  const system = `You are an experienced interviewer helping a job applicant prepare for an upcoming interview.
 
 Your job is to generate a realistic set of interview questions the applicant is likely to face, based on the job description and their resume. The questions should feel like they came from a real interviewer at this company, not a generic list.
+
+${APPLICATION_EVIDENCE_RULES}
 
 Respond with ONLY a JSON object matching this exact schema - no preamble, no commentary, no markdown code fences:
 
@@ -264,12 +284,13 @@ Respond with ONLY a JSON object matching this exact schema - no preamble, no com
 }
 
 Rules:
-- behavioral: 4-5 STAR-format questions. Tailor to the seniority level and the skills on the resume.
-- technical: 4-6 questions. For junior roles: foundational CS + the primary stack. For senior+: system design, trade-offs, architecture decisions. Ground these in the specific technologies mentioned in the JD.
+- behavioral: 4-5 questions that invite STAR-format answers. Tailor to actual resume experience and the responsibilities in the JD. Do not assume the applicant has led teams or done work absent from the resume; use a hypothetical question when testing an unsupported requirement.
+- technical: 4-6 questions on the role's specialist skills, tools, or methods. Use CS or system design only for roles that call for them. For non-technical roles, use relevant practical or domain questions; an empty array is acceptable if no specialist requirements are evident. Calibrate depth to the role's scope and treat an unclear seniority level as uncertainty.
 - roleSpecific: 3-4 questions about this specific role's responsibilities (not general tech).
 - cultureFit: 2-3 questions about working style, collaboration, or values. Use company context from the JD if available.
 - questionsToAskThem: 4-5 sharp questions the applicant should ask the interviewer. These should not be answerable from the JD.
-- hint: one sentence. What the interviewer is probing for.
+- hint: one sentence explaining what the question assesses; do not invent a personal achievement for the applicant to cite.
+- Prioritise central responsibilities, explicit requirements, and useful areas to prepare where resume evidence is limited. Avoid repeated questions that test the same skill. These are plausible practice questions, not claims about this employer's actual interview process.
 
 Respond with ONLY the JSON object.`;
 
@@ -279,10 +300,10 @@ Seniority level: ${seniorityLevel}
 ${focusAreas ? `Focus areas (user specified): ${focusAreas}` : ""}
 
 Job description:
-${(job.jobDescription ?? "(No job description provided)").slice(0, 2000)}
+${job.jobDescription ?? "(No job description provided)"}
 
 Applicant's resume (to tailor behavioral questions to their actual experience):
-${baseResume.slice(0, 1200)}
+${baseResume}
 
 Generate the interview questions. Return ONLY the JSON object.`;
 
@@ -321,20 +342,23 @@ Write the follow-up DM. Under 50 words.`;
 
 export function buildColdEmailPrompt(args: {
   senderName: string;
+  baseResume: string;
   recipientName?: string;
   recipientTitle?: string;
   job: { company: string; role: string; companyContext?: string };
 }): { system: string; userMessage: string } {
-  const { senderName, recipientName, recipientTitle, job } = args;
+  const { senderName, baseResume, recipientName, recipientTitle, job } = args;
   const system = `You are helping a job applicant write a cold outreach email to a company that has not advertised a specific role.
 
 The goal is a speculative application: the applicant is reaching out directly to introduce themselves and signal interest in a specific type of role.
 
+${APPLICATION_TAILORING_RULES}
+
 Rules:
 - Subject line: short, specific, non-generic. Include the company name and target role.
 - Body: 3 short paragraphs max, under 200 words total.
-  - Para 1: one specific reason you are reaching out to THIS company (use companyContext if provided, otherwise infer something believable from the company name and role).
-  - Para 2: two concrete things from the resume that are directly relevant to the target role.
+  - Para 1: use a specific reason from companyContext if supplied. Otherwise state interest in the named company and target role without inventing company facts or personal motivations.
+  - Para 2: one or two concrete facts from the resume relevant to the target role. If background evidence is absent, omit credential claims and keep the email to a brief introduction and ask.
   - Para 3: a clear, low-pressure ask (e.g. "Would you be open to a 15-minute call?").
 - Do NOT use: "I am writing to inquire", "I believe I would be a great fit", "Please find attached".
 - Sign off with the applicant's name only (no title or contact block - the user will add that).
@@ -346,6 +370,9 @@ Target role: ${job.role}
 ${recipientName ? `Recipient: ${recipientName}${recipientTitle ? `, ${recipientTitle}` : ""}` : "Recipient: Hiring Manager (unknown name)"}
 ${job.companyContext ? `Why this company specifically: ${job.companyContext}` : ""}
 My name: ${senderName}
+
+My background:
+${baseResume}
 
 Write the cold email. Subject line first, then the body. Under 200 words.`;
 
@@ -664,4 +691,3 @@ RULES:
 
 Generate the document body now:`;
 }
-

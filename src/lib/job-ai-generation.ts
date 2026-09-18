@@ -335,6 +335,7 @@ async function handleOutreach(args: {
   } else if (type === "cold_email") {
     ({ system, userMessage } = buildColdEmailPrompt({
       senderName: name,
+      baseResume,
       recipientName: params.recipientName,
       recipientTitle: params.recipientTitle,
       job: { company: job.company, role: job.role, companyContext: params.companyContext },

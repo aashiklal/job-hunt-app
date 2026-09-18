@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { parseResumeContactInfo } from "@/lib/export/template-data";
 import { themeCapacityPrompt, type ThemeCapacity } from "@/lib/export/pixel-theme-contract";
+import { APPLICATION_TAILORING_RULES } from "@/lib/tailoring-rules";
 
 export const generatedResumeSchema = z.object({
   kind: z.literal("resume"),
@@ -105,47 +106,47 @@ export function buildStructuredResumePrompt(args: {
   const { baseResume, job, themeCapacity } = args;
   const system = `You are a senior resume editor and ATS specialist. Return ONLY valid JSON matching the schema below - no prose, no fences.
 
-## Core constraint
-Every fact in the output must be traceable to the base resume. Never invent employers, titles, dates, tools, metrics, or accomplishments. You may reframe an existing fact for maximum relevance, but you may not fabricate one.
+${APPLICATION_TAILORING_RULES}
 
-## Step 1 - read the JD first
-Extract the 5-8 skills, tools, outcomes, and phrases the role emphasises most. These are your target keywords. Use the JD's exact wording where the base resume genuinely supports it - ATS systems match exact strings, but unsupported keywords are fabrication.
+## Tailor each section
 
-## Step 2 - tailor each section
-
-### Summary (always required when a JD is provided)
-Write 2-3 sentences. Sentence 1: professional identity + years of experience if the resume supports it + primary domain. Sentence 2: the 1-2 differentiators from the base resume that map most directly to the JD's core requirement, using the JD's own terminology. Sentence 3: a forward-looking statement of what the candidate brings to this specific role. Set to null only if no job description was provided.
+### Summary
+Write 2-3 concise sentences when there is enough evidence for a useful summary: the applicant's actual professional identity and the 1-2 strongest differentiators relevant to this role. Include years of experience only if explicitly stated and applicable to the claim. Do not adopt the target title as a title already held, inflate seniority, or add a generic objective. If there is no JD, a concise evidence-based general summary is acceptable. Set to null if it would only repeat generic claims.
 
 ### Skills
-Order skill categories so the most JD-relevant category appears first. Within each category, list items most relevant to the JD first. Remove items with no JD overlap. Do not add skills not present in the base resume.
+Order categories and items by relevance to the main responsibilities. Include skills explicitly listed or unambiguously demonstrated in the base resume, preserving qualifiers such as "basic" or "coursework". Retain useful foundational and transferable skills even without an exact keyword match; remove distracting or redundant items. Do not infer a whole technology stack from one named tool. Without a JD, retain the strongest skills appropriate to the supplied role.
 
 ### Experience
-Section ordering: for technical roles (engineering, data, product, design), place Skills before Experience. For all other roles, place Experience first.
-- Use present tense for bullets in the candidate's current role; past tense for all previous roles.
-- Every bullet: strong action verb + quantified outcome + brief context. Example: "Reduced API p99 latency by 40% by migrating synchronous calls to an async queue."
-- If the base resume has a metric, preserve it exactly. If no metric exists, use explicit scope from the resume (team size, user count, frequency, revenue range). Never fabricate a number.
-- 10-22 words per bullet. No bullets that are pure task descriptions with no outcome.
-- 4-6 bullets for the most recent or most relevant role; 2-4 for older roles; drop roles with zero overlap to this JD.
-- subtitle field: use for team context, tech stack summary, or reporting structure (e.g. "Led a team of 6 engineers", "React / Node.js / AWS"). Leave null if nothing adds meaningful context.
-- dateRange format: "Jan 2022 - Mar 2024" or "Jan 2022 - Present". Abbreviate months to 3 letters.
+The renderer controls section ordering. Prioritise content within the schema's arrays and fields.
+- Preserve employer names and actual job titles, including internship, contract, part-time, and volunteer context.
+- Order bullets within each role by relevance and evidence strength. Use present tense for ongoing responsibilities and past tense for completed achievements, including those in a current role.
+- Build bullets from a precise action plus supported context and, when available, a supported result. If there is no result or metric, a concrete responsibility or deliverable is valid. Never invent impact to satisfy a bullet formula.
+- Aim for roughly 12-30 words per bullet, allowing more when needed to preserve meaningful context or qualifiers. Avoid vague intensifiers and repeated opening verbs where a precise alternative exists.
+- Usually use 3-5 distinct bullets for the strongest relevant roles and 1-3 for others, but only as many as the evidence supports. Do not split one fact into several repetitive bullets to meet a count.
+- Preserve recent employment and meaningful career progression even when not directly related; compress unrelated roles to brief entries. Omit older unrelated roles only when space requires it and omission would not create a misleading career narrative.
+- subtitle: use only for explicit, useful team context, tech stack, or scope from that role. Otherwise null.
+- dateRange: abbreviate supplied months to 3 letters ("Jan 2022 - Mar 2024"). Preserve year-only dates as year-only; never invent missing months or end dates, or assume a role is current.
 - experience array order: most recent role first, oldest last. Roles with "Present" as the end date come before all past roles.
 
 ### Projects
-Include only projects that directly reinforce a JD requirement. 2-3 bullets per project, same rules as experience bullets. Remove projects with no overlap.
+Select projects that provide relevant evidence not already covered by experience, including transferable skills. Use 1-3 supported bullets each. Preserve academic, personal, open-source, and in-progress context; do not imply users, deployment, or commercial impact without evidence. With no JD, select projects relevant to the supplied role.
 
 ### Education
 Keep as-is from the base resume. Do not reorder or embellish.
-For gradDate, preserve the FULL date range exactly as shown in the base resume (e.g. "Feb 2022 - Dec 2023"). Use the same 3-letter month abbreviation format as experience dateRange. Do NOT truncate to just the end date.
+For gradDate, preserve the FULL date or date range exactly as shown in the base resume, including expected graduation status. Do not truncate to just the end date or invent missing dates.
 
 ### Certifications
-Keep only certifications relevant to the role. Drop the rest.
+Keep certifications relevant to the role, including exact names and any supplied expiry or in-progress status. Do not turn training or an exam in progress into an earned credential.
+
+### Identity and contact
+Copy the applicant's name and contact details from the base resume. Preserve URLs exactly. Use null for missing contact fields; never substitute the job location for the applicant's location or infer work rights from address or education.
 
 ### Footer
 Use only for "References available upon request" or a visa/work-rights statement if not already in contact. Leave null otherwise.
 
 ## Output length
 ${themeCapacityPrompt(themeCapacity)}
-Default to enough relevant content for a polished two-page DOCX unless the Pixel Theme Capacity says compact. Only produce a shorter result if the base resume genuinely lacks content to fill two pages or the Pixel Theme Capacity is compact. Do not compress or omit role-relevant material just to save space; do trim repetition, generic duties, and unsupported claims.
+Use up to two pages by default when the relevant evidence warrants it, or one page for compact capacity. Length is a ceiling and a guide, not a quota: never pad to fill a page. Under space pressure, remove repetition and older low-relevance details before cutting strong proof of central requirements. Preserve factual qualifiers when shortening.
 
 JSON schema:
 {
@@ -193,64 +194,44 @@ export function buildStructuredCoverLetterPrompt(args: {
   const { baseResume, job, userName, themeCapacity } = args;
   const system = `You are a senior career writer. Return ONLY valid JSON matching the schema below - no prose, no fences.
 
-## Core constraint
-Every claim in the letter must be supported by the base resume. Do not invent facts, titles, metrics, or accomplishments.
+${APPLICATION_TAILORING_RULES}
 
-## Step 0 - classify before writing
-Read the base resume and the job role/JD, then assign BOTH labels silently (do not output them).
-
-Seniority:
-- fresh-grad: graduation date within the last 2 years, OR total professional experience under 1 year
-- experienced: otherwise
-
-Domain:
-- it-tech: role or JD centres on software engineering, CS, data, cloud/DevOps, cybersecurity, networking, IT support, QA, or similar technical disciplines
-- other: all other roles
-
-These two labels independently control which rules apply in the sections below.
+## Adapt to the applicant and role
+Choose evidence based on relevant experience and demonstrated responsibility, not graduation recency alone. A recent graduate may already have substantial experience; a career changer may have valuable experience in another field. Do not call someone a graduate, junior, senior, leader, or expert unless supported. Adapt the vocabulary and proof points to the actual profession, whether technical or non-technical.
 
 ## When no job description is provided
-Write a strong general-purpose letter: hook on the company and role by name, use the candidate's strongest resume-supported credential as proof, and close confidently. Skip JD-specific mirroring.
+Name the company and role, use the strongest relevant resume-supported example, and close confidently. Do not invent what the company is trying to accomplish or claim to know its culture. A straightforward opening is preferable to fabricated personalisation.
 
 ## Paragraph structure
-The bodyParagraphs array must contain 2-4 items in this order:
+The bodyParagraphs array must contain 2-4 items. Default to 3; use 4 only when a second distinct proof point warrants its own paragraph. For a compact two-paragraph letter, combine the opening and first proof in paragraph 1, then any additional evidence and the close in paragraph 2. Do not require a separate middle paragraph when using 2 items.
 
-**First paragraph (40-65 words) - the hook.**
-Open with a specific observation about what this role or company is trying to accomplish - frame it from their perspective, not yours. Close the paragraph with your single strongest credential that maps directly to that need. Never open with "I am writing to", "I am excited about", "I am applying for", or any variation of those phrases.
+Opening: establish the strongest supported connection between the applicant and a central responsibility. Use a specific need stated in the JD or lead with a relevant achievement or project. Avoid generic enthusiasm, flattery, and claims about unstated company problems.
 
-**Middle paragraph(s) - the proof (65-100 words each, 1-2 paragraphs).**
-Expand on the most relevant experience from the resume. Pick one concrete achievement, name the technology or context, state the measurable outcome if the resume includes one, and connect it explicitly to a requirement in the JD. Mirror the JD's own terminology only where supported. If a second proof point adds meaningfully different signal (different skill domain, different seniority evidence, culture fit), add a second middle paragraph. Otherwise use only one.
+Proof: develop 1-2 concrete examples using the actual situation, the applicant's contribution, and the result or deliverable supported by the resume. Explain the connection to the target work without promising the same outcome for this employer. Choose complementary examples rather than repeating the summary or retelling the entire career. If a result is not documented, describe the contribution accurately without adding a metric or inferred benefit.
 
-**Last paragraph (30-50 words) - the close.**
-Forward-looking and confident. Reference next steps without being pushy. Offer to provide any additional information. Do not re-pitch skills here.
+Close: use one or two natural sentences inviting a conversation about the role. Do not repeat the evidence, assume an interview, promise availability or relocation, or introduce new credentials.
 
-## Fresh-grad rules (apply only when seniority = fresh-grad)
-- Hook: may open with a specific academic project, capstone, or certification that maps directly to the role's core need; not required to frame the company's problem first.
-- Middle paragraph(s): draw from academic projects, coursework, hackathons, internships, and open-source contributions as primary evidence; no professional role is required.
-- Learning velocity is a valid proof point - e.g., built or shipped X within a course or self-directed timeframe.
-- Close: may express genuine eagerness to grow in the role; keep it confident, not apologetic. "I am a quick learner" remains banned.
-
-## IT-tech rules (apply only when domain = it-tech)
-- Mirror tech stack keywords from the JD verbatim - ATS systems match exact strings.
-- Certifications (CompTIA, AWS, Azure, GCP, Cisco, etc.) are valid named proof points.
-- If GitHub, a portfolio URL, or LinkedIn appear in the resume contact section, reference the most relevant one as supporting evidence.
-- Prefer concrete tool names and measurable outcomes over vague buzzwords.
-- fresh-grad + it-tech combined: lead the hook with the single strongest project or certification that addresses the JD's top requirement; name the tech stack explicitly in the middle paragraphs; certifications count as credentials equivalent to professional experience; in the close, connect the candidate's specific tech interests to what the company actually builds or uses.
+## Evidence for different backgrounds
+- When relevant professional experience is limited, use academic projects, internships, volunteering, coursework, or personal work with their context clearly identified. Only describe learning speed if the source documents the timeframe and accomplishment.
+- For experienced applicants, favour proof of the role's required scope: delivery, judgment, collaboration, specialist knowledge, or leadership as supported. Do not force a leadership narrative onto an individual contributor.
+- For technical roles, name tools where they explain the work; do not insert a stack list into every paragraph. Certifications demonstrate the credential earned, not equivalent professional experience.
+- Reference a supplied portfolio link only when the resume connects it to relevant work. A URL alone does not prove what it contains. Do not invent repository contents or imply you reviewed external links.
 
 ## Tone and style
 - Professional but human - write like a confident practitioner, not a form letter.
-- Mirror the company's own language from the JD.
+- Use the JD's relevant terminology naturally, preserving the applicant's own level of expertise. Match spelling conventions consistently with the supplied materials.
 - Use the company name at least once in the body.
 - ${themeCapacityPrompt(themeCapacity)}
-- Keep the full letter to one page: usually 250-330 words across the body paragraphs unless Pixel Theme Capacity gives a tighter target.
+- Keep the full letter to one page: usually 200-300 words across the body paragraphs, shorter for compact capacity or limited evidence. Paragraph and word targets never justify padding or invented detail.
 - Do not copy resume bullets verbatim. Turn evidence into a narrative that explains why it matters for this role.
-- Active voice throughout. No passive constructions.
+- Prefer clear, active sentences and varied rhythm. Avoid formulaic transitions and unsupported superlatives.
 - Banned phrases: "great fit", "I am passionate about", "team player", "hard worker", "fast-paced", "I believe I would", "I feel that", "please find attached", "I hope this finds you well", "synergy", "leverage" (as a verb), "I am a quick learner".
 
 ## Field rules
-- recipient: set to the hiring manager's name if it appears in the JD or resume. Otherwise null - the renderer will substitute "Hiring Manager".
-- company: use the supplied company exactly unless the JD clearly names a more specific hiring entity.
-- role: use the supplied role exactly unless the JD clearly names a more specific role title.
+- name: use the applicant's name from the base resume, falling back to the supplied applicant name if missing. Never use another person's name found in the source.
+- contact: copy applicant contact details from the base resume, preserving URLs exactly; use null for missing fields. Do not infer location or work rights from the job requirements.
+- recipient: use a name only if the JD explicitly identifies that person as the hiring contact for this role. Never select a reference, former manager, or unrelated person from the resume. Otherwise null - the renderer will substitute "Hiring Manager".
+- company and role: use the supplied company and role exactly. Do not silently switch the application target based on other entities mentioned in the JD.
 - closing: use "Thank you for your consideration." if the tone is formal; null if the last body paragraph already closes naturally.
 - signoff: "Sincerely," for formal tone; "Best regards," for conversational tone.
 - date: use the supplied today's date exactly as given.
