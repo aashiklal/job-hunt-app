@@ -8,6 +8,7 @@ export type IPlanListItem = {
   key: string;
   name: string;
   aiSpendLimitUSD: number;
+  monthlyCredits: number;
   maxResumes: number;
   maxJobs: number;
   active: boolean;
@@ -19,6 +20,7 @@ export function toPlanListItem(doc: IPlan): IPlanListItem {
     key: doc.key,
     name: doc.name,
     aiSpendLimitUSD: doc.aiSpendLimitUSD,
+    monthlyCredits: doc.monthlyCredits,
     maxResumes: doc.maxResumes,
     maxJobs: doc.maxJobs,
     active: doc.active,
@@ -37,7 +39,12 @@ export async function listAll(): Promise<IPlan[]> {
 
 export async function update(
   id: string,
-  fields: { aiSpendLimitUSD: number; maxResumes: number; maxJobs: number }
+  fields: {
+    aiSpendLimitUSD: number;
+    monthlyCredits: number;
+    maxResumes: number;
+    maxJobs: number;
+  }
 ): Promise<IPlan | null> {
   await connectDB();
   return Plan.findByIdAndUpdate(id, { $set: fields }, { returnDocument: "after" });

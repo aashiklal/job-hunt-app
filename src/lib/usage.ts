@@ -301,8 +301,20 @@ async function resolveCreditLimit(
   const plan = await Plan.findOne({ key: subscription.planKey }).lean();
   if (!plan) throw new Error(`Plan not found: ${subscription.planKey}`);
 
-  return (plan as IPlan).monthlyCredits ?? 500;
+  const planDoc = plan as IPlan;
+  if (typeof planDoc.monthlyCredits === "number") return planDoc.monthlyCredits;
+
+  // No allowance configured. Falling back to a fixed generous number would
+  // quietly make an unconfigured plan the most generous on the system, which
+  // is how a free tier ends up costing the same as a paid one. Derive it from
+  // the plan's own USD ceiling instead, so the fallback can never exceed what
+  // that plan was already allowed to spend.
+  const derived = Math.floor((planDoc.aiSpendLimitUSD ?? 0) / USD_PER_CREDIT);
+  return Math.max(0, derived);
 }
+
+/** Rough USD cost of one credit, used only to derive a fallback allowance. */
+const USD_PER_CREDIT = 0.006;
 
 export type CreditReservation = {
   creditsCharged: number;

@@ -208,6 +208,36 @@ describe("releaseCredits", () => {
   });
 });
 
+describe("unconfigured plans", () => {
+  it("never lets a plan with no credit allowance become the most generous", async () => {
+    // The free plan predates credits and has no monthlyCredits field. A fixed
+    // generous fallback would silently hand free users the paid allowance.
+    await Plan.create({
+      key: "legacy-free",
+      name: "Legacy free",
+      aiSpendLimitUSD: 0.5,
+      maxResumes: 2,
+      maxJobs: -1,
+      active: true,
+    });
+    await Plan.updateOne({ key: "legacy-free" }, { $unset: { monthlyCredits: 1 } });
+
+    const user = await User.create({
+      clerkId: "clerk_legacy",
+      email: "legacy@example.com",
+      status: "approved",
+    });
+    await Subscription.create({ userId: user._id, planKey: "legacy-free" });
+    const userId = user._id.toString();
+
+    const balance = await getCreditBalance(userId);
+
+    // Derived from the plan's own $0.50 ceiling, not from the paid allowance.
+    expect(balance.limit).toBeGreaterThan(0);
+    expect(balance.limit).toBeLessThan(CREDIT_LIMIT);
+  });
+});
+
 describe("getCreditBalance", () => {
   it("reports used, limit and remaining together", async () => {
     const userId = await makeUser();
