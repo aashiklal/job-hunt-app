@@ -90,3 +90,9 @@ export async function deleteStory(userId: string, id: string): Promise<boolean> 
   const doc = await StarStory.findOneAndDelete({ _id: id, userId });
   return doc !== null;
 }
+
+export async function deleteAllForUser(userId: string): Promise<number> {
+  await connectDB();
+  const result = await StarStory.deleteMany({ userId });
+  return result.deletedCount ?? 0;
+}

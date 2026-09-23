@@ -75,6 +75,23 @@ export async function setAdmin(
   return User.findByIdAndUpdate(id, { isAdmin }, { returnDocument: "after" });
 }
 
+/**
+ * Flags a user as the shared public demo account. Demo users keep full CRUD
+ * but never reach Anthropic, and their data is reset on a schedule.
+ */
+export async function setDemo(
+  id: string,
+  isDemo: boolean
+): Promise<IUser | null> {
+  await connectDB();
+  return User.findByIdAndUpdate(id, { isDemo }, { returnDocument: "after" });
+}
+
+export async function getDemoUser(): Promise<IUser | null> {
+  await connectDB();
+  return User.findOne({ isDemo: true });
+}
+
 export async function createFromClerk(args: {
   clerkId: string;
   email: string;

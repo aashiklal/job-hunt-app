@@ -97,3 +97,9 @@ export async function deleteOffer(
   const doc = await Offer.findOneAndDelete({ _id: id, userId });
   return doc !== null;
 }
+
+export async function deleteAllForUser(userId: string): Promise<number> {
+  await connectDB();
+  const result = await Offer.deleteMany({ userId });
+  return result.deletedCount ?? 0;
+}

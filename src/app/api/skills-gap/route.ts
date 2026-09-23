@@ -9,6 +9,9 @@ import * as users from "@/lib/repositories/users";
 import * as jobs from "@/lib/repositories/jobs";
 import * as resumes from "@/lib/repositories/resumes";
 import * as documents from "@/lib/repositories/documents";
+import { consume, rateLimitResponseInit } from "@/lib/rate-limit";
+import { isDemoUser, withDemoLatency } from "@/lib/demo";
+import { demoSkillsGap } from "@/lib/demo-fixtures";
 
 const MODEL = "claude-sonnet-4-5";
 
@@ -41,6 +44,14 @@ export async function POST() {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
   const userIdStr = (user._id as { toString(): string }).toString();
+
+  const limit = await consume(userIdStr, "skills-gap");
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "RATE_LIMITED", message: "Too many analyses in a row. Try again shortly." },
+      rateLimitResponseInit(limit.retryAfterSeconds)
+    );
+  }
 
   const jobList = await jobs.list(userIdStr);
 
@@ -79,6 +90,10 @@ export async function POST() {
   const missingRequired = allRequired.filter((s) => !skillInResume(s, resumeText));
   const missingNiceToHave = allNiceToHave.filter((s) => !skillInResume(s, resumeText));
   const appliedRoles = [...new Set(jobList.map((j) => j.role))];
+
+  if (isDemoUser(user)) {
+    return NextResponse.json({ gap: await withDemoLatency(demoSkillsGap()) });
+  }
 
   try {
     const { system, userMessage } = buildSkillsGapPrompt({

@@ -7,6 +7,7 @@ import { LandingLogo, ScrollToTopButton } from "./ScrollToTop";
 import * as users from "@/lib/repositories/users";
 import * as jobs from "@/lib/repositories/jobs";
 import * as documents from "@/lib/repositories/documents";
+import { DemoSignInButton } from "./DemoSignInButton";
 
 export const metadata: Metadata = {
   title: "JobHunt: Land your next role",
@@ -69,11 +70,17 @@ function formatStat(n: number): string {
 export default async function LandingPage() {
   const { userId } = await auth();
 
-  const [userCount, jobCount, docCount] = await Promise.all([
+  const [userCount, jobCount, docCount, demoUser] = await Promise.all([
     users.countApproved(),
     jobs.countAll(),
     documents.countAll(),
+    users.getDemoUser(),
   ]);
+
+  // Only offer the demo when there is actually a seeded account behind it, so
+  // an environment without one simply omits the panel rather than handing the
+  // visitor a button that fails.
+  const demoAvailable = demoUser !== null && demoUser.status === "approved";
 
   const stats = [
     { value: formatStat(userCount), label: "job seekers" },
@@ -154,6 +161,19 @@ export default async function LandingPage() {
             </>
           )}
         </div>
+
+        {!userId && demoAvailable && (
+          <div className="mx-auto mt-8 flex max-w-md flex-col items-center gap-3 rounded-lg border border-border bg-muted/40 p-6">
+            <p className="text-sm font-medium text-foreground">
+              Just looking around?
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Open a fully populated workspace in one click. No sign-up, no
+              password, and nothing you change is permanent.
+            </p>
+            <DemoSignInButton />
+          </div>
+        )}
       </section>
 
       {/* Live stats strip */}

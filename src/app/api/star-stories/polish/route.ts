@@ -7,6 +7,9 @@ import * as users from "@/lib/repositories/users";
 import * as starStories from "@/lib/repositories/star-stories";
 import { QuotaExceededError } from "@/lib/usage";
 import { buildSTARStoryPolishPrompt } from "@/lib/prompts";
+import { consume, rateLimitResponseInit } from "@/lib/rate-limit";
+import { isDemoUser, withDemoLatency } from "@/lib/demo";
+import { demoPolishedStory } from "@/lib/demo-fixtures";
 
 const MODEL = "claude-sonnet-4-5";
 
@@ -46,10 +49,24 @@ export async function POST(req: NextRequest) {
   }
   const userIdStr = (user._id as { toString(): string }).toString();
 
+  const limit = await consume(userIdStr, "star-stories-polish");
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "RATE_LIMITED", message: "Too many polish requests in a row. Try again shortly." },
+      rateLimitResponseInit(limit.retryAfterSeconds)
+    );
+  }
+
   // 4. Look up the story (with userId scoping)
   const story = await starStories.getById(userIdStr, storyId);
   if (!story) {
     return NextResponse.json({ error: "Story not found" }, { status: 404 });
+  }
+
+  if (isDemoUser(user)) {
+    const polished = await withDemoLatency(demoPolishedStory(story.title));
+    await starStories.savePolished(userIdStr, storyId, polished);
+    return NextResponse.json({ polished });
   }
 
   try {

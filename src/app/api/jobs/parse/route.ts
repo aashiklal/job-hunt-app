@@ -9,6 +9,9 @@ import { QuotaExceededError } from "@/lib/usage";
 import { buildJobParsePrompt } from "@/lib/prompts";
 import { computeFitScore } from "@/lib/fit-score";
 import { jdAnalysisSchema, type JDAnalysis } from "@/lib/job-analysis";
+import { consume, rateLimitResponseInit } from "@/lib/rate-limit";
+import { isDemoUser, withDemoLatency } from "@/lib/demo";
+import { demoAnalysis, demoParsedJob } from "@/lib/demo-fixtures";
 
 const MODEL = "claude-sonnet-4-5";
 const MAX_TOKENS = 3072;
@@ -61,6 +64,41 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
   const userIdStr = (user._id as { toString(): string }).toString();
+
+  const limit = await consume(userIdStr, "jobs-parse");
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "RATE_LIMITED", message: "Too many imports in a row. Try again shortly." },
+      rateLimitResponseInit(limit.retryAfterSeconds)
+    );
+  }
+
+  if (isDemoUser(user)) {
+    const fields = demoParsedJob();
+    const analysis = demoAnalysis({
+      _id: "demo",
+      company: fields.company ?? "Example Corp",
+      role: fields.role ?? "Senior Full Stack Engineer",
+    });
+    const defaultResume = await resumes.getDefault(userIdStr);
+    const fitScore = defaultResume
+      ? computeFitScore({
+          resumeText: defaultResume.content,
+          requiredSkills: analysis.requiredSkills,
+          niceToHaves: analysis.niceToHaves,
+          keywordsForResume: analysis.keywordsForResume,
+        })
+      : null;
+
+    return NextResponse.json(
+      await withDemoLatency({
+        fields,
+        analysis: analysis satisfies JDAnalysis,
+        fitScore,
+        hasDefaultResume: !!defaultResume,
+      })
+    );
+  }
 
   const { system, userMessage } = buildJobParsePrompt({ text });
 

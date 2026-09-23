@@ -228,6 +228,40 @@ export async function countAll(): Promise<number> {
 }
 
 // ---------------------------------------------------------------------------
+// Demo seeding
+// ---------------------------------------------------------------------------
+
+export type JobSeedInput = JobCreateInput & {
+  status: JobStatus;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+/**
+ * Bulk-inserts jobs with explicit timestamps. The regular create() path lets
+ * Mongoose manage createdAt/updatedAt, which would stamp every seeded job with
+ * "now" and leave the funnel, weekly-activity and stale-application widgets
+ * with nothing to show. Seeding is the only legitimate caller.
+ */
+export async function createSeededMany(
+  userId: string,
+  rows: JobSeedInput[]
+): Promise<JobListItem[]> {
+  await connectDB();
+  const docs = await Job.insertMany(
+    rows.map((row) => ({ userId, deletedAt: null, ...row })),
+    { timestamps: false }
+  );
+  return docs.map((doc) => toJobListItem(doc as IJob));
+}
+
+export async function deleteAllForUser(userId: string): Promise<number> {
+  await connectDB();
+  const result = await Job.deleteMany({ userId });
+  return result.deletedCount ?? 0;
+}
+
+// ---------------------------------------------------------------------------
 // Tracker stats
 // ---------------------------------------------------------------------------
 

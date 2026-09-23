@@ -198,10 +198,13 @@ export default function DashboardShell({
   children,
   isAdmin,
   usageWidget,
+  demoBanner,
 }: {
   children: React.ReactNode;
   isAdmin?: boolean;
   usageWidget?: React.ReactNode;
+  /** Rendered above the page content for the public demo account only. */
+  demoBanner?: React.ReactNode;
 }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -256,9 +259,10 @@ export default function DashboardShell({
       </Sheet>
 
       <main
-        className={`flex-1 p-6 md:p-8 transition-[margin] duration-200 ease-[var(--ease-out-expo)] ${sidebarCollapsed ? "md:ml-16" : "md:ml-60"}`}
+        className={`flex-1 transition-[margin] duration-200 ease-[var(--ease-out-expo)] ${sidebarCollapsed ? "md:ml-16" : "md:ml-60"}`}
       >
-        {children}
+        {demoBanner}
+        <div className="p-6 md:p-8">{children}</div>
       </main>
     </div>
   );

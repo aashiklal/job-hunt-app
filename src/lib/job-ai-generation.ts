@@ -7,6 +7,13 @@ import * as templates from "@/lib/repositories/templates";
 import type { DocumentType } from "@/lib/repositories/documents";
 import { callMeteredStructured, callMeteredText } from "@/lib/ai-execution";
 import { jdAnalysisSchema, type JDAnalysis } from "@/lib/job-analysis";
+import { isDemoUser, withDemoLatency } from "@/lib/demo";
+import {
+  demoAnalysis,
+  demoOutreach,
+  demoPrep,
+  demoStructuredDocument,
+} from "@/lib/demo-fixtures";
 import {
   buildJDAnalysisPrompt,
   buildLinkedInConnectionNotePrompt,
@@ -42,6 +49,8 @@ const interviewPrepSchema = z.object({
   cultureFit: z.array(z.object({ question: z.string(), hint: z.string() })),
   questionsToAskThem: z.array(z.string()),
 });
+
+export type InterviewPrep = z.infer<typeof interviewPrepSchema>;
 
 export const jobGenerationRequestSchema = z.object({
   jobId: z.string().min(1),
@@ -99,6 +108,7 @@ type UserForGeneration = {
   firstName?: string | null;
   lastName?: string | null;
   email: string;
+  isDemo?: boolean;
 };
 
 export type JobGenerationResult =
@@ -134,6 +144,29 @@ function isOutreachType(
   );
 }
 
+async function demoGeneration(
+  userIdStr: string,
+  job: { _id: string; company: string; role: string; location?: string | null },
+  type: JobGenerationInput["type"]
+): Promise<JobGenerationResult> {
+  if (type === "jd_analysis") {
+    return { kind: "jd_analysis", analysis: demoAnalysis(job) };
+  }
+  if (type === "interview_prep") {
+    return { kind: "interview_prep", prep: demoPrep(job) };
+  }
+  if (isOutreachType(type)) {
+    return { kind: "outreach", content: demoOutreach(type, job) };
+  }
+  const result = await demoStructuredDocument(userIdStr, job, type);
+  return {
+    kind: "structured_document",
+    documentId: result.documentId,
+    content: result.content,
+    structuredContent: result.structuredContent,
+  };
+}
+
 export async function generateForJob(
   user: UserForGeneration,
   input: JobGenerationInput
@@ -142,6 +175,12 @@ export async function generateForJob(
   const job = await jobs.getById(userIdStr, input.jobId);
   if (!job) {
     throw new JobGenerationError("Job not found", "Job not found", 404);
+  }
+
+  // The public demo account never reaches Anthropic. Fixtures are interpolated
+  // with this job so the output still reads as tailored. See src/lib/demo.ts.
+  if (isDemoUser(user)) {
+    return withDemoLatency(await demoGeneration(userIdStr, job, input.type));
   }
 
   if (input.type === "jd_analysis") {

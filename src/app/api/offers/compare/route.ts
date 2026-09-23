@@ -7,6 +7,9 @@ import { QuotaExceededError } from "@/lib/usage";
 import { buildOfferComparisonPrompt } from "@/lib/prompts";
 import * as users from "@/lib/repositories/users";
 import * as offers from "@/lib/repositories/offers";
+import { consume, rateLimitResponseInit } from "@/lib/rate-limit";
+import { isDemoUser, withDemoLatency } from "@/lib/demo";
+import { demoOfferComparison } from "@/lib/demo-fixtures";
 
 const MODEL = "claude-sonnet-4-5";
 
@@ -34,6 +37,14 @@ export async function POST() {
   }
   const userIdStr = (user._id as { toString(): string }).toString();
 
+  const limit = await consume(userIdStr, "offers-compare");
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "RATE_LIMITED", message: "Too many comparisons in a row. Try again shortly." },
+      rateLimitResponseInit(limit.retryAfterSeconds)
+    );
+  }
+
   const offerList = await offers.list(userIdStr);
 
   if (offerList.length < 2) {
@@ -41,6 +52,14 @@ export async function POST() {
       { error: "Add at least 2 offers to compare." },
       { status: 400 }
     );
+  }
+
+  if (isDemoUser(user)) {
+    return NextResponse.json({
+      comparison: await withDemoLatency(
+        demoOfferComparison(offerList.map((o) => o.company))
+      ),
+    });
   }
 
   try {
