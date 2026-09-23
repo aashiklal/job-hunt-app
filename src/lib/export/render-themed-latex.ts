@@ -1,5 +1,5 @@
 import "server-only";
-import anthropic from "@/lib/anthropic";
+import { callMeteredText } from "@/lib/ai-execution";
 import type { GeneratedResume, GeneratedCoverLetter } from "@/lib/generated-documents";
 import { buildLatexBodyPrompt, buildCoverLetterLatexBodyPrompt } from "@/lib/prompts";
 
@@ -10,20 +10,29 @@ type LatexTemplate = {
   texPreamble?: string;
 };
 
+/**
+ * LaTeX export used to call the Anthropic SDK directly, which meant it was
+ * invisible to the quota system: the spend was real but never recorded, so it
+ * counted against nobody's budget and no limit could refuse it. It also
+ * bypassed the demo guard, so a public demo visitor exporting a document
+ * billed the account owner.
+ *
+ * Routing through callMeteredText fixes both at once. It reserves against the
+ * user's budget before the call, reconciles afterwards, and refuses outright
+ * for the demo account.
+ */
 async function renderLatex(
+  userId: string,
   prompt: string,
   preamble: string
 ): Promise<{ tex: string; inputTokens: number; outputTokens: number }> {
-  const response = await anthropic.messages.create({
+  const { content: raw, inputTokens, outputTokens } = await callMeteredText({
+    userId,
     model: HAIKU_MODEL,
-    max_tokens: 4096,
-    messages: [{ role: "user", content: prompt }],
+    maxTokens: 4096,
+    system: "",
+    userMessage: prompt,
   });
-
-  const raw = response.content
-    .filter((c) => c.type === "text")
-    .map((c) => (c as { type: "text"; text: string }).text)
-    .join("");
 
   const body = raw
     .replace(/^```[a-z]*\n?/i, "")
@@ -34,29 +43,27 @@ async function renderLatex(
 
   const tex = `${preamble}\n\\begin{document}\n${body}\n\\end{document}`;
 
-  return {
-    tex,
-    inputTokens: response.usage.input_tokens,
-    outputTokens: response.usage.output_tokens,
-  };
+  return { tex, inputTokens, outputTokens };
 }
 
 export async function renderThemedLatex(
+  userId: string,
   resume: GeneratedResume,
   template: LatexTemplate
 ): Promise<{ tex: string; inputTokens: number; outputTokens: number }> {
   const fullTemplate = template.texFullTemplate ?? "";
   const preamble = template.texPreamble ?? "";
   const prompt = buildLatexBodyPrompt(fullTemplate, resume as unknown as Record<string, unknown>);
-  return renderLatex(prompt, preamble);
+  return renderLatex(userId, prompt, preamble);
 }
 
 export async function renderThemedCoverLetterLatex(
+  userId: string,
   coverLetter: GeneratedCoverLetter,
   template: LatexTemplate
 ): Promise<{ tex: string; inputTokens: number; outputTokens: number }> {
   const fullTemplate = template.texFullTemplate ?? "";
   const preamble = template.texPreamble ?? "";
   const prompt = buildCoverLetterLatexBodyPrompt(fullTemplate, coverLetter as unknown as Record<string, unknown>);
-  return renderLatex(prompt, preamble);
+  return renderLatex(userId, prompt, preamble);
 }

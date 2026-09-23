@@ -144,9 +144,159 @@ export async function checkBudget(
   return { spentUSD, limitUSD, periodEndsAt };
 }
 
+// ---------------------------------------------------------------------------
+// Reserve-then-reconcile
+//
+// checkBudget() reads spend and addSpend() writes it, but the Anthropic call
+// sits between them. That gap is a check-then-act race: concurrent requests
+// all read the same stale total, all pass the check, and all proceed, so the
+// budget ceiling only holds for serial traffic.
+//
+// reserveSpend() closes it by making the check and the charge a single atomic
+// conditional update. The business rule is unchanged ("you may start a call
+// while you are under budget"), but now only one concurrent caller can win it,
+// so overrun is bounded by a single call's reservation instead of by however
+// many requests arrive at once.
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolves a user's effective spend limit. Returns -1 for unlimited (admins,
+ * or a plan with no cap).
+ */
+async function resolveLimit(
+  userId: mongoose.Types.ObjectId | string
+): Promise<number> {
+  const userDoc = await User.findById(userId).lean();
+  if (userDoc?.isAdmin) return -1;
+
+  const subscription = await Subscription.findOne({ userId });
+  if (!subscription) {
+    throw new Error(
+      "No subscription found for user. Approve them or run backfill:subscriptions."
+    );
+  }
+
+  const plan = await Plan.findOne({ key: subscription.planKey }).lean();
+  if (!plan) {
+    throw new Error(`Plan not found: ${subscription.planKey}`);
+  }
+
+  return getSpendLimit(plan as IPlan, subscription);
+}
+
+/**
+ * A deliberately generous up-front estimate of what a call will cost, assuming
+ * the response uses its whole token budget and the prompt is comparable in
+ * size. Over-reserving is corrected downward the moment the call returns;
+ * under-reserving is what lets concurrent calls overshoot, so err high.
+ */
+export function estimateCallCost(model: string, maxTokens: number): number {
+  return calculateCost(model, maxTokens, maxTokens);
+}
+
+export type Reservation = {
+  /** Amount provisionally charged. Always 0 for unlimited users. */
+  reservedUSD: number;
+  limitUSD: number;
+  periodEndsAt: Date;
+};
+
+/**
+ * Atomically verifies the user is under budget and charges `estimateUSD`
+ * against them in the same operation.
+ *
+ * @throws {QuotaExceededError} when the user is at or over their budget.
+ */
+export async function reserveSpend(
+  userId: mongoose.Types.ObjectId | string,
+  kind: "aiGeneration",
+  estimateUSD: number
+): Promise<Reservation> {
+  if (kind !== "aiGeneration") throw new Error(`Unknown usage kind: ${kind}`);
+  await connectDB();
+
+  const periodEndsAt = getPeriodEndsAt();
+  const period = getCurrentPeriod();
+  const limitUSD = await resolveLimit(userId);
+
+  // Unlimited users skip reservation entirely; their spend is still recorded
+  // after the call, it just cannot be refused.
+  if (limitUSD === -1) {
+    return { reservedUSD: 0, limitUSD: -1, periodEndsAt };
+  }
+
+  // Ensure the period document exists before the conditional update. Doing the
+  // conditional update with upsert:true would insert a duplicate when the
+  // filter fails to match an over-budget document; the unique index on
+  // {userId, period} makes this first write safe under concurrency.
+  await Usage.updateOne(
+    { userId, period },
+    { $setOnInsert: { userId, period, aiSpendUSD: 0 } },
+    { upsert: true, strict: false }
+  ).catch((err: unknown) => {
+    // A concurrent caller won the insert. That is the expected outcome, not an
+    // error, so long as the document now exists.
+    if ((err as { code?: number })?.code !== 11000) throw err;
+  });
+
+  // The atomic step. Matches only while the user is under budget, so exactly
+  // one of N concurrent callers at the threshold can succeed.
+  const updated = await Usage.findOneAndUpdate(
+    { userId, period, aiSpendUSD: { $lt: limitUSD } },
+    { $inc: { aiSpendUSD: estimateUSD } },
+    { returnDocument: "after", strict: false }
+  );
+
+  if (!updated) {
+    const current = await Usage.findOne({ userId, period }).lean();
+    throw new QuotaExceededError({
+      kind,
+      used: (current as { aiSpendUSD?: number } | null)?.aiSpendUSD ?? limitUSD,
+      limit: limitUSD,
+      periodEndsAt,
+    });
+  }
+
+  return { reservedUSD: estimateUSD, limitUSD, periodEndsAt };
+}
+
+/**
+ * Corrects a reservation to the true cost once token counts are known.
+ * The delta may be negative, which is the normal case.
+ */
+export async function reconcileSpend(
+  userId: mongoose.Types.ObjectId | string,
+  reservedUSD: number,
+  actualUSD: number
+): Promise<void> {
+  const delta = actualUSD - reservedUSD;
+  if (delta === 0) return;
+  await connectDB();
+
+  const period = getCurrentPeriod();
+  await Usage.findOneAndUpdate(
+    { userId, period },
+    { $inc: { aiSpendUSD: delta }, $setOnInsert: { userId, period } },
+    { upsert: true, returnDocument: "after", strict: false }
+  );
+}
+
+/** Refunds a reservation in full after a failed call. */
+export async function releaseSpend(
+  userId: mongoose.Types.ObjectId | string,
+  reservedUSD: number
+): Promise<void> {
+  if (reservedUSD <= 0) return;
+  return reconcileSpend(userId, reservedUSD, 0);
+}
+
 /**
  * Records actual API cost after a successful Anthropic call.
  * Uses `$inc` so concurrent writes are safe.
+ *
+ * Prefer reserveSpend() + reconcileSpend() for anything gated by a budget:
+ * this function only records, it does not enforce, so calling it alone
+ * reintroduces the check-then-act race described above.
  *
  * `strict: false` ensures the write reaches MongoDB even when the Mongoose
  * model cache (from hot-reload in dev) has a stale schema.
@@ -260,17 +410,31 @@ export async function getPlatformStats(): Promise<{
 
 /**
  * Wraps an AI call with quota enforcement and spend recording.
- * Sequence: checkBudget → fn() → calculateCost → addSpend.
+ * Sequence: reserveSpend → fn() → calculateCost → reconcileSpend, releasing
+ * the reservation if the call throws.
  * Re-throws QuotaExceededError so routes continue to return 429.
  */
 export async function withBudget<T>(
   userId: string,
   model: string,
+  maxTokens: number,
   fn: () => Promise<{ result: T; inputTokens: number; outputTokens: number }>
 ): Promise<T> {
-  await checkBudget(userId, "aiGeneration");
-  const { result, inputTokens, outputTokens } = await fn();
-  const cost = calculateCost(model, inputTokens, outputTokens);
-  await addSpend(userId, "aiGeneration", cost);
-  return result;
+  const { reservedUSD } = await reserveSpend(
+    userId,
+    "aiGeneration",
+    estimateCallCost(model, maxTokens)
+  );
+
+  try {
+    const { result, inputTokens, outputTokens } = await fn();
+    const cost = calculateCost(model, inputTokens, outputTokens);
+    await reconcileSpend(userId, reservedUSD, cost);
+    return result;
+  } catch (err) {
+    await releaseSpend(userId, reservedUSD).catch((releaseErr) =>
+      console.error("[releaseSpend failed]", releaseErr)
+    );
+    throw err;
+  }
 }
