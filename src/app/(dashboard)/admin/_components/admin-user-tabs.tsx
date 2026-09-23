@@ -14,8 +14,8 @@ type AdminUserTabsProps = {
   pendingCount: number;
   approvedCount: number;
   rejectedCount: number;
-  approvedSpend: Record<string, number>;
-  spendLimit: number;
+  approvedUsage: Record<string, { costUSD: number; credits: number; calls: number }>;
+  sortByCost: boolean;
   page: number;
   totalPages: number;
 };
@@ -36,8 +36,8 @@ export function AdminUserTabs({
   pendingCount,
   approvedCount,
   rejectedCount,
-  approvedSpend,
-  spendLimit,
+  approvedUsage,
+  sortByCost,
   page,
   totalPages,
 }: AdminUserTabsProps) {
@@ -48,6 +48,18 @@ export function AdminUserTabs({
   function handleTabChange(tab: string) {
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", tab);
+    params.set("page", "1");
+    router.push("?" + params.toString());
+  }
+
+  function toggleCostSort() {
+    const params = new URLSearchParams(searchParams.toString());
+    if (sortByCost) {
+      params.delete("sort");
+    } else {
+      params.set("sort", "cost");
+    }
+    // Sorting reorders the whole list, so the current page number is meaningless.
     params.set("page", "1");
     router.push("?" + params.toString());
   }
@@ -134,8 +146,9 @@ export function AdminUserTabs({
             adminId={adminId}
             showApprove={false}
             showReject
-            spendMap={approvedSpend}
-            spendLimit={spendLimit}
+            usageMap={approvedUsage}
+            sortByCost={sortByCost}
+            onToggleSort={toggleCostSort}
           />
         )}
         {totalPages > 1 && paginationControls}

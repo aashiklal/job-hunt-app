@@ -85,6 +85,46 @@ export async function totals(
   };
 }
 
+/**
+ * Totals for many users in one query, keyed by user id.
+ *
+ * Every requested id gets an entry, including users with no events. A missing
+ * key would render as a blank cell rather than $0.00, which reads as "unknown"
+ * when the truth is "nothing".
+ */
+export async function bulkTotals(
+  userIds: string[],
+  opts: { since?: Date } = {}
+): Promise<Record<string, UsageTotals>> {
+  const result: Record<string, UsageTotals> = {};
+  for (const id of userIds) result[id] = { ...EMPTY };
+  if (userIds.length === 0) return result;
+
+  await connectDB();
+
+  const match: Record<string, unknown> = {
+    userId: { $in: userIds.map((id) => new Types.ObjectId(id)) },
+  };
+  if (opts.since) match.createdAt = { $gte: opts.since };
+
+  const rows = await UsageEvent.aggregate([
+    { $match: match },
+    { $group: { _id: "$userId", ...SUM_FIELDS } },
+  ]);
+
+  for (const r of rows) {
+    result[(r._id as { toString(): string }).toString()] = {
+      costUSD: r.costUSD ?? 0,
+      credits: r.credits ?? 0,
+      calls: r.calls ?? 0,
+      inputTokens: r.inputTokens ?? 0,
+      outputTokens: r.outputTokens ?? 0,
+    };
+  }
+
+  return result;
+}
+
 /** A time series, newest bucket last, for charting. */
 export async function series(opts: {
   bucket: UsageBucket;

@@ -3,75 +3,23 @@ import { requireAdminWithPlan } from "@/lib/auth-helpers";
 import * as usageEvents from "@/lib/repositories/usage-events";
 import * as users from "@/lib/repositories/users";
 import { CREDIT_LABELS, type CreditFeature } from "@/lib/credits";
+import {
+  money,
+  UsageBars,
+  UsageStatCard,
+} from "../_components/usage-display";
 
 export const metadata: Metadata = {
   title: "AI usage: Job Hunt",
   description: "AI spend and credit consumption over time, by period and feature.",
 };
 
-function daysAgo(n: number): Date {
-  return new Date(Date.now() - n * 24 * 60 * 60 * 1000);
-}
-
-function money(n: number): string {
-  return `$${n.toFixed(n < 1 ? 4 : 2)}`;
-}
-
 function featureLabel(key: string): string {
   return CREDIT_LABELS[key as CreditFeature] ?? key;
 }
 
-/** Bar chart drawn with divs. Heights are data-driven, so inline style is fine. */
-function Bars({
-  points,
-  emptyMessage,
-}: {
-  points: Array<{ bucket: string; costUSD: number; calls: number }>;
-  emptyMessage: string;
-}) {
-  if (points.length === 0) {
-    return <p className="py-8 text-center text-sm text-muted-foreground">{emptyMessage}</p>;
-  }
-
-  const max = Math.max(...points.map((p) => p.costUSD), 0.0001);
-
-  return (
-    <div className="flex h-32 items-end gap-1 overflow-x-auto">
-      {points.map((p) => (
-        <div key={p.bucket} className="flex min-w-6 flex-1 flex-col items-center gap-1">
-          <div
-            className="w-full rounded-t-sm bg-primary/70"
-            style={{ height: `${Math.max(2, (p.costUSD / max) * 100)}%` }}
-            title={`${p.bucket}: ${money(p.costUSD)} over ${p.calls} calls`}
-          />
-          <span className="truncate text-[10px] text-muted-foreground">
-            {p.bucket.slice(-5)}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function StatCard({
-  label,
-  totals,
-}: {
-  label: string;
-  totals: { costUSD: number; credits: number; calls: number };
-}) {
-  return (
-    <div className="rounded-lg border border-border p-4">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-foreground">
-        {money(totals.costUSD)}
-      </p>
-      <p className="mt-1 text-xs text-muted-foreground">
-        {totals.calls} {totals.calls === 1 ? "call" : "calls"} ·{" "}
-        {totals.credits} credits
-      </p>
-    </div>
-  );
+function daysAgo(n: number): Date {
+  return new Date(Date.now() - n * 24 * 60 * 60 * 1000);
 }
 
 export default async function AdminUsagePage() {
@@ -123,11 +71,11 @@ export default async function AdminUsagePage() {
 
       <section aria-label="Totals by period">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <StatCard label="Last 24 hours" totals={today} />
-          <StatCard label="Last 7 days" totals={thisWeek} />
-          <StatCard label="Last 30 days" totals={thisMonth} />
-          <StatCard label="Last 12 months" totals={thisYear} />
-          <StatCard label="All time" totals={allTime} />
+          <UsageStatCard label="Last 24 hours" totals={today} />
+          <UsageStatCard label="Last 7 days" totals={thisWeek} />
+          <UsageStatCard label="Last 30 days" totals={thisMonth} />
+          <UsageStatCard label="Last 12 months" totals={thisYear} />
+          <UsageStatCard label="All time" totals={allTime} />
         </div>
       </section>
 
@@ -135,7 +83,7 @@ export default async function AdminUsagePage() {
         <h2 className="mb-3 text-sm font-medium text-foreground">
           Daily, last 30 days
         </h2>
-        <Bars points={daily} emptyMessage="No AI calls in the last 30 days." />
+        <UsageBars points={daily} emptyMessage="No AI calls in the last 30 days." />
       </section>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
@@ -143,14 +91,14 @@ export default async function AdminUsagePage() {
           <h2 className="mb-3 text-sm font-medium text-foreground">
             Weekly, last 26 weeks
           </h2>
-          <Bars points={weekly} emptyMessage="No AI calls yet." />
+          <UsageBars points={weekly} emptyMessage="No AI calls yet." />
         </section>
 
         <section aria-label="Monthly spend">
           <h2 className="mb-3 text-sm font-medium text-foreground">
             Monthly, last 12 months
           </h2>
-          <Bars points={monthly} emptyMessage="No AI calls yet." />
+          <UsageBars points={monthly} emptyMessage="No AI calls yet." />
         </section>
       </div>
 

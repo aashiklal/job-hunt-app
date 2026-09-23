@@ -19,9 +19,13 @@ import {
 } from "@/lib/usage";
 import {
   CREDIT_COSTS,
+  USD_PER_CREDIT_TARGET,
+  costPerCredit,
   creditCost,
   describeCredits,
   featureForGenerationType,
+  isOverTarget,
+  targetCostPerCall,
 } from "@/lib/credits";
 
 const CREDIT_LIMIT = 100;
@@ -103,6 +107,47 @@ describe("credit pricing", () => {
     expect(featureForGenerationType("cover_letter")).toBe("cover_letter");
     expect(featureForGenerationType("jd_analysis")).toBe("jd_analysis");
     expect(featureForGenerationType("interview_prep")).toBe("interview_prep");
+  });
+});
+
+describe("cost per credit", () => {
+  it("divides spend by credits charged", () => {
+    expect(costPerCredit(0.6, 100)).toBeCloseTo(0.006, 6);
+  });
+
+  it("returns null rather than dividing by zero", () => {
+    // Admins are charged no credits, so this is the ordinary case, not an edge
+    // case. Dividing would render as Infinity in the admin table.
+    expect(costPerCredit(1.5, 0)).toBeNull();
+    expect(costPerCredit(0, 0)).toBeNull();
+  });
+
+  it("treats a null ratio as not over target", () => {
+    expect(isOverTarget(null)).toBe(false);
+  });
+
+  it("does not flag spend that matches the pricing", () => {
+    expect(isOverTarget(USD_PER_CREDIT_TARGET)).toBe(false);
+  });
+
+  it("does not flag ordinary variation just above target", () => {
+    // Real cost moves with prompt and response length. Flagging anything over
+    // target would mark nearly everyone and the signal would be useless.
+    expect(isOverTarget(USD_PER_CREDIT_TARGET * 1.2)).toBe(false);
+  });
+
+  it("flags spend well above target", () => {
+    expect(isOverTarget(USD_PER_CREDIT_TARGET * 2)).toBe(true);
+  });
+
+  it("prices a call from its credit weight", () => {
+    expect(targetCostPerCall("resume")).toBeCloseTo(
+      CREDIT_COSTS.resume * USD_PER_CREDIT_TARGET,
+      8
+    );
+    expect(targetCostPerCall("resume")).toBeGreaterThan(
+      targetCostPerCall("outreach")
+    );
   });
 });
 

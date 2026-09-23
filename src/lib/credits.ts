@@ -56,6 +56,46 @@ export const CREDIT_LABELS: Record<CreditFeature, string> = {
   latex_export: "LaTeX export",
 };
 
+/**
+ * The spend each credit is priced to cover. The weights above are derived from
+ * this, so it is the yardstick for judging whether reality still matches the
+ * pricing.
+ */
+export const USD_PER_CREDIT_TARGET = 0.006;
+
+/**
+ * How far above target a ratio has to run before it is worth flagging.
+ *
+ * Deliberately not 1.0. Real cost varies with prompt and response length, so
+ * flagging anything over target would mark almost everyone and the signal
+ * would be worthless.
+ */
+export const OVER_TARGET_MULTIPLE = 1.5;
+
+/**
+ * Actual USD spent per credit charged. Null when no credits were charged,
+ * which is the admin case: dividing by zero would render as Infinity.
+ */
+export function costPerCredit(costUSD: number, credits: number): number | null {
+  if (credits <= 0) return null;
+  return costUSD / credits;
+}
+
+/**
+ * True when a user or feature is costing meaningfully more per credit than the
+ * pricing assumes. Either they lean on expensive features, or a weight in
+ * CREDIT_COSTS is too low and is eating margin.
+ */
+export function isOverTarget(ratio: number | null): boolean {
+  if (ratio === null) return false;
+  return ratio > USD_PER_CREDIT_TARGET * OVER_TARGET_MULTIPLE;
+}
+
+/** What one call of this feature is priced to cost, for comparison against reality. */
+export function targetCostPerCall(feature: CreditFeature): number {
+  return CREDIT_COSTS[feature] * USD_PER_CREDIT_TARGET;
+}
+
 export function creditCost(feature: CreditFeature): number {
   return CREDIT_COSTS[feature];
 }

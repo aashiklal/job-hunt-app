@@ -200,6 +200,55 @@ export async function countByStatusWithSearch(search?: string): Promise<{
   return { pending, approved, rejected };
 }
 
+/**
+ * Ids of every user matching a status and search, with no pagination.
+ *
+ * Exists so the admin list can sort by AI cost. Cost lives in UsageEvent, not
+ * on the user, so sorting a single page would only order the rows already on
+ * screen and the most expensive user could sit on page three unseen. Sorting
+ * correctly means holding every candidate id, joining the costs, then paging
+ * the sorted result.
+ *
+ * Returns ids only, so the footprint stays small. Capped defensively: beyond
+ * that the join should move to a denormalised per-user total instead.
+ */
+export async function listIdsForFilter(opts: {
+  status: "pending" | "approved" | "rejected";
+  search?: string;
+  cap?: number;
+}): Promise<string[]> {
+  await connectDB();
+  const filter: Record<string, unknown> = { status: opts.status };
+  if (opts.search) {
+    filter["$or"] = [
+      { email: { $regex: escapeRegex(opts.search), $options: "i" } },
+      { firstName: { $regex: escapeRegex(opts.search), $options: "i" } },
+      { lastName: { $regex: escapeRegex(opts.search), $options: "i" } },
+    ];
+  }
+  const docs = await User.find(filter)
+    .select("_id")
+    .limit(opts.cap ?? 5000)
+    .lean();
+  return docs.map((d) => (d._id as { toString(): string }).toString());
+}
+
+/** Hydrates a specific set of ids, preserving the order given. */
+export async function listByIds(ids: string[]): Promise<IUser[]> {
+  await connectDB();
+  if (ids.length === 0) return [];
+  const docs = await User.find({ _id: { $in: ids } });
+  const byId = new Map<string, IUser>(
+    docs.map((d) => [(d._id as { toString(): string }).toString(), d as IUser])
+  );
+  const ordered: IUser[] = [];
+  for (const id of ids) {
+    const doc = byId.get(id);
+    if (doc) ordered.push(doc);
+  }
+  return ordered;
+}
+
 export async function listPaginated(opts: {
   status: "pending" | "approved" | "rejected";
   search?: string;

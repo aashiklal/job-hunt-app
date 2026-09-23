@@ -9,7 +9,14 @@ import * as subscriptions from "@/lib/repositories/subscriptions";
 import * as auditLog from "@/lib/repositories/audit-log";
 import * as plans from "@/lib/repositories/plans";
 import * as usageRepo from "@/lib/repositories/usage";
-import { getCurrentUsage } from "@/lib/usage";
+import * as usageEvents from "@/lib/repositories/usage-events";
+import { getCurrentUsage, getCreditBalance } from "@/lib/usage";
+import {
+  CREDIT_LABELS,
+  describeCredits,
+  targetCostPerCall,
+  type CreditFeature,
+} from "@/lib/credits";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -26,11 +33,22 @@ import { ToggleAdminButton } from "../_components/toggle-admin-button";
 import { ClearCustomLimitButton } from "../_components/clear-custom-limit-button";
 import { SetCustomLimitDialog } from "../_components/set-custom-limit-dialog";
 import { formatAuditAction } from "../_lib/format-audit";
+import {
+  money,
+  ratioLabel,
+  TrackingGapNotice,
+  UsageBars,
+  UsageStatCard,
+} from "../_components/usage-display";
 
 export const metadata: Metadata = {
   title: "User Detail: Admin",
   description: "View and manage a user's access, limits, and activity.",
 };
+
+function daysAgo(n: number): Date {
+  return new Date(Date.now() - n * 86_400_000);
+}
 
 export default async function Page({
   params,
@@ -44,13 +62,34 @@ export default async function Page({
   const target = await users.getById(userId);
   if (!target) notFound();
 
-  const [subscription, usage, auditEntries, spendHistory] = await Promise.all([
+  const [
+    subscription,
+    usage,
+    credits,
+    auditEntries,
+    spendHistory,
+    today,
+    last7,
+    last30,
+    last365,
+    allTimeUsage,
+    dailySeries,
+    featureBreakdown,
+  ] = await Promise.all([
     subscriptions.getByUserId(userId),
     getCurrentUsage(userId),
+    getCreditBalance(userId),
     auditLog
       .listForTargetUser(userId)
       .then((docs) => docs.map(auditLog.toAuditLogItem)),
     usageRepo.listForUser(userId),
+    usageEvents.totals({ userId, since: daysAgo(1) }),
+    usageEvents.totals({ userId, since: daysAgo(7) }),
+    usageEvents.totals({ userId, since: daysAgo(30) }),
+    usageEvents.totals({ userId, since: daysAgo(365) }),
+    usageEvents.totals({ userId }),
+    usageEvents.series({ bucket: "day", userId, since: daysAgo(30), limit: 30 }),
+    usageEvents.byFeature({ userId }),
   ]);
 
   let planDefault = ctx.plan.aiSpendLimitUSD ?? 5.0;
@@ -75,11 +114,13 @@ export default async function Page({
   const customLimit = subscription?.customLimits?.aiSpendLimitUSD;
   const hasCustomLimit = typeof customLimit === "number";
 
+  const creditsUnlimited = credits.limit === -1;
   const percentUsed =
-    usage.limit > 0 ? Math.min(100, (usage.used / usage.limit) * 100) : 0;
-  const remaining = Math.max(0, usage.limit - usage.used);
-  const isOut = remaining <= 0 && usage.limit > 0;
-  const isLow = !isOut && remaining < 1.0 && usage.limit > 0;
+    credits.limit > 0 ? Math.min(100, (credits.used / credits.limit) * 100) : 0;
+  const remaining = creditsUnlimited ? Infinity : credits.remaining;
+  const isOut = !creditsUnlimited && remaining <= 0 && credits.limit > 0;
+  const isLow =
+    !isOut && !creditsUnlimited && remaining <= credits.limit * 0.15;
   const fmtUSD = (n: number) => `$${n.toFixed(2)}`;
   const formatPeriod = (period: string) => {
     const [year, month] = period.split("-");
@@ -203,28 +244,40 @@ export default async function Page({
       <Card className="border border-border/60 shadow-xs transition-shadow duration-200 ease-[var(--ease-out-expo)] hover:shadow-sm">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg font-medium">
-            AI spend this month
+            Credits this month
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {usage.limit === 0 ? (
+          {credits.limit === 0 ? (
             <p className="text-sm text-muted-foreground">
               No subscription found. Approve this user first.
             </p>
           ) : (
             <>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Spent</span>
+                <span className="text-muted-foreground">Used</span>
                 <span className={countColor}>
-                  {fmtUSD(usage.used)} of {fmtUSD(usage.limit)}
+                  {creditsUnlimited
+                    ? `${credits.used} (no limit)`
+                    : `${credits.used} of ${credits.limit}`}
                 </span>
               </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                <div
-                  className={`h-full transition-all ${barColor}`}
-                  style={{ width: `${percentUsed}%` }}
-                />
-              </div>
+              {!creditsUnlimited && (
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={`h-full transition-all ${barColor}`}
+                    style={{ width: `${percentUsed}%` }}
+                  />
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                {creditsUnlimited
+                  ? "Admin account, no allowance applied."
+                  : describeCredits(credits.remaining)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Real spend this month: {fmtUSD(usage.used)}
+              </p>
               <p className="text-xs text-muted-foreground">
                 Resets{" "}
                 {new Date(usage.periodEndsAt).toLocaleDateString("en-US", {
@@ -238,7 +291,7 @@ export default async function Page({
                 <div className="space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-medium text-foreground">
-                      Custom budget: {fmtUSD(customLimit!)}
+                      Custom spend ceiling: {fmtUSD(customLimit!)}
                     </span>
                     <ClearCustomLimitButton userId={targetId} />
                   </div>
@@ -248,11 +301,12 @@ export default async function Page({
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  Budget from plan:{" "}
+                  Plan:{" "}
                   <span className="font-medium text-foreground">
                     {usage.planKey ?? "-"}
                   </span>{" "}
-                  ({fmtUSD(planDefault)} / month)
+                  ({fmtUSD(planDefault)} spend ceiling, a backstop the user
+                  never sees)
                 </p>
               )}
               {subscription && (
@@ -267,10 +321,142 @@ export default async function Page({
         </CardContent>
       </Card>
 
+      {/* Cost across intervals */}
+      <Card className="border border-border/60 shadow-xs transition-shadow duration-200 ease-[var(--ease-out-expo)] hover:shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg font-medium">What this user costs</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Real spend against the Anthropic API, with the credits charged for
+            it. A figure marked over target is costing more per credit than the
+            pricing assumes.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <UsageStatCard label="Last 24 hours" totals={today} />
+            <UsageStatCard label="Last 7 days" totals={last7} />
+            <UsageStatCard label="Last 30 days" totals={last30} />
+            <UsageStatCard label="Last 12 months" totals={last365} />
+            <UsageStatCard label="All time" totals={allTimeUsage} />
+          </div>
+
+          <div>
+            <h3 className="mb-3 text-sm font-medium text-foreground">
+              Daily, last 30 days
+            </h3>
+            {dailySeries.length === 0 ? (
+              <TrackingGapNotice scope="this user" />
+            ) : (
+              <UsageBars points={dailySeries} emptyMessage="" />
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* What the spend went on */}
+      <Card className="border border-border/60 shadow-xs transition-shadow duration-200 ease-[var(--ease-out-expo)] hover:shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg font-medium">
+            What they used it on
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            The total tells you how much. This tells you why.
+          </p>
+        </CardHeader>
+        <CardContent>
+          {featureBreakdown.length === 0 ? (
+            <TrackingGapNotice scope="this user" />
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Feature</TableHead>
+                    <TableHead className="text-right">Calls</TableHead>
+                    <TableHead className="text-right">Spend</TableHead>
+                    <TableHead className="text-right">Per call</TableHead>
+                    <TableHead className="text-right hidden md:table-cell">
+                      Credits
+                    </TableHead>
+                    <TableHead className="text-right hidden lg:table-cell">
+                      Per credit
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {featureBreakdown.map((f) => {
+                    const perCall = f.calls > 0 ? f.costUSD / f.calls : 0;
+                    const target = targetCostPerCall(f.feature as CreditFeature);
+                    // Flag a feature whose real cost has drifted above what its
+                    // credit weight was derived from.
+                    const drifted = target > 0 && perCall > target * 1.5;
+                    return (
+                      <TableRow key={f.feature}>
+                        <TableCell className="text-sm text-foreground">
+                          {CREDIT_LABELS[f.feature as CreditFeature] ?? f.feature}
+                        </TableCell>
+                        <TableCell className="text-right text-sm tabular-nums text-muted-foreground">
+                          {f.calls}
+                        </TableCell>
+                        <TableCell className="text-right text-sm tabular-nums text-foreground">
+                          {money(f.costUSD)}
+                        </TableCell>
+                        <TableCell
+                          className={`text-right text-sm tabular-nums ${drifted ? "font-medium text-destructive" : "text-muted-foreground"}`}
+                          title={
+                            drifted
+                              ? `Priced at about ${money(target)} per call, actually costing ${money(perCall)}. This weight may need retuning.`
+                              : undefined
+                          }
+                        >
+                          {money(perCall)}
+                        </TableCell>
+                        <TableCell className="text-right text-sm tabular-nums text-muted-foreground hidden md:table-cell">
+                          {f.credits}
+                        </TableCell>
+                        <TableCell className="text-right text-sm tabular-nums text-muted-foreground hidden lg:table-cell">
+                          {ratioLabel(f.costUSD, f.credits)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  <TableRow className="border-t-2 border-border">
+                    <TableCell className="text-sm font-medium text-foreground">
+                      Total
+                    </TableCell>
+                    <TableCell className="text-right text-sm font-semibold tabular-nums text-foreground">
+                      {allTimeUsage.calls}
+                    </TableCell>
+                    <TableCell className="text-right text-sm font-semibold tabular-nums text-foreground">
+                      {money(allTimeUsage.costUSD)}
+                    </TableCell>
+                    <TableCell className="text-right text-sm text-muted-foreground">
+                      -
+                    </TableCell>
+                    <TableCell className="text-right text-sm font-semibold tabular-nums text-foreground hidden md:table-cell">
+                      {allTimeUsage.credits}
+                    </TableCell>
+                    <TableCell className="text-right text-sm tabular-nums text-muted-foreground hidden lg:table-cell">
+                      {ratioLabel(allTimeUsage.costUSD, allTimeUsage.credits)}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Spend history card */}
       <Card className="border border-border/60 shadow-xs transition-shadow duration-200 ease-[var(--ease-out-expo)] hover:shadow-sm">
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg font-medium">Spend history</CardTitle>
+          <CardTitle className="text-lg font-medium">
+            Earlier monthly totals
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Recorded before per-call tracking existed, so these are month totals
+            only with no breakdown of what they were spent on.
+          </p>
         </CardHeader>
         <CardContent>
           {spendHistory.length === 0 ? (

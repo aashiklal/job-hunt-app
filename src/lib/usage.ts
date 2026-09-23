@@ -4,6 +4,7 @@ import Plan, { IPlan } from "@/lib/models/Plan";
 import Subscription, { ISubscription } from "@/lib/models/Subscription";
 import Usage from "@/lib/models/Usage";
 import User from "@/lib/models/User";
+import { USD_PER_CREDIT_TARGET } from "@/lib/credits";
 
 // ---------------------------------------------------------------------------
 // Pricing table. Update if Anthropic changes rates.
@@ -309,12 +310,9 @@ async function resolveCreditLimit(
   // is how a free tier ends up costing the same as a paid one. Derive it from
   // the plan's own USD ceiling instead, so the fallback can never exceed what
   // that plan was already allowed to spend.
-  const derived = Math.floor((planDoc.aiSpendLimitUSD ?? 0) / USD_PER_CREDIT);
+  const derived = Math.floor((planDoc.aiSpendLimitUSD ?? 0) / USD_PER_CREDIT_TARGET);
   return Math.max(0, derived);
 }
-
-/** Rough USD cost of one credit, used only to derive a fallback allowance. */
-const USD_PER_CREDIT = 0.006;
 
 export type CreditReservation = {
   creditsCharged: number;
