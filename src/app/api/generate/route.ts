@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import * as users from "@/lib/repositories/users";
 import { QuotaExceededError } from "@/lib/usage";
+import { consume, rateLimitResponseInit } from "@/lib/rate-limit";
 import {
   generateForJob,
   JobGenerationError,
@@ -46,6 +47,17 @@ export async function POST(req: NextRequest) {
   const user = await users.getByClerkId(clerkUserId);
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  const limit = await consume(user._id.toString(), "generate");
+  if (!limit.allowed) {
+    return NextResponse.json(
+      {
+        error: "RATE_LIMITED",
+        message: "Too many generations in a row. Try again shortly.",
+      },
+      rateLimitResponseInit(limit.retryAfterSeconds)
+    );
   }
 
   try {
