@@ -8,7 +8,6 @@ export type IPlan = {
   /** Monthly credit allowance. -1 for unlimited. This is what users see and hit. */
   monthlyCredits: number;
   maxResumes: number;
-  maxJobs: number;
   pdfParsingEnabled: boolean;
   docxParsingEnabled: boolean;
   pdfExportEnabled: boolean;
@@ -24,7 +23,6 @@ const PlanSchema = new Schema<IPlan>(
     aiSpendLimitUSD: { type: Number, required: true, default: 5.0 },
     monthlyCredits: { type: Number, required: true, default: 500 },
     maxResumes: { type: Number, required: true },
-    maxJobs: { type: Number, required: true },
     pdfParsingEnabled: { type: Boolean, default: true },
     docxParsingEnabled: { type: Boolean, default: true },
     pdfExportEnabled: { type: Boolean, default: true },

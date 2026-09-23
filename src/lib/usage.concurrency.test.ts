@@ -79,7 +79,6 @@ beforeEach(async () => {
     name: "Test",
     aiSpendLimitUSD: LIMIT_USD,
     maxResumes: 5,
-    maxJobs: -1,
     active: true,
   });
 });

@@ -10,7 +10,6 @@ export type IPlanListItem = {
   aiSpendLimitUSD: number;
   monthlyCredits: number;
   maxResumes: number;
-  maxJobs: number;
   active: boolean;
 };
 
@@ -22,7 +21,6 @@ export function toPlanListItem(doc: IPlan): IPlanListItem {
     aiSpendLimitUSD: doc.aiSpendLimitUSD,
     monthlyCredits: doc.monthlyCredits,
     maxResumes: doc.maxResumes,
-    maxJobs: doc.maxJobs,
     active: doc.active,
   };
 }
@@ -43,7 +41,6 @@ export async function update(
     aiSpendLimitUSD: number;
     monthlyCredits: number;
     maxResumes: number;
-    maxJobs: number;
   }
 ): Promise<IPlan | null> {
   await connectDB();

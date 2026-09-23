@@ -60,7 +60,6 @@ beforeEach(async () => {
     aiSpendLimitUSD: 5,
     monthlyCredits: CREDIT_LIMIT,
     maxResumes: 5,
-    maxJobs: -1,
     active: true,
   });
 });
@@ -217,7 +216,6 @@ describe("unconfigured plans", () => {
       name: "Legacy free",
       aiSpendLimitUSD: 0.5,
       maxResumes: 2,
-      maxJobs: -1,
       active: true,
     });
     await Plan.updateOne({ key: "legacy-free" }, { $unset: { monthlyCredits: 1 } });
