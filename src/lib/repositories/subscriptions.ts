@@ -1,5 +1,7 @@
 import connectDB from "@/lib/db/connect";
+import { Types } from "mongoose";
 import Subscription, { ISubscription } from "@/lib/models/Subscription";
+import type { BillingStatus } from "@/lib/margin";
 
 export async function getByUserId(
   userId: string
@@ -18,11 +20,53 @@ export async function ensureForUser(
       $setOnInsert: {
         userId,
         planKey: "personal",
-        status: "active",
+        status: "trialing",
       },
     },
     { upsert: true, returnDocument: "after" }
   );
+}
+
+/**
+ * Sets billing state. Called by the backfill today and by a Stripe webhook
+ * later, which is why it speaks Stripe's vocabulary.
+ */
+export async function setBillingStatus(
+  userId: string,
+  status: BillingStatus
+): Promise<ISubscription | null> {
+  await connectDB();
+  return Subscription.findOneAndUpdate(
+    { userId },
+    { $set: { status } },
+    { returnDocument: "after" }
+  );
+}
+
+/** Plan key and billing status for many users at once, keyed by user id. */
+export async function bulkByUserId(
+  userIds: string[]
+): Promise<Record<string, { planKey: string; status: BillingStatus }>> {
+  const result: Record<string, { planKey: string; status: BillingStatus }> = {};
+  if (userIds.length === 0) return result;
+
+  await connectDB();
+  const docs = await Subscription.find({
+    userId: { $in: userIds.map((id) => new Types.ObjectId(id)) },
+  }).lean();
+
+  for (const doc of docs) {
+    result[doc.userId.toString()] = {
+      planKey: doc.planKey,
+      status: doc.status as BillingStatus,
+    };
+  }
+  return result;
+}
+
+export async function listAll(): Promise<ISubscription[]> {
+  await connectDB();
+  return Subscription.find({});
 }
 
 export async function setCustomLimit(

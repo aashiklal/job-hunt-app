@@ -7,6 +7,8 @@ export type IPlan = {
   aiSpendLimitUSD: number;
   /** Monthly credit allowance. -1 for unlimited. This is what users see and hit. */
   monthlyCredits: number;
+  /** What this plan charges per month. Drives the margin view. */
+  monthlyPriceUSD: number;
   maxResumes: number;
   pdfParsingEnabled: boolean;
   docxParsingEnabled: boolean;
@@ -22,6 +24,7 @@ const PlanSchema = new Schema<IPlan>(
     name: { type: String, required: true },
     aiSpendLimitUSD: { type: Number, required: true, default: 5.0 },
     monthlyCredits: { type: Number, required: true, default: 500 },
+    monthlyPriceUSD: { type: Number, required: true, default: 0 },
     maxResumes: { type: Number, required: true },
     pdfParsingEnabled: { type: Boolean, default: true },
     docxParsingEnabled: { type: Boolean, default: true },

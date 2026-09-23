@@ -17,20 +17,10 @@ const PLANS = [
   {
     key: "personal",
     name: "Personal",
+    monthlyPriceUSD: 12,
     aiSpendLimitUSD: 5.0,
     monthlyCredits: 500,
     maxResumes: 5,
-    pdfParsingEnabled: true,
-    docxParsingEnabled: true,
-    pdfExportEnabled: true,
-    active: true,
-  },
-  {
-    key: "free",
-    name: "Free",
-    aiSpendLimitUSD: 0.5,
-    monthlyCredits: 60,
-    maxResumes: 2,
     pdfParsingEnabled: true,
     docxParsingEnabled: true,
     pdfExportEnabled: true,
@@ -49,7 +39,7 @@ async function main() {
       { upsert: true, returnDocument: "after" }
     );
     console.log(
-      `Seeded plan: ${plan.key} (${plan.monthlyCredits} credits, $${plan.aiSpendLimitUSD} ceiling)`
+      `Seeded plan: ${plan.key} ($${plan.monthlyPriceUSD}/mo, ${plan.monthlyCredits} credits, $${plan.aiSpendLimitUSD} ceiling)`
     );
   }
 

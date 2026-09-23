@@ -38,6 +38,7 @@ function PlanRow({ plan }: PlanRowProps) {
     if (!next) {
       setSpendValue(String(plan.aiSpendLimitUSD));
       setCreditsValue(String(plan.monthlyCredits));
+      setPriceValue(String(plan.monthlyPriceUSD));
       setResumesValue(String(plan.maxResumes));
     }
     setOpen(next);
@@ -45,11 +46,13 @@ function PlanRow({ plan }: PlanRowProps) {
 
   const [spendValue, setSpendValue] = useState(String(plan.aiSpendLimitUSD));
   const [creditsValue, setCreditsValue] = useState(String(plan.monthlyCredits));
+  const [priceValue, setPriceValue] = useState(String(plan.monthlyPriceUSD));
   const [resumesValue, setResumesValue] = useState(String(plan.maxResumes));
 
   function handleSubmit() {
     const aiSpendLimitUSD = parseFloat(spendValue);
     const monthlyCredits = parseInt(creditsValue, 10);
+    const monthlyPriceUSD = parseFloat(priceValue);
     const maxResumes = parseInt(resumesValue, 10);
 
     if (Number.isNaN(aiSpendLimitUSD) || (aiSpendLimitUSD !== -1 && aiSpendLimitUSD < 0)) {
@@ -58,6 +61,10 @@ function PlanRow({ plan }: PlanRowProps) {
     }
     if (Number.isNaN(monthlyCredits) || monthlyCredits < -1) {
       toast.error("Credits must be -1 (unlimited) or a non-negative integer");
+      return;
+    }
+    if (Number.isNaN(monthlyPriceUSD) || monthlyPriceUSD < 0) {
+      toast.error("Price must be zero or more");
       return;
     }
     if (Number.isNaN(maxResumes) || maxResumes < -1) {
@@ -70,6 +77,7 @@ function PlanRow({ plan }: PlanRowProps) {
         planId: plan._id,
         aiSpendLimitUSD,
         monthlyCredits,
+        monthlyPriceUSD,
         maxResumes,
       });
       if (result.ok) {
@@ -87,6 +95,7 @@ function PlanRow({ plan }: PlanRowProps) {
         <span className="font-medium text-foreground">{plan.name}</span>
         <span className="ml-2 text-xs text-muted-foreground">({plan.key})</span>
       </td>
+      <td className="py-3 pr-4 text-foreground">{formatSpend(plan.monthlyPriceUSD)}</td>
       <td className="py-3 pr-4 text-foreground">{formatLimit(plan.monthlyCredits)}</td>
       <td className="py-3 pr-4 text-muted-foreground hidden lg:table-cell">
         {formatSpend(plan.aiSpendLimitUSD)}
@@ -104,6 +113,24 @@ function PlanRow({ plan }: PlanRowProps) {
               <DialogTitle>Edit {plan.name} plan</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor={`price-${plan._id}`}>
+                  Monthly price (USD)
+                </Label>
+                <Input
+                  id={`price-${plan._id}`}
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={priceValue}
+                  onChange={(e) => setPriceValue(e.target.value)}
+                  disabled={pending}
+                />
+                <p className="text-xs text-muted-foreground">
+                  What this plan charges. The margin dashboard measures cost
+                  against this.
+                </p>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor={`credits-${plan._id}`}>
                   Monthly credits (-1 for unlimited)
@@ -183,6 +210,7 @@ export function PlanEditor({ plans }: { plans: IPlanListItem[] }) {
         <thead>
           <tr className="border-b border-border">
             <th className="py-3 text-left font-medium text-muted-foreground">Plan</th>
+            <th className="py-3 text-left font-medium text-muted-foreground">Price</th>
             <th className="py-3 text-left font-medium text-muted-foreground">Credits</th>
             <th className="py-3 text-left font-medium text-muted-foreground hidden lg:table-cell">
               Spend ceiling

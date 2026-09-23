@@ -9,6 +9,7 @@ export type IPlanListItem = {
   name: string;
   aiSpendLimitUSD: number;
   monthlyCredits: number;
+  monthlyPriceUSD: number;
   maxResumes: number;
   active: boolean;
 };
@@ -20,6 +21,7 @@ export function toPlanListItem(doc: IPlan): IPlanListItem {
     name: doc.name,
     aiSpendLimitUSD: doc.aiSpendLimitUSD,
     monthlyCredits: doc.monthlyCredits,
+    monthlyPriceUSD: doc.monthlyPriceUSD ?? 0,
     maxResumes: doc.maxResumes,
     active: doc.active,
   };
@@ -40,6 +42,7 @@ export async function update(
   fields: {
     aiSpendLimitUSD: number;
     monthlyCredits: number;
+  monthlyPriceUSD: number;
     maxResumes: number;
   }
 ): Promise<IPlan | null> {

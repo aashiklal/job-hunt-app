@@ -110,16 +110,18 @@ const updatePlanSchema = z.object({
     { message: "Spend limit must be -1 (unlimited) or a non-negative number" }
   ),
   monthlyCredits: z.number().int().min(-1),
+  monthlyPriceUSD: z.number().min(0),
   maxResumes: z.number().int().min(-1),
 });
 
 export const updatePlan = defineAdminAction(
   async (ctx, input: z.infer<typeof updatePlanSchema>) => {
-    const { planId, aiSpendLimitUSD, monthlyCredits, maxResumes } =
+    const { planId, aiSpendLimitUSD, monthlyCredits, monthlyPriceUSD, maxResumes } =
       updatePlanSchema.parse(input);
     const updated = await plans.update(planId, {
       aiSpendLimitUSD,
       monthlyCredits,
+      monthlyPriceUSD,
       maxResumes,
     });
     if (!updated) throw new Error("Plan not found");
@@ -130,7 +132,7 @@ export const updatePlan = defineAdminAction(
       targetUserId: adminId,
       targetUserEmail: ctx.user.email,
       action: "plan.updated",
-      details: { planKey: updated.key, aiSpendLimitUSD, monthlyCredits, maxResumes },
+      details: { planKey: updated.key, aiSpendLimitUSD, monthlyCredits, monthlyPriceUSD, maxResumes },
     });
     revalidatePath("/admin");
     return { planKey: updated.key };

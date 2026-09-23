@@ -3,7 +3,12 @@ import mongoose, { Document, Model, Schema, Types } from "mongoose";
 export type ISubscription = {
   userId: Types.ObjectId;
   planKey: string;
-  status: "active" | "canceled" | "past_due" | "trialing";
+  /**
+   * Billing state, in Stripe's own vocabulary so a webhook can set it directly
+   * once payments exist. Only "active" counts as paying revenue; "comped" is
+   * free access granted deliberately, such as the demo account.
+   */
+  status: "active" | "canceled" | "past_due" | "trialing" | "comped";
   customLimits?: {
     /** Admin-set per-user monthly AI budget override in USD. */
     aiSpendLimitUSD?: number;
@@ -19,8 +24,8 @@ const SubscriptionSchema = new Schema<ISubscription>(
     planKey: { type: String, required: true, default: "personal" },
     status: {
       type: String,
-      enum: ["active", "canceled", "past_due", "trialing"],
-      default: "active",
+      enum: ["active", "canceled", "past_due", "trialing", "comped"],
+      default: "trialing",
     },
     customLimits: {
       type: new Schema(

@@ -1,219 +1,188 @@
 import type { Metadata } from "next";
 import { requireAdminWithPlan } from "@/lib/auth-helpers";
 import * as usageEvents from "@/lib/repositories/usage-events";
+import * as usageRepo from "@/lib/repositories/usage";
 import * as users from "@/lib/repositories/users";
+import * as subscriptions from "@/lib/repositories/subscriptions";
+import * as plansRepo from "@/lib/repositories/plans";
 import { CREDIT_LABELS, type CreditFeature } from "@/lib/credits";
 import {
-  money,
-  UsageBars,
-  UsageStatCard,
-} from "../_components/usage-display";
+  accountMargin,
+  countsTowardMargin,
+  marginHeadline,
+  summarise,
+  type BillingStatus,
+} from "@/lib/margin";
+import { money } from "../_components/usage-display";
+import { MarginBars, type MarginRow } from "../_components/margin-bars";
+import { RevenueTrend, type TrendPoint } from "../_components/revenue-trend";
 
 export const metadata: Metadata = {
-  title: "AI usage: Job Hunt",
-  description: "AI spend and credit consumption over time, by period and feature.",
+  title: "Margin: Job Hunt",
+  description:
+    "What each account pays against what it costs to serve, and whether margin is holding up.",
 };
 
 function featureLabel(key: string): string {
   return CREDIT_LABELS[key as CreditFeature] ?? key;
 }
 
-function daysAgo(n: number): Date {
-  return new Date(Date.now() - n * 24 * 60 * 60 * 1000);
-}
-
-export default async function AdminUsagePage() {
+export default async function AdminMarginPage() {
   await requireAdminWithPlan();
 
-  const [
-    today,
-    thisWeek,
-    thisMonth,
-    thisYear,
-    allTime,
-    daily,
-    weekly,
-    monthly,
-    yearly,
-    features,
-    heaviest,
-  ] = await Promise.all([
-    usageEvents.totals({ since: daysAgo(1) }),
-    usageEvents.totals({ since: daysAgo(7) }),
-    usageEvents.totals({ since: daysAgo(30) }),
-    usageEvents.totals({ since: daysAgo(365) }),
-    usageEvents.totals(),
-    usageEvents.series({ bucket: "day", since: daysAgo(30), limit: 30 }),
-    usageEvents.series({ bucket: "week", since: daysAgo(180), limit: 26 }),
-    usageEvents.series({ bucket: "month", limit: 12 }),
-    usageEvents.series({ bucket: "year", limit: 5 }),
+  const [approvedUsers, plans, monthlyCost, features] = await Promise.all([
+    users.listByStatus("approved"),
+    plansRepo.listAll(),
+    usageRepo.monthlyTotals({ limit: 12 }),
     usageEvents.byFeature(),
-    usageEvents.topUsers({ since: daysAgo(30), limit: 10 }),
   ]);
 
-  const heaviestWithEmail = await Promise.all(
-    heaviest.map(async (row) => {
-      const u = await users.getById(row.userId);
-      return { ...row, email: u?.email ?? "unknown" };
-    })
+  const priceByPlan = new Map(
+    plans.map((p) => [p.key, p.monthlyPriceUSD ?? 0])
   );
 
+  // The demo account sits on a paid plan but is not a customer. Counting it
+  // would add a seat that pays nothing to every figure on this page.
+  const accounts = approvedUsers.filter((u) => !u.isDemo);
+  const accountIds = accounts.map((u) =>
+    (u._id as { toString(): string }).toString()
+  );
+
+  const [subs, costs] = await Promise.all([
+    subscriptions.bulkByUserId(accountIds),
+    usageRepo.currentPeriodByUser(accountIds),
+  ]);
+
+  const rows: MarginRow[] = accounts
+    .map((user) => {
+      const id = (user._id as { toString(): string }).toString();
+      const sub = subs[id];
+      const status = (sub?.status ?? "trialing") as BillingStatus;
+      return {
+        userId: id,
+        email: user.email,
+        status,
+        margin: accountMargin({
+          priceUSD: priceByPlan.get(sub?.planKey ?? "personal") ?? 0,
+          costUSD: costs[id]?.costUSD ?? 0,
+          status,
+        }),
+      };
+    })
+    // Cancelled and comped accounts say nothing about whether pricing works.
+    .filter((row) => countsTowardMargin(row.status))
+    // Worst first, so trouble is always at the top of the page.
+    .sort((a, b) => a.margin.marginUSD - b.margin.marginUSD);
+
+  const totals = summarise(rows.map((r) => r.margin));
+
+  const trend: TrendPoint[] = monthlyCost.map((m) => ({
+    period: m.period,
+    costUSD: m.costUSD,
+  }));
+
+  const nothingEarned = totals.earnedRevenueUSD === 0;
+
   return (
-    <div className="space-y-8">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          AI usage
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Real spend against the Anthropic API, and the credits charged for it.
-        </p>
-      </header>
-
-      <section aria-label="Totals by period">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <UsageStatCard label="Last 24 hours" totals={today} />
-          <UsageStatCard label="Last 7 days" totals={thisWeek} />
-          <UsageStatCard label="Last 30 days" totals={thisMonth} />
-          <UsageStatCard label="Last 12 months" totals={thisYear} />
-          <UsageStatCard label="All time" totals={allTime} />
+    <div className="space-y-12">
+      <section aria-labelledby="margin-heading">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+          <h1
+            id="margin-heading"
+            className="text-2xl font-semibold tracking-tight text-foreground"
+          >
+            {marginHeadline(totals)}
+          </h1>
+          <p className="text-sm tabular-nums text-muted-foreground">
+            <span className="text-foreground">
+              {money(totals.modelledMarginUSD)}
+            </span>{" "}
+            modelled margin of {money(totals.modelledRevenueUSD)}
+          </p>
         </div>
-      </section>
 
-      <section aria-label="Daily spend">
-        <h2 className="mb-3 text-sm font-medium text-foreground">
-          Daily, last 30 days
-        </h2>
-        <UsageBars points={daily} emptyMessage="No AI calls in the last 30 days." />
-      </section>
-
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-        <section aria-label="Weekly spend">
-          <h2 className="mb-3 text-sm font-medium text-foreground">
-            Weekly, last 26 weeks
-          </h2>
-          <UsageBars points={weekly} emptyMessage="No AI calls yet." />
-        </section>
-
-        <section aria-label="Monthly spend">
-          <h2 className="mb-3 text-sm font-medium text-foreground">
-            Monthly, last 12 months
-          </h2>
-          <UsageBars points={monthly} emptyMessage="No AI calls yet." />
-        </section>
-      </div>
-
-      <section aria-label="Yearly spend">
-        <h2 className="mb-3 text-sm font-medium text-foreground">By year</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-muted-foreground">
-                <th className="py-2 pr-4 font-medium">Year</th>
-                <th className="py-2 pr-4 font-medium">Spend</th>
-                <th className="py-2 pr-4 font-medium">Calls</th>
-                <th className="py-2 font-medium">Credits</th>
-              </tr>
-            </thead>
-            <tbody>
-              {yearly.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="py-6 text-center text-muted-foreground">
-                    No AI calls yet.
-                  </td>
-                </tr>
-              ) : (
-                yearly.map((y) => (
-                  <tr key={y.bucket} className="border-b border-border/50">
-                    <td className="py-2 pr-4 text-foreground">{y.bucket}</td>
-                    <td className="py-2 pr-4 text-foreground">{money(y.costUSD)}</td>
-                    <td className="py-2 pr-4 text-muted-foreground">{y.calls}</td>
-                    <td className="py-2 text-muted-foreground">{y.credits}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section aria-label="Spend by feature">
-        <h2 className="mb-3 text-sm font-medium text-foreground">
-          By feature, all time
-        </h2>
-        <p className="mb-3 text-xs text-muted-foreground">
-          Cost per call is what the credit weights in src/lib/credits.ts are
-          derived from. If a feature drifts far from its weight, re-tune it.
+        <p className="mt-2 text-sm text-muted-foreground">
+          {nothingEarned
+            ? `${money(0)} earned so far. Nobody is paying yet, so revenue here is what your prices would bring in if every account converted.`
+            : `${money(totals.earnedRevenueUSD)} earned from ${totals.payingCount} paying ${totals.payingCount === 1 ? "account" : "accounts"} this month.`}
         </p>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-muted-foreground">
-                <th className="py-2 pr-4 font-medium">Feature</th>
-                <th className="py-2 pr-4 font-medium">Spend</th>
-                <th className="py-2 pr-4 font-medium">Calls</th>
-                <th className="py-2 font-medium">Cost per call</th>
-              </tr>
-            </thead>
-            <tbody>
-              {features.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="py-6 text-center text-muted-foreground">
-                    No AI calls yet.
-                  </td>
+
+        <div className="mt-6">
+          <MarginBars rows={rows} />
+        </div>
+
+        <p className="mt-4 text-xs text-muted-foreground">
+          Each bar is what an account costs against what its plan charges. The
+          demo account is excluded.
+        </p>
+      </section>
+
+      <section aria-labelledby="trend-heading">
+        <h2
+          id="trend-heading"
+          className="text-sm font-medium text-foreground"
+        >
+          Is margin holding up
+        </h2>
+        <p className="mt-1 mb-5 text-sm text-muted-foreground">
+          Real cost each month, against what your current accounts would earn in
+          a month at today&apos;s prices.
+        </p>
+        <RevenueTrend
+          points={trend}
+          monthlyRevenueUSD={totals.modelledRevenueUSD}
+        />
+      </section>
+
+      <section aria-labelledby="feature-heading">
+        <h2
+          id="feature-heading"
+          className="text-sm font-medium text-foreground"
+        >
+          What the cost goes on
+        </h2>
+        <p className="mt-1 mb-5 text-sm text-muted-foreground">
+          Cost per call is what the credit weights are derived from. A feature
+          drifting far above its price needs retuning. Per-call tracking started
+          recently, so this fills in over time.
+        </p>
+
+        {features.length === 0 ? (
+          <p className="py-8 text-sm text-muted-foreground">
+            No per-call records yet.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-muted-foreground">
+                  <th className="py-2 pr-4 font-medium">Feature</th>
+                  <th className="py-2 pr-4 text-right font-medium">Calls</th>
+                  <th className="py-2 pr-4 text-right font-medium">Cost</th>
+                  <th className="py-2 text-right font-medium">Per call</th>
                 </tr>
-              ) : (
-                features.map((f) => (
+              </thead>
+              <tbody>
+                {features.map((f) => (
                   <tr key={f.feature} className="border-b border-border/50">
                     <td className="py-2 pr-4 text-foreground">
                       {featureLabel(f.feature)}
                     </td>
-                    <td className="py-2 pr-4 text-foreground">{money(f.costUSD)}</td>
-                    <td className="py-2 pr-4 text-muted-foreground">{f.calls}</td>
-                    <td className="py-2 text-muted-foreground">
+                    <td className="py-2 pr-4 text-right tabular-nums text-muted-foreground">
+                      {f.calls}
+                    </td>
+                    <td className="py-2 pr-4 text-right tabular-nums text-foreground">
+                      {money(f.costUSD)}
+                    </td>
+                    <td className="py-2 text-right tabular-nums text-muted-foreground">
                       {f.calls > 0 ? money(f.costUSD / f.calls) : "-"}
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section aria-label="Heaviest users">
-        <h2 className="mb-3 text-sm font-medium text-foreground">
-          Heaviest users, last 30 days
-        </h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-muted-foreground">
-                <th className="py-2 pr-4 font-medium">User</th>
-                <th className="py-2 pr-4 font-medium">Spend</th>
-                <th className="py-2 pr-4 font-medium">Calls</th>
-                <th className="py-2 font-medium">Credits</th>
-              </tr>
-            </thead>
-            <tbody>
-              {heaviestWithEmail.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="py-6 text-center text-muted-foreground">
-                    No AI calls in the last 30 days.
-                  </td>
-                </tr>
-              ) : (
-                heaviestWithEmail.map((u) => (
-                  <tr key={u.userId} className="border-b border-border/50">
-                    <td className="py-2 pr-4 break-all text-foreground">{u.email}</td>
-                    <td className="py-2 pr-4 text-foreground">{money(u.costUSD)}</td>
-                    <td className="py-2 pr-4 text-muted-foreground">{u.calls}</td>
-                    <td className="py-2 text-muted-foreground">{u.credits}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </div>
   );

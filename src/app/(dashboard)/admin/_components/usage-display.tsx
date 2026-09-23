@@ -7,7 +7,10 @@ import { costPerCredit, isOverTarget } from "@/lib/credits";
  */
 
 export function money(n: number): string {
-  return `$${n.toFixed(n < 1 ? 4 : 2)}`;
+  // Sub-cent precision matters for per-call costs, but zero and whole amounts
+  // read as broken with four decimals.
+  if (n === 0) return "$0.00";
+  return `$${Math.abs(n) < 1 ? n.toFixed(4) : n.toFixed(2)}`;
 }
 
 /** Cost per credit, rendered to enough precision to be meaningful at fractions of a cent. */
