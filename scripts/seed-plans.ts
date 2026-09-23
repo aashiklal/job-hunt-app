@@ -11,6 +11,7 @@ const planData = {
   key: "personal",
   name: "Personal",
   aiSpendLimitUSD: 5.0,
+  monthlyCredits: 500,
   maxResumes: 5,
   maxJobs: -1,
   pdfParsingEnabled: true,

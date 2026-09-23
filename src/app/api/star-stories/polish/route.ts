@@ -81,6 +81,7 @@ export async function POST(req: NextRequest) {
       maxTokens: 1024,
       system,
       userMessage,
+      feature: "star_polish",
     });
 
     await starStories.savePolished(userIdStr, storyId, polished);

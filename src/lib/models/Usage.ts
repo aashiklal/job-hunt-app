@@ -4,6 +4,7 @@ export type IUsage = {
   userId: Types.ObjectId;
   period: string;
   aiSpendUSD: number;
+  creditsUsed: number;
   createdAt: Date;
   updatedAt: Date;
 } & Document;
@@ -13,6 +14,7 @@ const UsageSchema = new Schema<IUsage>(
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     period: { type: String, required: true, index: true },
     aiSpendUSD: { type: Number, required: true, default: 0 },
+    creditsUsed: { type: Number, required: true, default: 0 },
   },
   { timestamps: true }
 );

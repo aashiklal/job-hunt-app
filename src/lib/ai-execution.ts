@@ -7,14 +7,19 @@ import {
   estimateCallCost,
   reconcileSpend,
   releaseSpend,
+  reserveCredits,
+  releaseCredits,
   reserveSpend,
 } from "@/lib/usage";
 import { assertNotDemoUser } from "@/lib/demo";
+import { creditCost, type CreditFeature } from "@/lib/credits";
+import * as usageEvents from "@/lib/repositories/usage-events";
 
 type MeteredCallParams = {
   userId: string;
   model: string;
-  feature?: "aiGeneration";
+  /** Decides the credit price and how the call is attributed in reporting. */
+  feature: CreditFeature;
 };
 
 type StructuredCallParams<T> = MeteredCallParams & {
@@ -45,6 +50,7 @@ type TextCallParams = MeteredCallParams & {
 async function withReservation<T>(
   userId: string,
   model: string,
+  feature: CreditFeature,
   maxTokens: number,
   run: () => Promise<{ value: T; inputTokens: number; outputTokens: number }>
 ): Promise<{ value: T; inputTokens: number; outputTokens: number }> {
@@ -55,19 +61,38 @@ async function withReservation<T>(
   // substituting output keeps the mistake loud at development time.
   await assertNotDemoUser(userId);
 
-  const { reservedUSD } = await reserveSpend(
-    userId,
-    "aiGeneration",
-    estimateCallCost(model, maxTokens)
-  );
+  // Credits are the limit the user sees and hits. Charged first because the
+  // price is exact and known, so a refusal costs nothing.
+  const credits = creditCost(feature);
+  const reservation = await reserveCredits(userId, credits);
+
+  // USD ceiling underneath, as a backstop against a mis-tuned credit weight.
+  let reservedUSD = 0;
+  try {
+    ({ reservedUSD } = await reserveSpend(
+      userId,
+      "aiGeneration",
+      estimateCallCost(model, maxTokens)
+    ));
+  } catch (err) {
+    await releaseCredits(userId, reservation.creditsCharged).catch((e) =>
+      console.error("[releaseCredits failed]", e)
+    );
+    throw err;
+  }
 
   let outcome: { value: T; inputTokens: number; outputTokens: number };
   try {
     outcome = await run();
   } catch (err) {
-    await releaseSpend(userId, reservedUSD).catch((releaseErr) =>
-      console.error("[releaseSpend failed]", releaseErr)
-    );
+    await Promise.all([
+      releaseSpend(userId, reservedUSD).catch((e) =>
+        console.error("[releaseSpend failed]", e)
+      ),
+      releaseCredits(userId, reservation.creditsCharged).catch((e) =>
+        console.error("[releaseCredits failed]", e)
+      ),
+    ]);
     throw err;
   }
 
@@ -75,6 +100,20 @@ async function withReservation<T>(
   await reconcileSpend(userId, reservedUSD, cost).catch((err) =>
     console.error("[reconcileSpend failed]", err)
   );
+
+  // Analytics only, and deliberately off the enforcement path: a failure here
+  // loses a reporting row, never lets spend through.
+  await usageEvents
+    .record({
+      userId,
+      feature,
+      aiModel: model,
+      inputTokens: outcome.inputTokens,
+      outputTokens: outcome.outputTokens,
+      costUSD: cost,
+      credits,
+    })
+    .catch((err) => console.error("[usageEvent record failed]", err));
 
   return outcome;
 }
@@ -85,6 +124,7 @@ export async function callMeteredStructured<T>(
   const { value, inputTokens, outputTokens } = await withReservation(
     params.userId,
     params.model,
+    params.feature,
     params.maxTokens,
     async () => {
       const result = await callStructured(
@@ -113,6 +153,7 @@ export async function callMeteredText(
   const { value, inputTokens, outputTokens } = await withReservation(
     params.userId,
     params.model,
+    params.feature,
     params.maxTokens,
     async () => {
       const response = await anthropic.messages.create({

@@ -1,58 +1,83 @@
 import { requireApprovedUserWithPlan } from "@/lib/auth-helpers";
-import { getCurrentUsage } from "@/lib/usage";
+import { getCreditBalance } from "@/lib/usage";
+import { describeCredits } from "@/lib/credits";
 
+/**
+ * Shows credits rather than dollars.
+ *
+ * Spend in dollars made people count pennies instead of seeing value, and it
+ * exposed the cost basis. A raw credit count is not much better on its own, so
+ * the balance is paired with what it actually buys.
+ */
 export async function UsageWidget() {
   const { user } = await requireApprovedUserWithPlan();
-  const usage = await getCurrentUsage(user._id.toString());
+  const balance = await getCreditBalance(user._id.toString());
 
-  if (usage.limit === 0) {
+  if (balance.limit === 0) {
     // Approved users should always have both a subscription and a plan.
     return null;
   }
 
-  const spent = usage.used;
-  const isUnlimited = usage.limit === -1;
-  const limitUSD = usage.limit;
-  const remaining = isUnlimited ? Infinity : Math.max(0, limitUSD - spent);
-  const percentUsed = isUnlimited ? 0 : Math.min(100, (spent / limitUSD) * 100);
-  const isLow = !isUnlimited && remaining < 1.00 && remaining > 0;
-  const isOut = !isUnlimited && remaining <= 0;
+  const isUnlimited = balance.limit === -1;
 
-  const fmt = (n: number) => `$${n.toFixed(2)}`;
+  if (isUnlimited) {
+    return (
+      <div className="px-3 py-2 text-xs">
+        <div className="mb-1 flex items-center justify-between">
+          <span className="text-muted-foreground">AI credits</span>
+          <span className="font-medium text-foreground">No limit</span>
+        </div>
+        <p className="text-muted-foreground">{balance.used} used this month</p>
+      </div>
+    );
+  }
+
+  const { used, limit, remaining } = balance;
+  const percentUsed = Math.min(100, (used / limit) * 100);
+  const isOut = remaining <= 0;
+  const isLow = !isOut && remaining <= limit * 0.15;
 
   return (
     <div className="px-3 py-2 text-xs">
-      <div className="flex justify-between items-center mb-1">
-        <span className="text-muted-foreground">AI spend</span>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <span className="text-muted-foreground">AI credits</span>
         <span
           className={
             isOut
               ? "font-semibold text-destructive"
               : isLow
                 ? "font-semibold text-foreground"
-                : "font-medium"
+                : "font-medium text-foreground"
           }
         >
-          {isUnlimited ? `${fmt(spent)} (no cap)` : `${fmt(spent)} / ${fmt(limitUSD)}`}
+          {remaining} left
         </span>
       </div>
-      {!isUnlimited && (
-        <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-          <div
-            className={
-              isOut
-                ? "h-full bg-destructive"
-                : isLow
-                  ? "h-full bg-primary/60"
-                  : "h-full bg-primary"
-            }
-            style={{ width: `${percentUsed}%` }}
-          />
-        </div>
-      )}
-      <div className="text-muted-foreground mt-1">
-        Resets {usage.periodEndsAt.toLocaleDateString()}
+
+      <div
+        className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+        role="progressbar"
+        aria-valuenow={Math.round(percentUsed)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={`${remaining} of ${limit} AI credits remaining`}
+      >
+        <div
+          className={
+            isOut
+              ? "h-full bg-destructive"
+              : isLow
+                ? "h-full bg-primary/60"
+                : "h-full bg-primary"
+          }
+          style={{ width: `${percentUsed}%` }}
+        />
       </div>
+
+      <p className="mt-1 text-muted-foreground">{describeCredits(remaining)}</p>
+      <p className="text-muted-foreground">
+        Resets {balance.periodEndsAt.toLocaleDateString()}
+      </p>
     </div>
   );
 }

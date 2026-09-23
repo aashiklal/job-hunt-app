@@ -79,6 +79,7 @@ export async function POST() {
       model: MODEL,
       maxTokens: 2048,
       schema: offerComparisonSchema,
+      feature: "offers_compare",
     });
 
     return NextResponse.json({ comparison: data });

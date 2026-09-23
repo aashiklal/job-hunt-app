@@ -13,7 +13,7 @@
     "test:coverage": "vitest run --coverage",
     "check:docs": "tsx scripts/check-docs-scripts.ts",
     "bootstrap:admin": "tsx scripts/bootstrap-admin.ts",
-    "seed:plans": "tsx scripts/seed-plans.ts",
+    "seed:plans": "tsx --conditions=react-server scripts/seed-plans.ts",
     "seed:demo": "tsx --conditions=react-server scripts/seed-demo.ts",
     "backfill:subscriptions": "tsx scripts/backfill-subscriptions.ts",
     "test:generate": "tsx scripts/test-generate.ts",

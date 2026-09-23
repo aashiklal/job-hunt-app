@@ -110,6 +110,7 @@ export async function POST() {
       model: MODEL,
       maxTokens: 2048,
       schema: skillsGapSchema,
+      feature: "skills_gap",
     });
 
     return NextResponse.json({ gap: data });

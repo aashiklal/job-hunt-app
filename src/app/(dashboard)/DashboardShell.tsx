@@ -14,6 +14,7 @@ import {
   FileText,
   Moon,
   Scale,
+  ChartColumn,
   ShieldCheck,
   Sparkles,
   Sun,
@@ -116,13 +117,29 @@ function NavLinks({
             href="/admin"
             onClick={onNavigate}
             aria-label={collapsed ? "Admin" : undefined}
-            className={linkClass(pathname.startsWith("/admin"))}
+            className={linkClass(
+              pathname.startsWith("/admin") && !pathname.startsWith("/admin/usage")
+            )}
           >
             <ShieldCheck
-              className={iconClass(pathname.startsWith("/admin"))}
+              className={iconClass(
+                pathname.startsWith("/admin") && !pathname.startsWith("/admin/usage")
+              )}
               strokeWidth={1.75}
             />
             {!collapsed && "Admin"}
+          </Link>
+          <Link
+            href="/admin/usage"
+            onClick={onNavigate}
+            aria-label={collapsed ? "AI usage" : undefined}
+            className={linkClass(pathname.startsWith("/admin/usage"))}
+          >
+            <ChartColumn
+              className={iconClass(pathname.startsWith("/admin/usage"))}
+              strokeWidth={1.75}
+            />
+            {!collapsed && "AI usage"}
           </Link>
         </>
       )}

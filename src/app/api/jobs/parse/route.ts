@@ -110,6 +110,7 @@ export async function POST(req: NextRequest) {
       model: MODEL,
       maxTokens: MAX_TOKENS,
       schema: parsedSchema,
+      feature: "jobs_parse",
     });
     const { analysis, ...fields } = result.data;
     const defaultResume = await resumes.getDefault(userIdStr);

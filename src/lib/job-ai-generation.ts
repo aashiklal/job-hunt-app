@@ -255,6 +255,7 @@ async function handleJDAnalysis(args: {
     model: MODEL,
     maxTokens: MAX_TOKENS,
     schema: jdAnalysisSchema,
+    feature: "jd_analysis",
   });
 
   await documents.upsert(userIdStr, {
@@ -418,6 +419,7 @@ async function handleOutreach(args: {
     maxTokens: 1024,
     system,
     userMessage,
+    feature: "outreach",
   });
 
   await documents.upsert(userIdStr, {
@@ -461,6 +463,7 @@ async function handleInterviewPrep(args: {
     model: MODEL,
     maxTokens: MAX_TOKENS,
     schema: interviewPrepSchema,
+    feature: "interview_prep",
   });
 
   await documents.upsert(userIdStr, {
@@ -532,6 +535,7 @@ async function handleStructuredGeneration(args: {
           model: MODEL,
           maxTokens: MAX_TOKENS,
           schema: generatedResumeSchema,
+          feature: "resume",
         })
       : await callMeteredStructured({
           userId: userIdStr,
@@ -540,6 +544,7 @@ async function handleStructuredGeneration(args: {
           model: MODEL,
           maxTokens: MAX_TOKENS,
           schema: generatedCoverLetterSchema,
+          feature: "cover_letter",
         });
 
   const structuredContent =

@@ -260,6 +260,153 @@ export async function reserveSpend(
   return { reservedUSD: estimateUSD, limitUSD, periodEndsAt };
 }
 
+// ---------------------------------------------------------------------------
+// Credits
+//
+// Credits are what users see and what actually refuses them. They are exact
+// and known before the call, so unlike the USD path there is nothing to
+// reconcile afterwards. The USD ceiling stays underneath as a backstop in case
+// a credit weight is mis-tuned relative to real token usage.
+// ---------------------------------------------------------------------------
+
+export class CreditsExceededError extends Error {
+  public readonly used: number;
+  public readonly limit: number;
+  public readonly periodEndsAt: Date;
+
+  constructor(args: { used: number; limit: number; periodEndsAt: Date }) {
+    super(
+      `Out of credits (${args.used} of ${args.limit} used this month). Resets ${args.periodEndsAt.toISOString()}.`
+    );
+    this.name = "CreditsExceededError";
+    this.used = args.used;
+    this.limit = args.limit;
+    this.periodEndsAt = args.periodEndsAt;
+  }
+}
+
+async function resolveCreditLimit(
+  userId: mongoose.Types.ObjectId | string
+): Promise<number> {
+  const userDoc = await User.findById(userId).lean();
+  if (userDoc?.isAdmin) return -1;
+
+  const subscription = await Subscription.findOne({ userId });
+  if (!subscription) {
+    throw new Error(
+      "No subscription found for user. Approve them or run backfill:subscriptions."
+    );
+  }
+
+  const plan = await Plan.findOne({ key: subscription.planKey }).lean();
+  if (!plan) throw new Error(`Plan not found: ${subscription.planKey}`);
+
+  return (plan as IPlan).monthlyCredits ?? 500;
+}
+
+export type CreditReservation = {
+  creditsCharged: number;
+  limit: number;
+  remaining: number;
+  periodEndsAt: Date;
+};
+
+/**
+ * Atomically charges `credits` if the user has room for them.
+ *
+ * Unlike the USD reservation, the whole cost is charged up front because it is
+ * exact. The filter admits the call only when the full amount fits, so the
+ * allowance can never be overshot, not even by one call.
+ *
+ * @throws {CreditsExceededError} when the allowance cannot cover the call.
+ */
+export async function reserveCredits(
+  userId: mongoose.Types.ObjectId | string,
+  credits: number
+): Promise<CreditReservation> {
+  await connectDB();
+
+  const periodEndsAt = getPeriodEndsAt();
+  const period = getCurrentPeriod();
+  const limit = await resolveCreditLimit(userId);
+
+  if (limit === -1) {
+    return { creditsCharged: 0, limit: -1, remaining: -1, periodEndsAt };
+  }
+
+  await Usage.updateOne(
+    { userId, period },
+    { $setOnInsert: { userId, period, aiSpendUSD: 0, creditsUsed: 0 } },
+    { upsert: true, strict: false }
+  ).catch((err: unknown) => {
+    if ((err as { code?: number })?.code !== 11000) throw err;
+  });
+
+  const updated = await Usage.findOneAndUpdate(
+    { userId, period, creditsUsed: { $lte: limit - credits } },
+    { $inc: { creditsUsed: credits } },
+    { returnDocument: "after", strict: false }
+  );
+
+  if (!updated) {
+    const current = await Usage.findOne({ userId, period }).lean();
+    throw new CreditsExceededError({
+      used: (current as { creditsUsed?: number } | null)?.creditsUsed ?? limit,
+      limit,
+      periodEndsAt,
+    });
+  }
+
+  return {
+    creditsCharged: credits,
+    limit,
+    remaining: Math.max(0, limit - updated.creditsUsed),
+    periodEndsAt,
+  };
+}
+
+/** Refunds credits after a failed call. */
+export async function releaseCredits(
+  userId: mongoose.Types.ObjectId | string,
+  credits: number
+): Promise<void> {
+  if (credits <= 0) return;
+  await connectDB();
+  await Usage.findOneAndUpdate(
+    { userId, period: getCurrentPeriod() },
+    { $inc: { creditsUsed: -credits } },
+    { returnDocument: "after", strict: false }
+  );
+}
+
+/** Credit balance for the current period. Never throws. */
+export async function getCreditBalance(
+  userId: mongoose.Types.ObjectId | string
+): Promise<{ used: number; limit: number; remaining: number; periodEndsAt: Date }> {
+  await connectDB();
+  const periodEndsAt = getPeriodEndsAt();
+
+  let limit: number;
+  try {
+    limit = await resolveCreditLimit(userId);
+  } catch {
+    return { used: 0, limit: 0, remaining: 0, periodEndsAt };
+  }
+
+  const doc = await Usage.findOne({
+    userId,
+    period: getCurrentPeriod(),
+  }).lean();
+  const used = (doc as { creditsUsed?: number } | null)?.creditsUsed ?? 0;
+
+  return {
+    used,
+    limit,
+    remaining: limit === -1 ? -1 : Math.max(0, limit - used),
+    periodEndsAt,
+  };
+}
+
 /**
  * Corrects a reservation to the true cost once token counts are known.
  * The delta may be negative, which is the normal case.

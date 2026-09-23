@@ -8,6 +8,7 @@ import * as starStories from "@/lib/repositories/star-stories";
 import * as documents from "@/lib/repositories/documents";
 import * as subscriptions from "@/lib/repositories/subscriptions";
 import * as usage from "@/lib/repositories/usage";
+import * as usageEvents from "@/lib/repositories/usage-events";
 import type { JobSeedInput } from "@/lib/repositories/jobs";
 import { DEMO_EMAIL } from "@/lib/demo-constants";
 import { demoAnalysis, demoStructuredDocument } from "@/lib/demo-fixtures";
@@ -509,6 +510,7 @@ export async function wipeDemoData(userId: string): Promise<void> {
     // across resets until the shared account hit its cap and broke for
     // everyone. Clearing it makes the reset genuinely restorative.
     usage.deleteAllForUser(userId),
+    usageEvents.deleteAllForUser(userId),
   ]);
 }
 

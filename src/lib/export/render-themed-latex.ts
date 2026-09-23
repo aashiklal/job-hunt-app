@@ -32,6 +32,7 @@ async function renderLatex(
     maxTokens: 4096,
     system: "",
     userMessage: prompt,
+    feature: "latex_export",
   });
 
   const body = raw
