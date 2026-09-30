@@ -426,39 +426,6 @@ Write the negotiation email. Subject first, body under 200 words.`;
   return { system, userMessage };
 }
 
-export function buildSTARStoryPolishPrompt(args: {
-  roughDraft: string;
-  title: string;
-  maxWords?: number;
-}): { system: string; userMessage: string } {
-  const { roughDraft, title, maxWords = 200 } = args;
-  const system = `You are an expert interview coach helping a job applicant polish a rough behavioral story into a clean STAR-format answer.
-
-STAR format:
-- Situation: brief context (1-2 sentences). What was the setting?
-- Task: what were you specifically responsible for?
-- Action: what YOU did - not "we". Specific, active verbs. This is the longest part (2-4 sentences).
-- Result: quantified outcome if possible. What changed because of your action? Include timeframe if known.
-
-Rules:
-- Stay within the maxWords limit.
-- Use first-person singular. Remove passive voice.
-- Do NOT invent facts. If the story is vague, make the existing facts sharper - do not add new ones.
-- Remove filler phrases: "basically", "like", "you know", "so yeah".
-- The Result must be concrete. If the user's draft has a vague result ("it went well"), improve the phrasing but do not fabricate a number.
-- Output format: plain text, with "Situation:", "Task:", "Action:", "Result:" as section headers on their own lines. No markdown bold, no bullet points.`;
-
-  const userMessage = `Story title: ${title}
-Max words: ${maxWords}
-
-My rough story:
-${roughDraft}
-
-Polish this into a clean STAR answer. Use the section headers. Stay under ${maxWords} words.`;
-
-  return { system, userMessage };
-}
-
 export function buildSkillsGapPrompt(args: {
   missingRequired: string[];
   missingNiceToHave: string[];
@@ -509,77 +476,6 @@ My resume skills (to identify adjacent skills for quick wins):
 ${resumeSkillsText.slice(0, 1500)}
 
 Return the JSON skills gap analysis.`;
-
-  return { system, userMessage };
-}
-
-export function buildOfferComparisonPrompt(args: {
-  offers: Array<{
-    company: string;
-    role: string;
-    baseSalary: number;
-    currency: string;
-    equity?: string;
-    bonus?: string;
-    leaveDays?: number;
-    location: string;
-    remotePolicy: string;
-    roleLevel: string;
-    notes?: string;
-  }>;
-}): { system: string; userMessage: string } {
-  const { offers } = args;
-  const system = `You are a career advisor helping a job applicant objectively compare multiple job offers.
-
-Your job is to produce a structured, honest comparison and a clear recommendation - not a wishy-washy "it depends on what matters to you" non-answer.
-
-Respond with ONLY a JSON object matching this exact schema - no preamble, no markdown fences:
-
-{
-  "comparisonTable": [
-    {
-      "dimension": "string - e.g. 'Total compensation', 'Remote flexibility', 'Career growth signal', 'Company stability'",
-      "winner": "string - company name, or 'Tie'",
-      "notes": "string - one sentence explaining the call"
-    }
-  ],
-  "prosAndCons": {
-    "<company_name>": {
-      "pros": ["string"],
-      "cons": ["string"]
-    }
-  },
-  "recommendation": {
-    "pick": "string - company name",
-    "reasoning": "string - 3-4 sentences. Be direct. Acknowledge the trade-offs of this choice."
-  },
-  "negotiationOpportunities": [
-    "string - one per offer where there is a clear gap to negotiate (e.g. 'Offer B base salary is $10k below Offer A for the same level - use that as leverage')"
-  ]
-}
-
-Rules:
-- comparisonTable: cover at minimum: total compensation, remote/location, role level/seniority, career growth signal, company stability/size, benefits. Add more dimensions if the offer data justifies it.
-- Be honest. If one offer is clearly better on a dimension, say so. Do not artificially balance the comparison.
-- recommendation.pick: choose one. If it is genuinely too close to call without more information, say which single piece of information would change the answer and why.
-- negotiationOpportunities: only include if there is a real, specific gap to exploit. Empty array if not.`;
-
-  const userMessage = `Offers:
-${offers
-    .map(
-      (o, i) => `
-Offer ${i + 1}: ${o.company} - ${o.role}
-  Base salary: ${o.currency} ${o.baseSalary.toLocaleString()}
-  ${o.equity ? `Equity: ${o.equity}` : "No equity"}
-  ${o.bonus ? `Bonus: ${o.bonus}` : "No bonus"}
-  Location: ${o.location} (${o.remotePolicy.replace("_", " ")})
-  Leave: ${o.leaveDays != null ? `${o.leaveDays} days` : "Not specified"}
-  Level: ${o.roleLevel}
-  ${o.notes ? `Notes: ${o.notes}` : ""}`
-    )
-    .join("\n")}
-
-Return the JSON comparison.`;
 
   return { system, userMessage };
 }

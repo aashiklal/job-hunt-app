@@ -8,8 +8,6 @@
 export const DEMO_EXTRA_ALLOWANCE = {
   jobs: 10,
   resumes: 5,
-  offers: 5,
-  starStories: 5,
 } as const;
 
 export type DemoCapacityKind = keyof typeof DEMO_EXTRA_ALLOWANCE;
@@ -17,8 +15,6 @@ export type DemoCapacityKind = keyof typeof DEMO_EXTRA_ALLOWANCE;
 const NOUNS: Record<DemoCapacityKind, string> = {
   jobs: "jobs",
   resumes: "resumes",
-  offers: "offers",
-  starStories: "STAR stories",
 };
 
 /** A demo visitor hit a per-demo creation cap. The message is shown to them. */

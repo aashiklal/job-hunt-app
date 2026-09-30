@@ -6,8 +6,6 @@ import * as users from "@/lib/repositories/users";
 import * as subscriptions from "@/lib/repositories/subscriptions";
 import * as jobs from "@/lib/repositories/jobs";
 import * as resumes from "@/lib/repositories/resumes";
-import * as offers from "@/lib/repositories/offers";
-import * as starStories from "@/lib/repositories/star-stories";
 import { DEMO_SEED_COUNTS, seedDemoData, wipeDemoData } from "@/lib/demo-seed";
 import { buildDemoEmail } from "@/lib/demo-constants";
 import { isDemoUser } from "@/lib/demo";
@@ -287,8 +285,6 @@ export async function sweepOrphanClerkDemoUsers(
 const COUNTERS: Record<DemoCapacityKind, (userId: string) => Promise<number>> = {
   jobs: jobs.countForUserIncludingTrash,
   resumes: resumes.countForUser,
-  offers: offers.countForUser,
-  starStories: starStories.countForUser,
 };
 
 /**

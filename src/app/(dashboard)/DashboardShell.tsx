@@ -14,10 +14,8 @@ import {
   Menu,
   FileText,
   Moon,
-  Scale,
   ChartColumn,
   ShieldCheck,
-  Sparkles,
   Sun,
 } from "lucide-react";
 import { DemoExitButton } from "@/components/DemoExitButton";
@@ -67,8 +65,6 @@ const navItems = [
   { label: "Jobs", href: "/jobs", icon: Briefcase },
   { label: "Resume", href: "/resume", icon: FileText },
   { label: "Tracker", href: "/tracker", icon: ClipboardList },
-  { label: "STAR stories", href: "/star-stories", icon: Sparkles },
-  { label: "Offers", href: "/offers", icon: Scale },
 ] as const;
 
 function NavLinks({

@@ -83,7 +83,7 @@ describe("credit pricing", () => {
 
   it("orders weights the same way real cost orders them", () => {
     expect(creditCost("resume")).toBeGreaterThan(creditCost("cover_letter"));
-    expect(creditCost("cover_letter")).toBeGreaterThan(creditCost("star_polish"));
+    expect(creditCost("cover_letter")).toBeGreaterThan(creditCost("outreach"));
     expect(creditCost("interview_prep")).toBeGreaterThan(creditCost("outreach"));
   });
 

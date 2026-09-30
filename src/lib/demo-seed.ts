@@ -2,8 +2,6 @@ import "server-only";
 
 import * as jobs from "@/lib/repositories/jobs";
 import * as resumes from "@/lib/repositories/resumes";
-import * as offers from "@/lib/repositories/offers";
-import * as starStories from "@/lib/repositories/star-stories";
 import * as documents from "@/lib/repositories/documents";
 import * as usage from "@/lib/repositories/usage";
 import * as usageEvents from "@/lib/repositories/usage-events";
@@ -363,136 +361,6 @@ BSc Computer Science, University of Oregon, 2017`,
   },
 ];
 
-const OFFER_SEEDS = [
-  {
-    company: "PlanetScale",
-    role: "Senior Software Engineer",
-    baseSalary: 185000,
-    currency: "USD",
-    equity: "0.08% over 4 years, 1 year cliff",
-    bonus: "10% annual target",
-    leaveDays: 20,
-    location: "Remote (US)",
-    remotePolicy: "fully_remote" as const,
-    roleLevel: "Senior (L5)",
-    notes: "Strong infra team. Equity is the largest of the three but the company is earlier stage.",
-  },
-  {
-    company: "Fly.io",
-    role: "Full Stack Engineer",
-    baseSalary: 170000,
-    currency: "USD",
-    equity: "0.05% over 4 years",
-    bonus: "None",
-    leaveDays: 25,
-    location: "Remote",
-    remotePolicy: "fully_remote" as const,
-    roleLevel: "Senior",
-    notes: "Lowest base but the most generous leave and the most autonomy.",
-  },
-  {
-    company: "Datadog",
-    role: "Full Stack Engineer",
-    baseSalary: 195000,
-    currency: "USD",
-    equity: "RSUs, roughly $60k over 4 years",
-    bonus: "15% annual target",
-    leaveDays: 15,
-    location: "New York, NY",
-    remotePolicy: "hybrid" as const,
-    roleLevel: "Senior (P3)",
-    notes: "Highest total compensation, but three days a week onsite in NYC and the least leave.",
-  },
-];
-
-const STAR_STORY_SEEDS = [
-  {
-    title: "Migrating a 200k-line app to server rendering",
-    tags: ["technical leadership", "performance", "migration"],
-    roughDraft:
-      "Our main app was a client-rendered React SPA and it had got slow. Time to interactive was over 4 seconds on the median and customers were complaining. I proposed moving to server-side rendering. Had to convince the team because it was a big change and people were worried about the risk. We did it incrementally, route by route, behind a flag. Took about five months. Ended up at 1.3 seconds median TTI. Also cut our bundle by about 40%.",
-    polished: `**Situation**
-Our primary customer-facing application was a client-rendered React SPA of roughly 200,000 lines. Median time to interactive had degraded to 4.1 seconds, and slow initial load had become the most common theme in customer support tickets and a recurring objection in sales calls.
-
-**Task**
-I proposed moving the application to server-side rendering. As the senior engineer on the team I owned both the technical design and the job of getting a sceptical team to agree to a migration of that size.
-
-**Action**
-Rather than ask for a rewrite, I built a proof of concept on a single high-traffic route and presented measured numbers instead of projections. I then designed an incremental path: an adapter layer letting server-rendered and client-rendered routes coexist, so we could migrate route by route behind a feature flag and roll back independently at any point. I sequenced the work highest-traffic-first so the benefit compounded early, wrote the migration guide the rest of the team worked from, and reviewed every migration pull request to keep the patterns consistent.
-
-**Result**
-We completed the migration across five months with no customer-visible incidents. Median time to interactive fell from 4.1 seconds to 1.3 seconds and the client bundle shrank by 40%. Load-related support tickets dropped by roughly two thirds the quarter after completion. The adapter layer was reused by two other teams for their own migrations.`,
-  },
-  {
-    title: "Finding a concurrency bug in the billing path",
-    tags: ["debugging", "correctness", "ownership"],
-    roughDraft:
-      "We had spend limits on our metered API. Noticed some accounts going over their limit. Turned out the check and the charge were separate operations with a gap between them, so parallel requests all read the same number and all passed. Fixed it with an atomic conditional update. Wrote a test that fired a bunch of parallel requests to prove it.",
-    polished: `**Situation**
-Our metered API enforced a per-account spend limit. During a routine reconciliation I noticed a handful of accounts had exceeded their ceiling by a meaningful margin, which should have been impossible.
-
-**Task**
-I took ownership of finding the cause and making the limit actually hold, since the discrepancy was being absorbed as cost.
-
-**Action**
-Reading the code, I found the enforcement was a check-then-act sequence: the service read the account's current spend, compared it to the limit, then made the expensive downstream call, and only recorded the charge after that call returned. The gap between the read and the write was several seconds wide, so concurrent requests all read the same stale total and all passed the check. I reproduced it deterministically with a test that fired twenty parallel requests against an account one unit below its limit and asserted only one should succeed. It failed exactly as predicted. I replaced the sequence with a single atomic conditional update that increments a reservation only when the account is under its limit, and reconciles to the true cost once the downstream call returns, refunding the reservation on failure.
-
-**Result**
-Overruns went to zero. The reproduction test went into the suite and now guards the invariant on every change. I wrote the failure mode up internally, which surfaced the same pattern in two other services where it had not yet caused visible damage.`,
-  },
-  {
-    title: "Disagreeing with a technical decision",
-    tags: ["conflict", "communication", "judgement"],
-    roughDraft:
-      "Team wanted to add a message queue for a feature I thought was simpler than that. I disagreed but I was the newer person on the team. Asked to prototype the simple version first. It worked fine and we shipped it in a week instead of a month. Tried not to make it a fight about being right.",
-    polished: `**Situation**
-Shortly after joining, the team was planning a notifications feature and the proposed design introduced a message queue and a new worker service. Based on the actual volume, roughly a few thousand events a day, I thought the added operational surface was not justified.
-
-**Task**
-I wanted to argue for a simpler design without being the new person telling an established team they were wrong.
-
-**Action**
-I asked questions before asserting anything, and learned the design was partly anticipating a scale target nobody had validated. Rather than debate in the abstract I asked for two days to prototype the simpler approach using the database we already ran. I brought back working code, load-test numbers at ten times our current volume, and an honest account of where it would break and what signal would tell us we had reached that point. I framed it as buying an option rather than as a rebuttal, and said plainly that I would support the queue if the numbers did not hold up.
-
-**Result**
-The team chose the simpler design. It shipped in a week rather than the estimated month and has run without incident since, still comfortably inside the limits we identified. The written trigger conditions became the team's habit for deferred complexity. What I took from it is that a prototype and a number move a conversation in a way that an opinion does not.`,
-  },
-  {
-    title: "Taking a codebase from zero tests to a real suite",
-    tags: ["quality", "influence", "process"],
-    roughDraft:
-      "Codebase had no automated tests when I joined. Every release was manual QA and things kept regressing. I didn't try to mandate coverage, just started writing tests for the bugs we actually hit. Made failures visible. Eventually got CI in. Regression rate dropped a lot.",
-    polished: `**Situation**
-The codebase I inherited had no automated tests. Every release depended on a manual QA pass, and the same categories of regression kept recurring, roughly one significant one per release.
-
-**Task**
-I wanted the team testing routinely, but a coverage mandate imposed by one engineer tends to produce resentment and low-value tests rather than confidence.
-
-**Action**
-I started narrow. For every production bug we hit, I wrote the regression test before the fix, so each test was visibly tied to real pain rather than to an abstract standard. I made the value legible by noting in each pull request which past incident the test would have caught. Once a handful of engineers were doing this unprompted, I set up CI to run the suite on every pull request, and separately built out the parts that were hardest to test by hand: the money paths and the permission checks. I deliberately did not set a coverage target.
-
-**Result**
-Within two quarters the suite ran on every pull request and regressions per release fell from roughly one to under one every five. Manual QA shifted from re-checking known paths to genuine exploratory testing. The practice outlasted me on that team, which I take as the better signal.`,
-  },
-  {
-    title: "Cutting data latency from 18 hours to 5 minutes",
-    tags: ["architecture", "data", "impact"],
-    roughDraft:
-      "Analytics dashboard ran off a nightly batch job so customers were always looking at yesterday. Rebuilt it as an incremental pipeline. Tricky part was backfill and making sure we didn't double count. Got it to about 5 minutes end to end.",
-    polished: `**Situation**
-Our customer-facing analytics dashboard was populated by a nightly batch job, so roughly 8,000 accounts were always looking at data up to 18 hours stale. It was the single most requested improvement in customer feedback.
-
-**Task**
-I owned the redesign, with the constraint that we could not have a period of incorrect numbers during the transition. Customers made decisions on these figures.
-
-**Action**
-I replaced the batch job with an incremental pipeline processing events as they arrived. The genuinely hard part was correctness rather than throughput: making the processing idempotent so retries could not double-count, and designing a backfill that could run against historical data concurrently with live traffic without the two interfering. I ran both pipelines in parallel for three weeks with an automated reconciliation job comparing their outputs, and only cut over once they had agreed to the cent for a full week.
-
-**Result**
-End-to-end latency went from 18 hours to under 5 minutes. The reconciliation job found two genuine bugs during the parallel period that would otherwise have reached customers. Data freshness moved from the top of the feedback list to absent from it. I kept the reconciliation job running for a further quarter as a cheap correctness alarm.`,
-  },
-];
-
 /**
  * How many records the sample data creates per collection. The per-demo
  * creation caps in src/lib/demo-accounts.ts are measured on top of these.
@@ -500,8 +368,6 @@ End-to-end latency went from 18 hours to under 5 minutes. The reconciliation job
 export const DEMO_SEED_COUNTS = {
   jobs: JOB_SEEDS.length,
   resumes: RESUME_SEEDS.length,
-  offers: OFFER_SEEDS.length,
-  starStories: STAR_STORY_SEEDS.length,
 } as const;
 
 /** Removes every piece of demo content. Does not touch the user record itself. */
@@ -510,8 +376,6 @@ export async function wipeDemoData(userId: string): Promise<void> {
     documents.deleteAllForUser(userId),
     jobs.deleteAllForUser(userId),
     resumes.deleteAllForUser(userId),
-    offers.deleteAllForUser(userId),
-    starStories.deleteAllForUser(userId),
     // Demo generations are served from fixtures and should never cost
     // anything, but any spend that does slip through belongs to the demo and
     // must go with it, so a deleted demo leaves no usage records behind.
@@ -523,8 +387,6 @@ export async function wipeDemoData(userId: string): Promise<void> {
 export type SeedSummary = {
   jobs: number;
   resumes: number;
-  offers: number;
-  starStories: number;
   documents: number;
 };
 
@@ -557,28 +419,11 @@ export async function seedDemoData(userId: string): Promise<SeedSummary> {
     createdResumes.push(await resumes.create(userId, seed));
   }
 
-  for (const seed of OFFER_SEEDS) {
-    await offers.create(userId, seed);
-  }
-
-  for (const seed of STAR_STORY_SEEDS) {
-    const story = await starStories.create(userId, {
-      title: seed.title,
-      tags: seed.tags,
-      roughDraft: seed.roughDraft,
-    });
-    if (seed.polished) {
-      await starStories.savePolished(userId, story._id, seed.polished);
-    }
-  }
-
   const documentCount = await seedDocuments(userId, createdJobs);
 
   return {
     jobs: createdJobs.length,
     resumes: createdResumes.length,
-    offers: OFFER_SEEDS.length,
-    starStories: STAR_STORY_SEEDS.length,
     documents: documentCount,
   };
 }

@@ -1,8 +1,7 @@
 # JobHunt
 
-A single job seeker's application pipeline: the roles they are pursuing, the documents
-they generate for each one, and the offers they end up weighing. One user, one search,
-no collaboration or sharing.
+A single job seeker's application pipeline: the roles they are pursuing and the documents
+they generate for each one. One user, one search, no collaboration or sharing.
 
 ## Language
 
@@ -57,18 +56,6 @@ input. See Flagged ambiguities.
 A styling source a **Document** is rendered into on export. Two kinds: LaTeX templates
 hardcoded in the source, and an admin-uploaded DOCX. Both are global to the installation,
 never per-seeker.
-
-### Offers and stories
-
-**Offer**:
-A compensation package received for a role, recorded separately from its **Job** so
-several can be compared side by side.
-
-**STAR story**:
-A reusable behavioural interview answer in Situation-Task-Action-Result form, belonging
-to the seeker rather than to any one **Job**. Holds a rough draft and optionally a
-polished version.
-_Avoid_: Anecdote, example, story
 
 ### Access and spend
 
@@ -130,13 +117,11 @@ _Avoid_: Demo user, guest, trial (a trial is a **Billing status**)
 
 ## Relationships
 
-- A **Seeker** has many **Jobs**, many **Resumes**, many **Offers** and many **STAR stories**
+- A **Seeker** has many **Jobs** and many **Resumes**
 - A **Seeker** has exactly one **Subscription**, which names exactly one **Plan**
 - A **Seeker** has one **Usage** record per **Period**, and one **Usage event** per AI call
 - A **Job** has many **Documents**, at most one current per type
 - A **Document** belongs to exactly one **Job** and records which **Resume** it was generated from
-- An **Offer** is recorded independently; it does not have to correspond to a **Job**
-- A **STAR story** belongs to a **Seeker** and is deliberately not attached to any **Job**
 - A **Template** belongs to the installation, not to a **Seeker**
 
 ## Example dialogue
@@ -151,12 +136,6 @@ _Avoid_: Demo user, guest, trial (a trial is a **Billing status**)
 >
 > **Domain expert:** "The second replaces the first. There is one current **Document** per
 > type per **Job**. Nobody wants a list of seven cover letter drafts."
->
-> **Dev:** "And an **Offer** — that hangs off the **Job** in `offer` status?"
->
-> **Domain expert:** "It is recorded separately. People get offers through routes that were
-> never tracked as a **Job**, and the point of the **Offer** record is comparing packages
-> against each other, not tracing where each came from."
 >
 > **Dev:** "What makes an **Application** distinct from a **Job**?"
 >

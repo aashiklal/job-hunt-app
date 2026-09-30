@@ -1,8 +1,8 @@
 # JobHunt
 
 **An AI-assisted job application tracker.** Track every role through a kanban pipeline,
-generate a tailored resume and cover letter against each job description, compare competing
-offers, and export the result as LaTeX or DOCX.
+generate a tailored resume and cover letter against each job description, prepare for
+interviews, and export the result as LaTeX or DOCX.
 
 Built with Next.js 16 (App Router), React 19, MongoDB and the Claude API.
 
@@ -24,12 +24,6 @@ Soft delete with a trash bin and restore.
 server-side). Generate a tailored resume, a cover letter, a structured job-description
 analysis, interview prep, or one of eight outreach message types against any job. Export to
 LaTeX or DOCX.
-
-**Offers** — Record competing packages and have Claude compare them across base, equity,
-bonus, leave and remote policy, with negotiation hints.
-
-**STAR stories** — Keep reusable behavioural interview answers and have Claude polish a rough
-draft into Situation-Task-Action-Result form.
 
 **Tracker** — Application funnel, response rate, weekly activity against a goal, and alerts
 for applications that have gone quiet.
@@ -225,7 +219,7 @@ npm run bootstrap:admin your@email.com
 ### Optional: the demo
 
 Each "Try the live demo" click creates a private, temporary account seeded with roughly two
-dozen jobs across every status, resumes, offers, STAR stories and pre-generated AI output. It
+dozen jobs across every status, resumes and pre-generated AI output. It
 is deleted after `DEMO_TTL_MINUTES` (2 hours by default).
 
 Create a [Cloudflare Turnstile](https://dash.cloudflare.com/?to=/:account/turnstile) widget

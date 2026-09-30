@@ -350,55 +350,6 @@ export async function demoStructuredDocument(
 // means a route added without a fixture fails loudly rather than billing.
 // ---------------------------------------------------------------------------
 
-export type DemoOfferComparison = {
-  comparisonTable: Array<{ dimension: string; winner: string; notes: string }>;
-  prosAndCons: Record<string, { pros: string[]; cons: string[] }>;
-  recommendation: { pick: string; reasoning: string };
-  negotiationOpportunities: string[];
-};
-
-/** Keyed to the three offers in demo-seed.ts. */
-export function demoOfferComparison(
-  companies: string[]
-): DemoOfferComparison {
-  const [a = "PlanetScale", b = "Fly.io", c = "Datadog"] = companies;
-
-  return {
-    comparisonTable: [
-      { dimension: "Base salary", winner: c, notes: `${c} leads at $195k, ${a} $185k, ${b} $170k. A $25k spread.` },
-      { dimension: "Equity", winner: a, notes: `${a}'s 0.08% carries the most upside but the most risk. ${c}'s RSUs are liquid today.` },
-      { dimension: "Bonus", winner: c, notes: `15% target at ${c}, 10% at ${a}, none at ${b}.` },
-      { dimension: "Leave", winner: b, notes: `${b} gives 25 days, ${a} 20, ${c} 15. Ten days is two working weeks.` },
-      { dimension: "Flexibility", winner: b, notes: `${a} and ${b} are fully remote. ${c} is three days onsite in New York.` },
-      { dimension: "Total first-year cash", winner: c, notes: `Roughly $224k at ${c}, $204k at ${a}, $170k at ${b}.` },
-    ],
-    prosAndCons: {
-      [a]: {
-        pros: ["Strongest equity position of the three", "Fully remote", "Infrastructure work with real depth"],
-        cons: ["Earlier stage, so the equity is the least certain", "Mid-range base"],
-      },
-      [b]: {
-        pros: ["Most leave by a clear margin", "Fully remote", "Highest autonomy"],
-        cons: ["Lowest base by $15k", "No bonus at all", "Smallest equity grant"],
-      },
-      [c]: {
-        pros: ["Highest base and total cash", "Liquid RSUs, not paper", "Established company"],
-        cons: ["Three days onsite in New York", "Least leave", "Largest team, so less individual scope"],
-      },
-    },
-    recommendation: {
-      pick: a,
-      reasoning: `On cash alone ${c} wins, but the gap is roughly $20k a year against a three-day onsite requirement and ten fewer days of leave. If you are optimising for the next twelve months, take ${c}. If you are optimising for the next four years, ${a} pairs the best equity with full remote and the base is close enough that the difference is negotiable. ${b} only wins if leave and autonomy outrank everything else, because the cash gap is real.`,
-    },
-    negotiationOpportunities: [
-      `${a}'s base has the most room. You hold a $195k offer, so $195k at ${a} is a reasonable and evidenced ask.`,
-      `${c} is unlikely to move much on base, but sign-on bonuses are usually the flexible component at that size.`,
-      `${b}'s equity grant is small enough that a meaningful increase costs them little. Ask there rather than on base.`,
-      `Every one of these has an expiry. Ask for an extension in writing before you start negotiating, not after.`,
-    ],
-  };
-}
-
 export type DemoSkillsGap = {
   summary: string;
   highPriority: Array<{ skill: string; why: string; howToLearn: string; timeEstimate: string }>;
@@ -460,24 +411,6 @@ export function demoSkillsGap(): DemoSkillsGap {
       "Deploy one project to a managed Kubernetes cluster this weekend, purely to remove the blank.",
     ],
   };
-}
-
-/** Polished STAR output, tailored to whatever the story is called. */
-export function demoPolishedStory(title: string): string {
-  return `**Situation**
-${title}. The context that mattered: the problem was visible to people outside the team, it had persisted long enough that it was being treated as normal, and the obvious fix would have taken longer than anyone was willing to wait.
-
-**Task**
-I took ownership of it. The constraint I set myself was that whatever I did had to be reversible, because the system was load-bearing and I was not confident enough in my understanding to make a one-way change.
-
-**Action**
-I started by measuring rather than theorising, which contradicted my first instinct about the cause. Once I had numbers I built the smallest change that would prove or disprove the hypothesis, put it behind a flag, and ran it alongside the existing path with automated comparison between the two. When the results agreed for long enough to be convincing, I cut over. I wrote up the failure mode afterwards so the next person would not rediscover it.
-
-**Result**
-The measured outcome held: the problem went away and did not come back, and the comparison job caught two issues during the parallel period that would otherwise have reached users. What I would do differently is measure sooner. I spent the first two days on a theory that the data disproved in an hour.
-
----
-${DEMO_OUTPUT_NOTE}`;
 }
 
 export type DemoParsedJob = {

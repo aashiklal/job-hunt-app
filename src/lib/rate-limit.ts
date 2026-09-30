@@ -18,9 +18,7 @@ import * as rateLimitRepo from "@/lib/repositories/rate-limit";
 export type RateLimitRoute =
   | "generate"
   | "jobs-parse"
-  | "offers-compare"
   | "skills-gap"
-  | "star-stories-polish"
   | "demo-create-ip"
   | "demo-create-global";
 
@@ -28,15 +26,13 @@ type Policy = { limit: number; windowSeconds: number };
 
 /**
  * Generation is the slowest and most expensive route, so it gets the tightest
- * budget. The parse and polish routes are cheaper and more likely to be used
- * in quick succession while someone works through a list.
+ * allowance. Quick import is cheaper and more likely to be used in quick
+ * succession while someone works through a list of postings.
  */
 const POLICIES: Record<RateLimitRoute, Policy> = {
   generate: { limit: 10, windowSeconds: 60 },
   "jobs-parse": { limit: 20, windowSeconds: 60 },
-  "offers-compare": { limit: 10, windowSeconds: 60 },
   "skills-gap": { limit: 10, windowSeconds: 60 },
-  "star-stories-polish": { limit: 20, windowSeconds: 60 },
   // Demo creation makes a Clerk user and seeds a full dataset, so it is
   // limited twice. Per visitor IP: enough for a genuine retry or two. Globally:
   // a ceiling no pool of IPs can exceed. The key passed to consume() for these

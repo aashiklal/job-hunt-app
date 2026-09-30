@@ -3,8 +3,6 @@ import { startTestMongo, stopTestMongo, clearTestMongo, syncIndexes } from "@/te
 import User from "@/lib/models/User";
 import Job from "@/lib/models/Job";
 import Resume from "@/lib/models/Resume";
-import Offer from "@/lib/models/Offer";
-import StarStory from "@/lib/models/StarStory";
 import Doc from "@/lib/models/Document";
 import Subscription from "@/lib/models/Subscription";
 import { DEMO_EMAIL, isDemoEmail } from "@/lib/demo-constants";
@@ -82,18 +80,16 @@ class FakeClerk implements DemoClerk {
 }
 
 async function recordsFor(userId: string) {
-  const [jobs, resumes, offers, stories, docs, subs] = await Promise.all([
+  const [jobs, resumes, docs, subs] = await Promise.all([
     Job.countDocuments({ userId }),
     Resume.countDocuments({ userId }),
-    Offer.countDocuments({ userId }),
-    StarStory.countDocuments({ userId }),
     Doc.countDocuments({ userId }),
     Subscription.countDocuments({ userId }),
   ]);
-  return { jobs, resumes, offers, stories, docs, subs };
+  return { jobs, resumes, docs, subs };
 }
 
-const EMPTY = { jobs: 0, resumes: 0, offers: 0, stories: 0, docs: 0, subs: 0 };
+const EMPTY = { jobs: 0, resumes: 0, docs: 0, subs: 0 };
 const HOUR = 60 * 60 * 1000;
 
 beforeAll(async () => {
@@ -130,8 +126,6 @@ describe("createDemoAccount", () => {
     const counts = await recordsFor(created.userId);
     expect(counts.jobs).toBe(DEMO_SEED_COUNTS.jobs);
     expect(counts.resumes).toBe(DEMO_SEED_COUNTS.resumes);
-    expect(counts.offers).toBe(DEMO_SEED_COUNTS.offers);
-    expect(counts.stories).toBe(DEMO_SEED_COUNTS.starStories);
     expect(counts.subs).toBe(1);
     expect((await Subscription.findOne({ userId: created.userId }))?.status).toBe("comped");
   });
@@ -385,16 +379,16 @@ describe("assertDemoCapacity", () => {
     await expect(assertDemoCapacity(real, "jobs")).resolves.toBeUndefined();
   });
 
-  it("applies to every capped collection", async () => {
+  it("caps resumes separately from jobs", async () => {
     const clerk = new FakeClerk();
     const created = await createDemoAccount(clerk);
     const user = (await User.findById(created.userId))!;
-    // Clone a seeded offer so the fixture always satisfies the Offer schema.
-    const template = await Offer.findOne({ userId: created.userId }).lean();
-    for (let i = 0; i < DEMO_EXTRA_ALLOWANCE.offers; i++) {
-      await Offer.create({ ...template, _id: undefined, company: `Offer ${i}` });
+    // Clone a seeded resume so the fixture always satisfies the Resume schema.
+    const template = await Resume.findOne({ userId: created.userId }).lean();
+    for (let i = 0; i < DEMO_EXTRA_ALLOWANCE.resumes; i++) {
+      await Resume.create({ ...template, _id: undefined, isDefault: false, title: `Extra ${i}` });
     }
-    await expect(assertDemoCapacity(user, "offers")).rejects.toBeInstanceOf(DemoLimitError);
-    await expect(assertDemoCapacity(user, "starStories")).resolves.toBeUndefined();
+    await expect(assertDemoCapacity(user, "resumes")).rejects.toBeInstanceOf(DemoLimitError);
+    await expect(assertDemoCapacity(user, "jobs")).resolves.toBeUndefined();
   });
 });

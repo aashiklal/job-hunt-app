@@ -25,19 +25,15 @@ export type CreditFeature =
   | "outreach"
   | "jobs_parse"
   | "skills_gap"
-  | "offers_compare"
-  | "star_polish"
   | "latex_export";
 
 export const CREDIT_COSTS: Record<CreditFeature, number> = {
   outreach: 1,
-  star_polish: 2,
   latex_export: 2,
   jd_analysis: 3,
   cover_letter: 3,
   jobs_parse: 3,
   skills_gap: 4,
-  offers_compare: 4,
   interview_prep: 4,
   resume: 6,
 };
@@ -51,8 +47,6 @@ export const CREDIT_LABELS: Record<CreditFeature, string> = {
   outreach: "Outreach message",
   jobs_parse: "Quick import",
   skills_gap: "Skills gap report",
-  offers_compare: "Offer comparison",
-  star_polish: "STAR story polish",
   latex_export: "LaTeX export",
 };
 
