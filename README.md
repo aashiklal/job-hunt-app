@@ -1,4 +1,4 @@
-# Job Hunt
+# JobHunt
 
 **An AI-assisted job application tracker.** Track every role through a kanban pipeline,
 generate a tailored resume and cover letter against each job description, compare competing
@@ -34,8 +34,13 @@ draft into Situation-Task-Action-Result form.
 **Tracker** — Application funnel, response rate, weekly activity against a goal, and alerts
 for applications that have gone quiet.
 
-**Admin** — Approve and reject users, override per-user AI budgets, manage export templates,
-and read a paginated audit log of every admin action.
+**Credits** — AI features are priced in credits, a monthly allowance set by the user's plan.
+Each button shows its price before it is clicked, and the usage widget turns the balance
+into something concrete ("About 12 tailored resumes or 25 cover letters").
+
+**Admin** — Approve and reject users, edit plans (credit allowance, spend ceiling, price,
+resume cap), override a user's spend ceiling, manage export templates, see what each account
+costs against what it pays, and read a paginated audit log of every admin action.
 
 ---
 
@@ -75,16 +80,20 @@ Every database query goes through the repository layer. Mutations go through Ser
 route handlers are reserved for the AI endpoints, file upload parsing, binary export and the
 Clerk webhook.
 
-### A spend limit that holds under concurrency
+### A usage limit that holds under concurrency
 
-AI usage is capped in **dollars per month**, not in number of generations, because a cover
-letter and a full interview-prep breakdown differ by an order of magnitude in tokens and the
-ratio shifts every time a prompt is edited.
+Users get a monthly allowance of **credits**, and each AI feature has a fixed credit price
+weighted by what it typically costs: a tailored resume is 6, a short outreach message is 1.
+A flat "N generations a month" would let a resume-heavy user cost five times a note-heavy
+one for the same money. Underneath the credits sits a **USD ceiling per month** as a
+backstop, in case a credit price is ever set too low. Every call is recorded with its real
+cost, which is what the admin margin view is built from. See
+[ADR 0006](./docs/adr/0006-credits-over-a-usd-backstop.md).
 
-The obvious way to enforce that is to read the user's spend, compare it to their limit, call
-the model, and record the cost. That is a check-then-act race with a multi-second window:
-concurrent requests all read the same stale total, all pass, and all proceed. The ceiling
-only holds for serial traffic.
+The obvious way to enforce any such limit is to read the user's usage, compare it to their
+limit, call the model, and record the cost. That is a check-then-act race with a
+multi-second window: concurrent requests all read the same stale total, all pass, and all
+proceed. The ceiling only holds for serial traffic.
 
 `src/lib/usage.concurrency.test.ts` reproduces it. Against the naive implementation, twenty
 parallel requests take a $5.00 budget to **$14.99**:
@@ -97,10 +106,19 @@ parallel requests take a $5.00 budget to **$14.99**:
 ```
 
 The fix makes the check and the charge a single atomic conditional update, so exactly one
-concurrent caller can win at the threshold, then reconciles the estimate to the true cost
-once token counts are known and refunds it if the call fails. Per-user rate limiting sits in
-front as defence in depth. See
-[ADR 0002](./docs/adr/0002-usd-metered-quota-with-reservations.md).
+concurrent caller can win at the threshold. Credits are exact, so they are charged in full
+up front and refunded if the call fails; the USD reservation is an estimate, corrected to the
+true cost once token counts are known. Per-user rate limiting sits in front as defence in
+depth. See [ADR 0002](./docs/adr/0002-usd-metered-quota-with-reservations.md).
+
+### A private demo per visitor
+
+"Try the live demo" creates a fresh temporary account for that visitor alone, seeded with
+sample data, and deletes it after 2 hours or as soon as they leave. A shared demo account let
+each visitor see what the last one typed and change the account for everyone. Creating
+accounts anonymously is guarded by Cloudflare Turnstile, per-IP and global rate limits, a cap
+on live demos and a kill switch, and every failure path cleans up after itself. See
+[ADR 0005](./docs/adr/0005-per-visitor-demo-accounts.md).
 
 ### Enforced architectural boundaries
 
@@ -247,6 +265,7 @@ URL, or use Clerk's built-in webhook tester.
 | `npm run demo:sweep` | Delete expired demo accounts, the legacy shared demo account and orphaned Clerk demo users |
 | `npm run bootstrap:admin` | Promote a user to admin by email, idempotent |
 | `npm run backfill:subscriptions` | Create Subscriptions for existing approved users |
+| `npm run backfill:billing` | Set honest billing status on existing subscriptions (trialing, comped for demos) |
 | `npm run test:generate` | Manual AI generation smoke test |
 | `npm run test:docx-export` | Fixture-driven export regression harness |
 | `npm run generate:cover-letter-template` | Regenerate the local cover-letter template |

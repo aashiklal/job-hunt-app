@@ -1,4 +1,4 @@
-# Job Hunt
+# JobHunt
 
 A single job seeker's application pipeline: the roles they are pursuing, the documents
 they generate for each one, and the offers they end up weighing. One user, one search,
@@ -77,33 +77,62 @@ The person running a job search. Called a User in code, because that is also the
 and database identity.
 
 **Plan**:
-A named tier defining limits, chiefly `aiSpendLimitUSD` and `maxResumes`. `-1` means
-unlimited.
+A named tier defining a monthly **Credit** allowance (`monthlyCredits`), a USD spend
+ceiling (`aiSpendLimitUSD`), a resume cap (`maxResumes`) and a price (`monthlyPriceUSD`).
+`-1` means unlimited. Admins edit plans from the dashboard.
 
 **Subscription**:
-The link between one **Seeker** and their **Plan**, and the place an admin's per-user
-override lives.
+The link between one **Seeker** and their **Plan**. Carries the **Billing status** and
+the place an admin's per-user override lives (a USD ceiling, not a credit allowance).
+
+**Billing status**:
+Where a **Subscription** stands financially, in Stripe's vocabulary: `active`,
+`trialing`, `past_due`, `canceled`, `comped`. Only `active` counts as money collected;
+`comped` is free access given on purpose, such as a **Demo account**. No payments exist
+yet, so nobody is `active` today.
+
+**Credit**:
+The unit a **Seeker** sees and spends on AI features. Each feature has a fixed price in
+credits set by its typical cost (a short outreach message is 1, a tailored resume is 6),
+so a heavy feature cannot be run as cheaply as a light one. Known before the call,
+unlike the USD cost.
+_Avoid_: Generation, token, quota (when talking to users)
 
 **Usage**:
-One **Seeker's** accumulated AI spend in USD for one calendar month.
+One **Seeker's** totals for one **Period**: **Credits** used and the real USD spent.
+
+**Usage event**:
+One AI call as it happened: the feature, model, token counts, real USD cost and
+**Credits** charged. The record behind every cost and margin figure an admin sees.
 
 **Period**:
 A calendar month in UTC, formatted `YYYY-MM`. The window a **Usage** total covers and
 the interval after which spend resets.
 
 **Reservation**:
-Spend charged against a **Seeker** before a model call, on the estimate, and corrected
-to the true cost afterwards. Exists so a spend limit holds under concurrent requests.
+An amount charged against a **Seeker** atomically before a model call, so a limit holds
+under concurrent requests. **Credits** are reserved exactly and refunded if the call
+fails; USD is reserved on a pessimistic estimate and corrected to the true cost
+afterwards.
+
+**Margin**:
+What an account pays against what it costs to serve, from its **Plan** price, its
+**Billing status** and its **Usage events**. Shown to admins; only `active`,
+`trialing` and `past_due` accounts count toward it.
 
 **Demo account**:
-A shared public **Seeker** whose AI requests are served from fixtures and whose data is
-restored nightly. Full read and write, no model spend.
+A private, temporary **Seeker** created for one visitor when they click "Try the live demo",
+seeded with sample data and deleted after 2 hours, or straight away if the visitor ends it
+(exiting, or choosing to sign up or sign in). AI requests are served from fixtures, so it
+spends no credits and no money. Full read and write within per-demo creation caps, never
+visible to another visitor, and never listed among real users for admins.
+_Avoid_: Demo user, guest, trial (a trial is a **Billing status**)
 
 ## Relationships
 
 - A **Seeker** has many **Jobs**, many **Resumes**, many **Offers** and many **STAR stories**
 - A **Seeker** has exactly one **Subscription**, which names exactly one **Plan**
-- A **Seeker** has one **Usage** record per **Period**
+- A **Seeker** has one **Usage** record per **Period**, and one **Usage event** per AI call
 - A **Job** has many **Documents**, at most one current per type
 - A **Document** belongs to exactly one **Job** and records which **Resume** it was generated from
 - An **Offer** is recorded independently; it does not have to correspond to a **Job**
@@ -149,9 +178,14 @@ restored nightly. Full read and write, no model spend.
 - **"Pipeline" and "funnel" were used interchangeably.** Resolved: the **Pipeline** is the
   kanban working surface; the **Funnel** is the per-status count shown as an analytic.
 
-- **"Limit" was used for both spend and resource caps.** Resolved: spend caps are in USD
-  per **Period** and enforced through a **Reservation**; resource caps like `maxResumes` are
-  counts checked at both the page and the action. They share a **Plan** but nothing else.
+- **"Limit" meant three different caps.** Resolved: the **Credit** allowance is the limit a
+  **Seeker** sees and hits; the USD ceiling is a backstop underneath it in case a credit
+  price is set too low; resource caps like `maxResumes` are counts checked at both the page
+  and the action. All three live on a **Plan**; only the first two use a **Reservation**.
+
+- **"Spend" meant both credits and dollars.** Resolved: talk to users only in **Credits**.
+  Dollars are the real cost, shown to admins in **Usage events** and **Margin**, and never
+  to a **Seeker**.
 
 - **"User" versus "seeker".** The domain actor is a **Seeker**; `User` in code is the
   identity record shared with Clerk. Admins are `User`s who are not acting as **Seekers**.
