@@ -334,7 +334,7 @@ export default function DashboardShell({
       </Sheet>
 
       <main
-        className={`flex-1 transition-[margin] duration-200 ease-[var(--ease-out-expo)] ${sidebarCollapsed ? "md:ml-16" : "md:ml-60"}`}
+        className={`min-w-0 flex-1 transition-[margin] duration-200 ease-[var(--ease-out-expo)] ${sidebarCollapsed ? "md:ml-16" : "md:ml-60"}`}
       >
         {demoBanner}
         <div className="p-6 md:p-8">{children}</div>
