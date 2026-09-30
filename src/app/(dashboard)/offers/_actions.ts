@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { defineAction } from "@/lib/actions";
+import { assertDemoCapacity } from "@/lib/demo-accounts";
 import * as offers from "@/lib/repositories/offers";
 
 const offerBodySchema = z.object({
@@ -30,6 +31,7 @@ const deleteOfferSchema = z.object({
 export const createOffer = defineAction(
   async (ctx, input: z.infer<typeof offerBodySchema>) => {
     const data = offerBodySchema.parse(input);
+    await assertDemoCapacity(ctx.user, "offers");
     const offer = await offers.create(ctx.user._id.toString(), data);
     revalidatePath("/offers");
     return { offerId: offer._id };

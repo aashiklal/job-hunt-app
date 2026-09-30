@@ -1,6 +1,8 @@
 import { headers } from "next/headers";
 import { Webhook } from "svix";
 import * as userAccess from "@/lib/user-access-lifecycle";
+import * as users from "@/lib/repositories/users";
+import { isDemoUser } from "@/lib/demo";
 
 type ClerkUserEventData = {
   id: string;
@@ -8,6 +10,7 @@ type ClerkUserEventData = {
   primary_email_address_id: string;
   first_name: string | null;
   last_name: string | null;
+  public_metadata?: Record<string, unknown>;
 };
 
 type ClerkWebhookEvent = {
@@ -45,6 +48,18 @@ export async function POST(req: Request) {
   }
 
   const { type, data } = event;
+
+  // Per-visitor demo accounts are created, mirrored into Mongo, and deleted by
+  // src/lib/demo-accounts.ts. Handling them here would create a pending user
+  // and notify every admin for each demo click, and a user.deleted arriving
+  // mid-sweep would drop the record before the demo's data was wiped, leaving
+  // it orphaned. Acknowledge and ignore.
+  if (data.public_metadata?.demo === true) {
+    return new Response("OK", { status: 200 });
+  }
+  if (type === "user.deleted" && isDemoUser(await users.getByClerkId(data.id))) {
+    return new Response("OK", { status: 200 });
+  }
 
   if (type === "user.created") {
     const primaryEmail = data.email_addresses.find(

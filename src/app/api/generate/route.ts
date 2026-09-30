@@ -9,6 +9,7 @@ import {
   JobGenerationError,
   jobGenerationRequestSchema,
 } from "@/lib/job-ai-generation";
+import { isDemoExpired } from "@/lib/demo";
 
 function quotaResponse(err: QuotaExceededError) {
   return NextResponse.json(
@@ -47,6 +48,9 @@ export async function POST(req: NextRequest) {
   const user = await users.getByClerkId(clerkUserId);
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+  if (isDemoExpired(user)) {
+    return NextResponse.json({ error: "This demo has ended." }, { status: 401 });
   }
 
   const limit = await consume(user._id.toString(), "generate");

@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import * as rateLimitRepo from "@/lib/repositories/rate-limit";
 
 /**
@@ -20,7 +21,8 @@ export type RateLimitRoute =
   | "offers-compare"
   | "skills-gap"
   | "star-stories-polish"
-  | "demo-session";
+  | "demo-create-ip"
+  | "demo-create-global";
 
 type Policy = { limit: number; windowSeconds: number };
 
@@ -35,10 +37,12 @@ const POLICIES: Record<RateLimitRoute, Policy> = {
   "offers-compare": { limit: 10, windowSeconds: 60 },
   "skills-gap": { limit: 10, windowSeconds: 60 },
   "star-stories-polish": { limit: 20, windowSeconds: 60 },
-  // Shared across every visitor, since they all resolve to the same demo user.
-  // Generous enough for real traffic, tight enough that the endpoint cannot be
-  // used to mint sessions in bulk.
-  "demo-session": { limit: 30, windowSeconds: 60 },
+  // Demo creation makes a Clerk user and seeds a full dataset, so it is
+  // limited twice. Per visitor IP: enough for a genuine retry or two. Globally:
+  // a ceiling no pool of IPs can exceed. The key passed to consume() for these
+  // go through consumeByKey() with an IP or "global", not a user id.
+  "demo-create-ip": { limit: 3, windowSeconds: 600 },
+  "demo-create-global": { limit: 30, windowSeconds: 60 },
 };
 
 export type RateLimitResult =
@@ -72,6 +76,26 @@ export async function consume(
   }
 
   return { allowed: true, remaining: policy.limit - count };
+}
+
+/**
+ * Rate limits a request that has no user yet, such as demo creation, keyed on
+ * an arbitrary string like a client IP.
+ *
+ * The counter collection keys on an ObjectId, so the key is hashed into one.
+ * Hashing also means no raw IP is ever stored. The server secret salts the hash
+ * so the small IPv4 space cannot be brute-forced back from a stored counter.
+ */
+export async function consumeByKey(
+  key: string,
+  route: RateLimitRoute
+): Promise<RateLimitResult> {
+  const salt = process.env.CLERK_SECRET_KEY ?? "";
+  const bucket = createHash("sha256")
+    .update(`${salt}:${route}:${key}`)
+    .digest("hex")
+    .slice(0, 24);
+  return consume(bucket, route);
 }
 
 /** Builds the 429 body and headers for a refused request. */

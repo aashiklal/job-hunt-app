@@ -14,7 +14,7 @@
     "check:docs": "tsx scripts/check-docs-scripts.ts",
     "bootstrap:admin": "tsx scripts/bootstrap-admin.ts",
     "seed:plans": "tsx --conditions=react-server scripts/seed-plans.ts",
-    "seed:demo": "tsx --conditions=react-server scripts/seed-demo.ts",
+    "demo:sweep": "tsx --conditions=react-server scripts/demo-sweep.ts",
     "backfill:subscriptions": "tsx scripts/backfill-subscriptions.ts",
     "backfill:billing": "tsx --conditions=react-server scripts/backfill-billing-status.ts",
     "test:generate": "tsx scripts/test-generate.ts",

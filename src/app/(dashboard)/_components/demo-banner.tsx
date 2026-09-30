@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { Info } from "lucide-react";
+import { DemoExitButton } from "@/components/DemoExitButton";
 
 /**
  * Tells a demo visitor what they are looking at.
@@ -24,17 +24,19 @@ export function DemoBanner() {
           <span>
             <span className="font-medium">You are in the demo.</span>{" "}
             <span className="text-muted-foreground">
-              Everything is editable and resets nightly. AI responses are
-              pre-written examples, so no model is called.
+              This workspace is private to you and is deleted 2 hours after
+              you opened it. AI responses are pre-written examples, so no
+              model is called.
             </span>
           </span>
         </p>
-        <Link
-          href="/sign-up"
-          className="self-start rounded-md border border-border px-3 py-1 font-medium text-foreground transition-colors duration-200 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none sm:ml-auto sm:self-auto sm:whitespace-nowrap"
+        <DemoExitButton
+          redirectUrl="/sign-up"
+          intent="sign-up"
+          className="self-start rounded-md border border-border px-3 py-1 font-medium text-foreground transition-colors duration-200 hover:bg-accent sm:ml-auto sm:self-auto sm:whitespace-nowrap"
         >
           Sign up to use real AI
-        </Link>
+        </DemoExitButton>
       </div>
     </aside>
   );

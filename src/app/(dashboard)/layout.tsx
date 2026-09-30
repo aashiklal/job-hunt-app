@@ -10,12 +10,14 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { user } = await requireApprovedUserWithPlan();
+  const isDemo = isDemoUser(user);
 
   return (
     <DashboardShell
       isAdmin={user.isAdmin}
+      isDemo={isDemo}
       usageWidget={<UsageWidget />}
-      demoBanner={isDemoUser(user) ? <DemoBanner /> : null}
+      demoBanner={isDemo ? <DemoBanner /> : null}
     >
       {children}
     </DashboardShell>

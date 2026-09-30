@@ -91,6 +91,11 @@ export async function deleteStory(userId: string, id: string): Promise<boolean> 
   return doc !== null;
 }
 
+export async function countForUser(userId: string): Promise<number> {
+  await connectDB();
+  return StarStory.countDocuments({ userId });
+}
+
 export async function deleteAllForUser(userId: string): Promise<number> {
   await connectDB();
   const result = await StarStory.deleteMany({ userId });

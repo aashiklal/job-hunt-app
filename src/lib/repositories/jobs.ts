@@ -222,9 +222,22 @@ export async function restore(
   return doc ? toJobListItem(doc) : null;
 }
 
-export async function countAll(): Promise<number> {
+/**
+ * Every job the user holds, trash included. Used for the demo creation cap, so
+ * that deleting to the trash cannot be used to keep adding records.
+ */
+export async function countForUserIncludingTrash(userId: string): Promise<number> {
   await connectDB();
-  return Job.countDocuments({ deletedAt: null });
+  return Job.countDocuments({ userId });
+}
+
+/** Public landing-page stat. Pass demo account ids to keep sample data out. */
+export async function countAll(excludeUserIds: string[] = []): Promise<number> {
+  await connectDB();
+  return Job.countDocuments({
+    deletedAt: null,
+    ...(excludeUserIds.length > 0 && { userId: { $nin: excludeUserIds } }),
+  });
 }
 
 // ---------------------------------------------------------------------------

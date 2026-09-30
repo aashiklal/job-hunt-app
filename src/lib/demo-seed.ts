@@ -1,19 +1,15 @@
 import "server-only";
 
-import * as users from "@/lib/repositories/users";
 import * as jobs from "@/lib/repositories/jobs";
 import * as resumes from "@/lib/repositories/resumes";
 import * as offers from "@/lib/repositories/offers";
 import * as starStories from "@/lib/repositories/star-stories";
 import * as documents from "@/lib/repositories/documents";
-import * as subscriptions from "@/lib/repositories/subscriptions";
 import * as usage from "@/lib/repositories/usage";
 import * as usageEvents from "@/lib/repositories/usage-events";
 import type { JobSeedInput } from "@/lib/repositories/jobs";
-import { DEMO_EMAIL } from "@/lib/demo-constants";
 import { demoAnalysis, demoStructuredDocument } from "@/lib/demo-fixtures";
 
-export { DEMO_EMAIL };
 
 const DEMO_SEED_MODEL = "claude-sonnet-4-5 (demo fixture)";
 
@@ -497,6 +493,17 @@ End-to-end latency went from 18 hours to under 5 minutes. The reconciliation job
   },
 ];
 
+/**
+ * How many records the sample data creates per collection. The per-demo
+ * creation caps in src/lib/demo-accounts.ts are measured on top of these.
+ */
+export const DEMO_SEED_COUNTS = {
+  jobs: JOB_SEEDS.length,
+  resumes: RESUME_SEEDS.length,
+  offers: OFFER_SEEDS.length,
+  starStories: STAR_STORY_SEEDS.length,
+} as const;
+
 /** Removes every piece of demo content. Does not touch the user record itself. */
 export async function wipeDemoData(userId: string): Promise<void> {
   await Promise.all([
@@ -646,29 +653,6 @@ async function seedDocuments(
   }
 
   return count;
-}
-
-/**
- * Ensures the demo user is approved, flagged, and holds a subscription so it
- * clears requireApprovedUserWithPlan(). Returns null if the account has not
- * signed up through Clerk yet.
- */
-export async function ensureDemoUser(): Promise<string | null> {
-  const user = await users.getByEmail(DEMO_EMAIL);
-  if (!user) return null;
-
-  const id = (user._id as { toString(): string }).toString();
-  if (user.status !== "approved") await users.setStatus(id, "approved");
-  if (!user.isDemo) await users.setDemo(id, true);
-
-  const subscription = await subscriptions.ensureForUser(id);
-  if (!subscription) {
-    throw new Error(
-      "Failed to create a subscription for the demo user. Run seed:plans first."
-    );
-  }
-
-  return id;
 }
 
 // ---------------------------------------------------------------------------

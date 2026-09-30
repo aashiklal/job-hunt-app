@@ -4,6 +4,7 @@ import {
   type ApprovedUserContext,
 } from "@/lib/auth-helpers";
 import { QuotaExceededError } from "@/lib/usage";
+import { DemoLimitError } from "@/lib/demo-limits";
 
 export type ActionContext = ApprovedUserContext;
 
@@ -45,6 +46,10 @@ function handleError(err: unknown): ActionResult<never> {
         periodEndsAt: err.periodEndsAt.toISOString(),
       },
     };
+  }
+
+  if (err instanceof DemoLimitError) {
+    return { ok: false, error: { code: "FORBIDDEN", message: err.message } };
   }
 
   // Duck-type ZodError to avoid importing zod solely for instanceof

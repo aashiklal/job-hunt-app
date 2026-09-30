@@ -16,7 +16,7 @@ import {
   buildDefaultLatexDoc,
   buildDefaultCoverLetterLatexDoc,
 } from "@/lib/export/to-latex";
-import { isDemoUser } from "@/lib/demo";
+import { isDemoUser, isDemoExpired } from "@/lib/demo";
 
 const querySchema = z.object({
   format: z.enum(["docx", "tex"]).default("docx"),
@@ -46,6 +46,9 @@ export async function GET(
   const user = await users.getByClerkId(clerkUserId);
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+  if (isDemoExpired(user)) {
+    return NextResponse.json({ error: "This demo has ended." }, { status: 401 });
   }
 
   const { id } = await params;

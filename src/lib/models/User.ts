@@ -14,6 +14,12 @@ export type IUser = {
    * their data is reset on a schedule. See src/lib/demo.ts.
    */
   isDemo: boolean;
+  /**
+   * When a per-visitor demo account stops working and becomes eligible for
+   * deletion. Null for real users. A demo without it is a legacy shared demo
+   * account and is swept immediately. See src/lib/demo-accounts.ts.
+   */
+  demoExpiresAt: Date | null;
 } & Document;
 
 const UserSchema = new Schema<IUser>(
@@ -31,6 +37,7 @@ const UserSchema = new Schema<IUser>(
     },
     isAdmin: { type: Boolean, default: false },
     isDemo: { type: Boolean, default: false, index: true },
+    demoExpiresAt: { type: Date, default: null, index: true },
   },
   { timestamps: false }
 );

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { defineAction } from "@/lib/actions";
+import { assertDemoCapacity } from "@/lib/demo-accounts";
 import * as resumes from "@/lib/repositories/resumes";
 
 const titleSchema = z.string().min(1, "Title is required").max(200);
@@ -28,6 +29,7 @@ const resumeIdSchema = z.object({ resumeId: z.string().min(1) });
 export const createResume = defineAction(
   async (ctx, input: z.infer<typeof createResumeSchema>) => {
     const data = createResumeSchema.parse(input);
+    await assertDemoCapacity(ctx.user, "resumes");
     const userId = ctx.user._id.toString();
 
     const currentCount = await resumes.countForUser(userId);

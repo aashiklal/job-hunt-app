@@ -87,9 +87,67 @@ export async function setDemo(
   return User.findByIdAndUpdate(id, { isDemo }, { returnDocument: "after" });
 }
 
-export async function getDemoUser(): Promise<IUser | null> {
+/**
+ * Real people only. Per-visitor demo accounts are created and deleted all day,
+ * so any count or list shown to an admin or on the landing page filters them.
+ */
+const NOT_DEMO = { isDemo: { $ne: true } };
+
+/**
+ * Inserts a per-visitor demo account directly as approved. Demo accounts never
+ * go through the webhook or the pending queue.
+ */
+export async function createDemo(args: {
+  clerkId: string;
+  email: string;
+  expiresAt: Date;
+}): Promise<IUser> {
   await connectDB();
-  return User.findOne({ isDemo: true });
+  return User.create({
+    clerkId: args.clerkId,
+    email: args.email,
+    firstName: "Demo",
+    lastName: "Visitor",
+    status: "approved",
+    isAdmin: false,
+    isDemo: true,
+    demoExpiresAt: args.expiresAt,
+  });
+}
+
+/**
+ * Demo accounts due for deletion: expired ones, plus legacy demo records with
+ * no expiry at all (the retired shared account). Oldest first.
+ */
+export async function listDemosToSweep(
+  now: Date,
+  limit: number
+): Promise<IUser[]> {
+  await connectDB();
+  return User.find({
+    isDemo: true,
+    $or: [{ demoExpiresAt: null }, { demoExpiresAt: { $lte: now } }],
+  })
+    .sort({ demoExpiresAt: 1 })
+    .limit(limit);
+}
+
+export async function countLiveDemos(now: Date): Promise<number> {
+  await connectDB();
+  return User.countDocuments({ isDemo: true, demoExpiresAt: { $gt: now } });
+}
+
+/** Ids of every demo account, for excluding their records from public counts. */
+export async function listDemoIds(): Promise<string[]> {
+  await connectDB();
+  const docs = await User.find({ isDemo: true }).select("_id").lean();
+  return docs.map((d) => (d._id as { toString(): string }).toString());
+}
+
+export async function deleteById(id: string): Promise<boolean> {
+  await connectDB();
+  const result = await User.findByIdAndDelete(id);
+  return result !== null;
 }
 
 export async function createFromClerk(args: {
@@ -151,7 +209,7 @@ export async function claimByEmail(
 
 export async function countApproved(): Promise<number> {
   await connectDB();
-  return User.countDocuments({ status: "approved" });
+  return User.countDocuments({ ...NOT_DEMO, status: "approved" });
 }
 
 export async function countByStatus(): Promise<{
@@ -161,16 +219,16 @@ export async function countByStatus(): Promise<{
 }> {
   await connectDB();
   const [pending, approved, rejected] = await Promise.all([
-    User.countDocuments({ status: "pending" }),
-    User.countDocuments({ status: "approved" }),
-    User.countDocuments({ status: "rejected" }),
+    User.countDocuments({ ...NOT_DEMO, status: "pending" }),
+    User.countDocuments({ ...NOT_DEMO, status: "approved" }),
+    User.countDocuments({ ...NOT_DEMO, status: "rejected" }),
   ]);
   return { pending, approved, rejected };
 }
 
 export async function countNewSince(date: Date): Promise<number> {
   await connectDB();
-  return User.countDocuments({ createdAt: { $gte: date } });
+  return User.countDocuments({ ...NOT_DEMO, createdAt: { $gte: date } });
 }
 
 function escapeRegex(s: string): string {
@@ -193,9 +251,9 @@ export async function countByStatusWithSearch(search?: string): Promise<{
       }
     : {};
   const [pending, approved, rejected] = await Promise.all([
-    User.countDocuments({ ...filter, status: "pending" }),
-    User.countDocuments({ ...filter, status: "approved" }),
-    User.countDocuments({ ...filter, status: "rejected" }),
+    User.countDocuments({ ...filter, ...NOT_DEMO, status: "pending" }),
+    User.countDocuments({ ...filter, ...NOT_DEMO, status: "approved" }),
+    User.countDocuments({ ...filter, ...NOT_DEMO, status: "rejected" }),
   ]);
   return { pending, approved, rejected };
 }
@@ -218,7 +276,7 @@ export async function listIdsForFilter(opts: {
   cap?: number;
 }): Promise<string[]> {
   await connectDB();
-  const filter: Record<string, unknown> = { status: opts.status };
+  const filter: Record<string, unknown> = { ...NOT_DEMO, status: opts.status };
   if (opts.search) {
     filter["$or"] = [
       { email: { $regex: escapeRegex(opts.search), $options: "i" } },
@@ -256,7 +314,7 @@ export async function listPaginated(opts: {
   limit: number;
 }): Promise<{ users: IUser[]; total: number }> {
   await connectDB();
-  const filter: Record<string, unknown> = { status: opts.status };
+  const filter: Record<string, unknown> = { ...NOT_DEMO, status: opts.status };
   if (opts.search) {
     filter["$or"] = [
       { email: { $regex: escapeRegex(opts.search), $options: "i" } },

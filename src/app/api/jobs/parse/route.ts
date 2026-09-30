@@ -10,7 +10,7 @@ import { buildJobParsePrompt } from "@/lib/prompts";
 import { computeFitScore } from "@/lib/fit-score";
 import { jdAnalysisSchema, type JDAnalysis } from "@/lib/job-analysis";
 import { consume, rateLimitResponseInit } from "@/lib/rate-limit";
-import { isDemoUser, withDemoLatency } from "@/lib/demo";
+import { isDemoUser, withDemoLatency, isDemoExpired } from "@/lib/demo";
 import { demoAnalysis, demoParsedJob } from "@/lib/demo-fixtures";
 
 const MODEL = "claude-sonnet-4-5";
@@ -62,6 +62,9 @@ export async function POST(req: NextRequest) {
   const user = await users.getByClerkId(clerkUserId);
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+  if (isDemoExpired(user)) {
+    return NextResponse.json({ error: "This demo has ended." }, { status: 401 });
   }
   const userIdStr = (user._id as { toString(): string }).toString();
 

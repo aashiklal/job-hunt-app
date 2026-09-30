@@ -27,6 +27,12 @@ export async function ensureForUser(
   );
 }
 
+export async function deleteForUser(userId: string): Promise<boolean> {
+  await connectDB();
+  const result = await Subscription.findOneAndDelete({ userId });
+  return result !== null;
+}
+
 /**
  * Sets billing state. Called by the backfill today and by a Stripe webhook
  * later, which is why it speaks Stripe's vocabulary.

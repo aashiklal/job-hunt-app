@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { defineAction } from "@/lib/actions";
+import { assertDemoCapacity } from "@/lib/demo-accounts";
 import * as starStories from "@/lib/repositories/star-stories";
 
 const createStarStorySchema = z.object({
@@ -30,6 +31,7 @@ export const createStarStory = defineAction(
     input: z.infer<typeof createStarStorySchema>
   ) => {
     const data = createStarStorySchema.parse(input);
+    await assertDemoCapacity(ctx.user, "starStories");
     const story = await starStories.create(ctx.user._id.toString(), data);
     revalidatePath("/star-stories");
     return { storyId: story._id };

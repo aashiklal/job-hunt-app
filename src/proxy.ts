@@ -9,11 +9,12 @@ const isPublicRoute = createRouteMatcher([
   // Scheduled invocations carry no Clerk session. These routes authenticate
   // themselves with a CRON_SECRET bearer token instead.
   "/api/cron(.*)",
-  // Mints a sign-in ticket for the public demo account, so by definition the
-  // caller has no session yet. The route guards itself: it only ever resolves
-  // the single user flagged isDemo, refuses if that user is missing, not
-  // approved, or an admin, and is rate limited.
+  // Creates a private demo account and mints a sign-in ticket for it, so by
+  // definition the caller has no session yet. The route guards itself with a
+  // kill switch, Turnstile, per-IP and global rate limits, and a live-demo cap.
   "/api/demo(.*)",
+  // Shown after a demo expires. It ends the lingering session itself.
+  "/demo-ended",
 ]);
 
 export default clerkMiddleware(async (auth, request) => {

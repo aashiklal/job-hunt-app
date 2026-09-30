@@ -1,12 +1,13 @@
 import "server-only";
 
-import { DEMO_EMAIL } from "@/lib/demo-constants";
+import { isDemoEmail } from "@/lib/demo-constants";
 import * as users from "@/lib/repositories/users";
 
 /**
- * Demo mode. The shared public demo account (see src/lib/demo-seed.ts) keeps
- * full CRUD so a visitor can drag the kanban, create jobs and edit records,
- * but its AI requests never reach Anthropic. Every expensive route checks
+ * Demo mode. Every visitor who clicks "Try the live demo" gets a private,
+ * temporary account (see src/lib/demo-accounts.ts) seeded with sample data. It
+ * keeps full CRUD so a visitor can drag the kanban, create jobs and edit
+ * records, but its AI requests never reach Anthropic. Every expensive route checks
  * isDemoUser() and serves a fixture instead.
  *
  * The guard lives here rather than in defineAction because the AI routes are
@@ -14,7 +15,11 @@ import * as users from "@/lib/repositories/users";
  * wrapper.
  */
 
-export type DemoCapableUser = { isDemo?: boolean; email?: string };
+export type DemoCapableUser = {
+  isDemo?: boolean;
+  email?: string;
+  demoExpiresAt?: Date | null;
+};
 
 /**
  * True when this user must never reach Anthropic.
@@ -27,13 +32,28 @@ export type DemoCapableUser = { isDemo?: boolean; email?: string };
  * before the field was added returns `undefined` for it and the guard quietly
  * stops working.
  *
- * The email is the durable fact: it identifies the shared demo account
- * regardless of schema state. Either signal is enough to refuse.
+ * The email is the durable fact: demo accounts are always created with a
+ * reserved address (see buildDemoEmail), regardless of schema state. Either
+ * signal is enough to refuse.
  */
 export function isDemoUser(user: DemoCapableUser | null | undefined): boolean {
   if (!user) return false;
   if (user.isDemo === true) return true;
-  return user.email?.toLowerCase() === DEMO_EMAIL.toLowerCase();
+  return isDemoEmail(user.email);
+}
+
+/**
+ * True when a demo account must stop working. A demo with no expiry is a
+ * legacy shared account and counts as expired. Real users never expire.
+ */
+export function isDemoExpired(
+  user: DemoCapableUser | null | undefined,
+  now: Date = new Date()
+): boolean {
+  if (!isDemoUser(user)) return false;
+  const expiresAt = user?.demoExpiresAt;
+  if (!expiresAt) return true;
+  return expiresAt.getTime() <= now.getTime();
 }
 
 /**

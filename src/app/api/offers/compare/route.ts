@@ -8,7 +8,7 @@ import { buildOfferComparisonPrompt } from "@/lib/prompts";
 import * as users from "@/lib/repositories/users";
 import * as offers from "@/lib/repositories/offers";
 import { consume, rateLimitResponseInit } from "@/lib/rate-limit";
-import { isDemoUser, withDemoLatency } from "@/lib/demo";
+import { isDemoUser, withDemoLatency, isDemoExpired } from "@/lib/demo";
 import { demoOfferComparison } from "@/lib/demo-fixtures";
 
 const MODEL = "claude-sonnet-4-5";
@@ -34,6 +34,9 @@ export async function POST() {
   const user = await users.getByClerkId(clerkUserId);
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+  if (isDemoExpired(user)) {
+    return NextResponse.json({ error: "This demo has ended." }, { status: 401 });
   }
   const userIdStr = (user._id as { toString(): string }).toString();
 

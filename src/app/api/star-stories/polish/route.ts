@@ -8,7 +8,7 @@ import * as starStories from "@/lib/repositories/star-stories";
 import { QuotaExceededError } from "@/lib/usage";
 import { buildSTARStoryPolishPrompt } from "@/lib/prompts";
 import { consume, rateLimitResponseInit } from "@/lib/rate-limit";
-import { isDemoUser, withDemoLatency } from "@/lib/demo";
+import { isDemoUser, withDemoLatency, isDemoExpired } from "@/lib/demo";
 import { demoPolishedStory } from "@/lib/demo-fixtures";
 
 const MODEL = "claude-sonnet-4-5";
@@ -46,6 +46,9 @@ export async function POST(req: NextRequest) {
   const user = await users.getByClerkId(clerkUserId);
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+  if (isDemoExpired(user)) {
+    return NextResponse.json({ error: "This demo has ended." }, { status: 401 });
   }
   const userIdStr = (user._id as { toString(): string }).toString();
 

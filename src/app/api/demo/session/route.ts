@@ -1,76 +1,116 @@
 import "server-only";
-import { NextResponse } from "next/server";
-import { createClerkClient } from "@clerk/backend";
-import * as users from "@/lib/repositories/users";
-import { consume, rateLimitResponseInit } from "@/lib/rate-limit";
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import {
+  DemoCapacityError,
+  createDefaultDemoClerk,
+  createDemoAccount,
+  isDemoDisabled,
+  sweepExpiredDemoAccounts,
+} from "@/lib/demo-accounts";
+import { consumeByKey, rateLimitResponseInit } from "@/lib/rate-limit";
+import { verifyTurnstileToken } from "@/lib/turnstile";
 
 /**
- * Mints a short-lived Clerk sign-in ticket for the public demo account.
+ * Creates a private demo account for one visitor and returns a short-lived
+ * Clerk sign-in ticket for it.
  *
- * Password sign-in cannot work for a shared demo: Clerk demands email
- * verification from an unrecognised device, every visitor is an unrecognised
- * device, and nobody can read the demo mailbox. A ticket is the authentication
- * itself, so it sidesteps both the password and the device check.
- *
- * This endpoint hands out a session for an account that is public by design.
- * It is still guarded: it only ever resolves the one user flagged isDemo, it
- * refuses outright unless that user exists and is approved, the ticket expires
- * in a minute and is single-use, and it is rate limited so it cannot be used
- * to mint sessions in bulk.
+ * This is the only unauthenticated route that creates accounts, so it is
+ * guarded in layers, cheapest first: kill switch, Turnstile, a per-IP limit, a
+ * global limit, and a cap on live demo accounts. See src/lib/demo-accounts.ts
+ * for the account lifecycle and its cleanup guarantees.
  */
 
-const TICKET_TTL_SECONDS = 60;
+const bodySchema = z.object({
+  turnstileToken: z.string().min(1).max(2048),
+});
 
-export async function POST() {
-  const demoUser = await users.getDemoUser();
+/** Creation seeds a full dataset against a remote database. */
+export const maxDuration = 30;
 
-  if (!demoUser || demoUser.status !== "approved") {
+/** Opportunistic cleanup per creation. Bounded so it never slows a visitor. */
+const LAZY_SWEEP_LIMIT = 5;
+
+function clientIp(req: NextRequest): string | null {
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) {
+    const first = forwarded.split(",")[0]?.trim();
+    if (first) return first;
+  }
+  return req.headers.get("x-real-ip")?.trim() || null;
+}
+
+function jsonError(error: string, status: number) {
+  return NextResponse.json(
+    { error },
+    { status, headers: { "Cache-Control": "no-store" } }
+  );
+}
+
+export async function POST(req: NextRequest) {
+  if (isDemoDisabled()) {
+    return jsonError("The demo is switched off right now.", 503);
+  }
+
+  let body: z.infer<typeof bodySchema>;
+  try {
+    body = bodySchema.parse(await req.json());
+  } catch {
+    return jsonError("Missing verification. Reload the page and try again.", 400);
+  }
+
+  const ip = clientIp(req);
+
+  const verified = await verifyTurnstileToken(body.turnstileToken, ip);
+  if (!verified.ok) {
+    console.warn("[demo/session] turnstile rejected:", verified.reason);
+    return jsonError("Verification failed. Reload the page and try again.", 403);
+  }
+
+  // Every request that reaches here has passed Turnstile. An unknown IP gets
+  // one shared bucket, which is stricter, not looser.
+  const perIp = await consumeByKey(ip ?? "unknown", "demo-create-ip");
+  if (!perIp.allowed) {
     return NextResponse.json(
-      { error: "Demo account is not available." },
-      { status: 503 }
+      { error: "You have started several demos recently. Try again in a few minutes." },
+      rateLimitResponseInit(perIp.retryAfterSeconds)
     );
   }
 
-  // Defensive: an admin demo account would bypass the budget check entirely
-  // and make real Anthropic calls on every visitor's click.
-  if (demoUser.isAdmin) {
-    console.error("[demo/session] demo user is an admin; refusing to sign in.");
-    return NextResponse.json(
-      { error: "Demo account is misconfigured." },
-      { status: 503 }
-    );
-  }
-
-  const limit = await consume(demoUser._id.toString(), "demo-session");
-  if (!limit.allowed) {
+  const global = await consumeByKey("global", "demo-create-global");
+  if (!global.allowed) {
     return NextResponse.json(
       { error: "The demo is busy right now. Try again in a moment." },
-      rateLimitResponseInit(limit.retryAfterSeconds)
+      rateLimitResponseInit(global.retryAfterSeconds)
     );
   }
 
-  const secretKey = process.env.CLERK_SECRET_KEY;
-  if (!secretKey) {
-    console.error("[demo/session] CLERK_SECRET_KEY is not set.");
-    return NextResponse.json({ error: "Not configured" }, { status: 500 });
+  let clerk;
+  try {
+    clerk = createDefaultDemoClerk();
+  } catch (err) {
+    console.error("[demo/session] Clerk is not configured:", err);
+    return jsonError("The demo is not available.", 500);
   }
 
   try {
-    const clerk = createClerkClient({ secretKey });
-    const token = await clerk.signInTokens.createSignInToken({
-      userId: demoUser.clerkId,
-      expiresInSeconds: TICKET_TTL_SECONDS,
-    });
+    await sweepExpiredDemoAccounts(clerk, { limit: LAZY_SWEEP_LIMIT });
+  } catch (err) {
+    // Cleanup is best effort here; the cron and the next creation retry it.
+    console.error("[demo/session] lazy sweep failed:", err);
+  }
 
+  try {
+    const { ticket } = await createDemoAccount(clerk);
     return NextResponse.json(
-      { ticket: token.token },
+      { ticket },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (err) {
-    console.error("[demo/session] failed to mint sign-in token:", err);
-    return NextResponse.json(
-      { error: "Could not start the demo." },
-      { status: 500 }
-    );
+    if (err instanceof DemoCapacityError) {
+      return jsonError("The demo is busy right now. Try again in a few minutes.", 503);
+    }
+    console.error("[demo/session] could not create a demo account:", err);
+    return jsonError("Could not start the demo. Please try again.", 500);
   }
 }

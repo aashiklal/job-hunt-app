@@ -98,6 +98,11 @@ export async function deleteOffer(
   return doc !== null;
 }
 
+export async function countForUser(userId: string): Promise<number> {
+  await connectDB();
+  return Offer.countDocuments({ userId });
+}
+
 export async function deleteAllForUser(userId: string): Promise<number> {
   await connectDB();
   const result = await Offer.deleteMany({ userId });

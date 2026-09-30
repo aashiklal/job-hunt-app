@@ -14,7 +14,7 @@ import * as users from "../src/lib/repositories/users";
  * Every subscription defaulted to "active", which the margin dashboard reads
  * as paying. Nobody actually pays yet, so without this the dashboard would
  * report revenue that does not exist. Moves them to "trialing", which is what
- * they are, and marks the demo account "comped".
+ * they are, and marks demo accounts "comped".
  *
  * Safe to run repeatedly. Once Stripe exists it sets the status instead, and
  * this script should not be run again.
@@ -23,8 +23,7 @@ async function main() {
   await connectDB();
   console.log("Connected to MongoDB.");
 
-  const demo = await users.getDemoUser();
-  const demoId = demo ? (demo._id as { toString(): string }).toString() : null;
+  const demoIds = new Set(await users.listDemoIds());
 
   const all = await subscriptions.listAll();
   let trialing = 0;
@@ -34,7 +33,7 @@ async function main() {
   for (const sub of all) {
     const userId = (sub.userId as unknown as { toString(): string }).toString();
 
-    if (demoId && userId === demoId) {
+    if (demoIds.has(userId)) {
       if (sub.status !== "comped") {
         await subscriptions.setBillingStatus(userId, "comped");
         comped += 1;
@@ -54,7 +53,7 @@ async function main() {
   }
 
   console.log(`  ${trialing} moved to trialing`);
-  console.log(`  ${comped} marked comped (demo account)`);
+  console.log(`  ${comped} marked comped (demo accounts)`);
   console.log(`  ${untouched} already correct`);
   console.log(
     "\nRevenue now reads zero earned, which is accurate. Set a subscription to" +
