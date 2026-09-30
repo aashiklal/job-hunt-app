@@ -18,7 +18,7 @@ import { MarginBars, type MarginRow } from "../_components/margin-bars";
 import { RevenueTrend, type TrendPoint } from "../_components/revenue-trend";
 
 export const metadata: Metadata = {
-  title: "Margin: Job Hunt",
+  title: "Margin: JobHunt",
   description:
     "What each account pays against what it costs to serve, and whether margin is holding up.",
 };

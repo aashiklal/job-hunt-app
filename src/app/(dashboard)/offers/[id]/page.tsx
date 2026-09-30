@@ -8,7 +8,7 @@ import { OfferForm } from "../_components/offer-form";
 import { DeleteOfferButton } from "../_components/delete-offer-button";
 
 export const metadata: Metadata = {
-  title: "Offer: Job Hunt",
+  title: "Offer: JobHunt",
   description: "View and edit a job offer.",
 };
 

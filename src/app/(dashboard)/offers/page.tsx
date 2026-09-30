@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ComparisonPanel } from "./_components/comparison-panel";
 
 export const metadata: Metadata = {
-  title: "Offers: Job Hunt",
+  title: "Offers: JobHunt",
   description: "Track and compare your job offers.",
 };
 

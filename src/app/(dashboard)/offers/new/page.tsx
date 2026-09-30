@@ -3,7 +3,7 @@ import { requireApprovedUserWithPlan } from "@/lib/auth-helpers";
 import { OfferForm } from "../_components/offer-form";
 
 export const metadata: Metadata = {
-  title: "Add offer: Job Hunt",
+  title: "Add offer: JobHunt",
   description: "Add a new job offer to track and compare.",
 };
 

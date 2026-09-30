@@ -1,12 +1,13 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
-import { Briefcase, XCircle } from "lucide-react";
+import { XCircle } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth-helpers";
 import { RequestAccessButton } from "./_components/RequestAccessButton";
+import { BrandLogo } from "@/components/BrandLogo";
 
 export const metadata = {
-  title: "Access Not Approved | Job Hunt",
+  title: "Access Not Approved | JobHunt",
   description: "Your account access request was not approved.",
 };
 
@@ -26,12 +27,7 @@ export default async function RejectedPage() {
 
       <div className="flex min-h-screen flex-col items-center justify-center px-4 py-6">
         {/* Brand */}
-        <div className="mb-10 flex items-center gap-2">
-          <Briefcase className="size-5 text-foreground" strokeWidth={1.75} />
-          <span className="text-base font-semibold tracking-tight text-foreground">
-            JobHunt
-          </span>
-        </div>
+        <BrandLogo className="mb-10" />
 
         <div className="w-full max-w-md rounded-xl border border-border/60 bg-card p-8 shadow-xs">
           <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-lg bg-muted">

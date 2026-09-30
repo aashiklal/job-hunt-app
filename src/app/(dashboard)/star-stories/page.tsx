@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 
 export const metadata: Metadata = {
-  title: "STAR stories: Job Hunt",
+  title: "STAR stories: JobHunt",
   description: "Manage your behavioral interview stories.",
 };
 

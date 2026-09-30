@@ -3,7 +3,7 @@ import { requireApprovedUserWithPlan } from "@/lib/auth-helpers";
 import { StarStoryForm } from "../_components/star-story-form";
 
 export const metadata: Metadata = {
-  title: "New STAR story: Job Hunt",
+  title: "New STAR story: JobHunt",
   description: "Create a new behavioral interview story.",
 };
 

@@ -11,7 +11,7 @@ import { JobsListView } from "./_components/jobs-list-view";
 import { JobsPipelineView } from "./_components/jobs-pipeline-view";
 
 export const metadata: Metadata = {
-  title: "Jobs: Job Hunt",
+  title: "Jobs: JobHunt",
   description: "Browse and manage your job applications.",
 };
 
