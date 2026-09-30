@@ -31,11 +31,11 @@ export function ATSScorePanel({ analysis, defaultResumeContent }: Props) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Fit Score</CardTitle>
+          <CardTitle>Fit score</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            Run JD Analysis above to see how well your default resume matches this job.
+            Run JD analysis above to see how well your default resume matches this job.
           </p>
         </CardContent>
       </Card>
@@ -46,7 +46,7 @@ export function ATSScorePanel({ analysis, defaultResumeContent }: Props) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Fit Score</CardTitle>
+          <CardTitle>Fit score</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
@@ -62,7 +62,7 @@ export function ATSScorePanel({ analysis, defaultResumeContent }: Props) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Fit Score</CardTitle>
+        <CardTitle>Fit score</CardTitle>
         <p className="text-sm text-muted-foreground">
           Resume-to-JD keyword coverage, not your chance of getting hired.
         </p>

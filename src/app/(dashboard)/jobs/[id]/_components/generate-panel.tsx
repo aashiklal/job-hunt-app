@@ -33,8 +33,8 @@ type Props = {
 };
 
 const TITLES = {
-  resume: "Tailored Resume",
-  cover_letter: "Cover Letter",
+  resume: "Tailored resume",
+  cover_letter: "Cover letter",
 };
 
 const DESCRIPTIONS = {
