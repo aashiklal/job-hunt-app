@@ -12,14 +12,14 @@ type LatexTemplate = {
 
 /**
  * LaTeX export used to call the Anthropic SDK directly, which meant it was
- * invisible to the quota system: the spend was real but never recorded, so it
- * counted against nobody's budget and no limit could refuse it. It also
+ * invisible to metering: the spend was real but never recorded, and it cost
+ * the user no credits. It also
  * bypassed the demo guard, so a public demo visitor exporting a document
  * billed the account owner.
  *
- * Routing through callMeteredText fixes both at once. It reserves against the
- * user's budget before the call, reconciles afterwards, and refuses outright
- * for the demo account.
+ * Routing through callMeteredText fixes both at once. It charges the user's
+ * credits before the call, records the real cost afterwards, and refuses
+ * outright for the demo account.
  */
 async function renderLatex(
   userId: string,

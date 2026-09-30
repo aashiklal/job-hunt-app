@@ -17,7 +17,7 @@ import {
   buildDefaultCoverLetterLatexDoc,
 } from "@/lib/export/to-latex";
 import { isDemoUser, isDemoExpired } from "@/lib/demo";
-import { creditsExhaustedResponse } from "@/lib/ai-limit-response";
+import { aiLimitResponse } from "@/lib/ai-limit-response";
 
 const querySchema = z.object({
   format: z.enum(["docx", "tex"]).default("docx"),
@@ -140,8 +140,8 @@ export async function GET(
       });
     } catch (err) {
       // LaTeX export is metered (it costs credits); DOCX export is not.
-      const outOfCredits = creditsExhaustedResponse(err);
-      if (outOfCredits) return outOfCredits;
+      const limited = aiLimitResponse(err);
+      if (limited) return limited;
       console.error("[documents/export] latex export failed:", err);
       return NextResponse.json({ error: "Export failed" }, { status: 500 });
     }

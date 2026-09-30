@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { CreditsExceededError, QuotaExceededError } from "@/lib/usage";
-import { creditsExhaustedResponse, creditsExhaustedMessage } from "@/lib/ai-limit-response";
+import { CreditsExceededError } from "@/lib/usage";
+import { aiLimitResponse, creditsExhaustedMessage } from "@/lib/ai-limit-response";
 
 /**
- * Running out of credits is the normal way a user hits a limit, so it must
+ * Running out of credits is the only way a user hits a limit, so it must
  * reach them as a plain explanation, never as "Generation failed". Every AI
  * panel shows the response's `error` field as its toast, so that field carries
  * the sentence and `code` carries the machine-readable reason.
@@ -34,11 +34,11 @@ describe("creditsExhaustedMessage", () => {
   });
 });
 
-describe("creditsExhaustedResponse", () => {
+describe("aiLimitResponse", () => {
   it("turns a CreditsExceededError into a 429 the panels can show", async () => {
     const err = new CreditsExceededError({ used: 498, limit: 500, periodEndsAt });
 
-    const res = creditsExhaustedResponse(err);
+    const res = aiLimitResponse(err);
 
     expect(res?.status).toBe(429);
     expect(await res?.json()).toEqual({
@@ -51,14 +51,7 @@ describe("creditsExhaustedResponse", () => {
   });
 
   it("ignores every other error so the route's own handling still runs", () => {
-    const quota = new QuotaExceededError({
-      kind: "aiGeneration",
-      used: 5,
-      limit: 5,
-      periodEndsAt,
-    });
-    expect(creditsExhaustedResponse(quota)).toBeNull();
-    expect(creditsExhaustedResponse(new Error("boom"))).toBeNull();
-    expect(creditsExhaustedResponse(null)).toBeNull();
+    expect(aiLimitResponse(new Error("boom"))).toBeNull();
+    expect(aiLimitResponse(null)).toBeNull();
   });
 });

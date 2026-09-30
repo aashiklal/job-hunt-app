@@ -10,8 +10,8 @@ export type ISubscription = {
    */
   status: "active" | "canceled" | "past_due" | "trialing" | "comped";
   customLimits?: {
-    /** Admin-set per-user monthly AI budget override in USD. */
-    aiSpendLimitUSD?: number;
+    /** Admin-set monthly credit allowance for this user, replacing the plan's. -1 = unlimited. */
+    monthlyCredits?: number;
   };
   currentPeriodEnd?: Date | null;
   createdAt: Date;
@@ -29,7 +29,7 @@ const SubscriptionSchema = new Schema<ISubscription>(
     },
     customLimits: {
       type: new Schema(
-        { aiSpendLimitUSD: { type: Number, required: false } },
+        { monthlyCredits: { type: Number, required: false } },
         { _id: false }
       ),
       required: false,

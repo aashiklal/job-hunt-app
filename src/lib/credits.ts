@@ -12,9 +12,9 @@
  * table in usage.ts, at roughly 1 credit per $0.006 of spend. Re-derive them if
  * prompts grow materially or the active model changes.
  *
- * Credits are exact and known before the call, unlike USD which is only known
- * after. That makes the reservation simpler than the USD path: there is nothing
- * to reconcile afterwards.
+ * Credits are exact and known before the call, so the reservation charges the
+ * full price up front and there is nothing to reconcile afterwards. They are
+ * the only limit a user can hit; real USD cost is recorded for reporting.
  */
 
 export type CreditFeature =
@@ -27,9 +27,12 @@ export type CreditFeature =
   | "skills_gap"
   | "latex_export";
 
+// outreach and latex_export were re-priced (from 1 and 2) when credits became
+// the only limit: at the old weights a long output could cost several times
+// the per-credit target, and there is no longer a USD ceiling to catch that.
 export const CREDIT_COSTS: Record<CreditFeature, number> = {
-  outreach: 1,
-  latex_export: 2,
+  outreach: 2,
+  latex_export: 3,
   jd_analysis: 3,
   cover_letter: 3,
   jobs_parse: 3,

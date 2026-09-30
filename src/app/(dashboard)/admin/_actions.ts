@@ -57,28 +57,29 @@ export const rejectUser = defineAdminAction(
 
 const setCustomLimitSchema = z.object({
   userId: z.string().min(1),
-  aiSpendLimitUSD: z.number().min(0).max(500),
+  // -1 = unlimited. The ceiling guards against a typo handing out millions.
+  monthlyCredits: z.number().int().min(-1).max(100_000),
 });
 
 export const setUserCustomLimit = defineAdminAction(
   async (ctx, input: z.infer<typeof setCustomLimitSchema>) => {
-    const { userId, aiSpendLimitUSD } = setCustomLimitSchema.parse(input);
+    const { userId, monthlyCredits } = setCustomLimitSchema.parse(input);
     const auditCtx = await getAuditContext(ctx, userId);
     if (!auditCtx) {
       throw new Error("Target user not found");
     }
-    const subscription = await subscriptions.setCustomLimit(userId, aiSpendLimitUSD);
+    const subscription = await subscriptions.setCustomLimit(userId, monthlyCredits);
     if (!subscription) {
       throw new Error("User has no subscription. Approve them first.");
     }
     await auditLog.create({
       ...auditCtx,
       action: "user.custom_limit_set",
-      details: { aiSpendLimitUSD },
+      details: { monthlyCredits },
     });
     revalidatePath("/admin");
     revalidatePath(`/admin/${userId}`);
-    return { userId, aiSpendLimitUSD };
+    return { userId, monthlyCredits };
   }
 );
 
@@ -105,10 +106,6 @@ export const clearUserCustomLimit = defineAdminAction(
 
 const updatePlanSchema = z.object({
   planId: z.string().min(1),
-  aiSpendLimitUSD: z.number().refine(
-    (v) => v === -1 || v >= 0,
-    { message: "Spend limit must be -1 (unlimited) or a non-negative number" }
-  ),
   monthlyCredits: z.number().int().min(-1),
   monthlyPriceUSD: z.number().min(0),
   maxResumes: z.number().int().min(-1),
@@ -116,10 +113,9 @@ const updatePlanSchema = z.object({
 
 export const updatePlan = defineAdminAction(
   async (ctx, input: z.infer<typeof updatePlanSchema>) => {
-    const { planId, aiSpendLimitUSD, monthlyCredits, monthlyPriceUSD, maxResumes } =
+    const { planId, monthlyCredits, monthlyPriceUSD, maxResumes } =
       updatePlanSchema.parse(input);
     const updated = await plans.update(planId, {
-      aiSpendLimitUSD,
       monthlyCredits,
       monthlyPriceUSD,
       maxResumes,
@@ -132,7 +128,7 @@ export const updatePlan = defineAdminAction(
       targetUserId: adminId,
       targetUserEmail: ctx.user.email,
       action: "plan.updated",
-      details: { planKey: updated.key, aiSpendLimitUSD, monthlyCredits, monthlyPriceUSD, maxResumes },
+      details: { planKey: updated.key, monthlyCredits, monthlyPriceUSD, maxResumes },
     });
     revalidatePath("/admin");
     return { planKey: updated.key };

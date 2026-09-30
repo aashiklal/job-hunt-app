@@ -64,13 +64,13 @@ The person running a job search. Called a User in code, because that is also the
 and database identity.
 
 **Plan**:
-A named tier defining a monthly **Credit** allowance (`monthlyCredits`), a USD spend
-ceiling (`aiSpendLimitUSD`), a resume cap (`maxResumes`) and a price (`monthlyPriceUSD`).
-`-1` means unlimited. Admins edit plans from the dashboard.
+A named tier defining a monthly **Credit** allowance (`monthlyCredits`), a resume cap
+(`maxResumes`) and a price (`monthlyPriceUSD`). `-1` means unlimited. Admins edit plans
+from the dashboard.
 
 **Subscription**:
 The link between one **Seeker** and their **Plan**. Carries the **Billing status** and
-the place an admin's per-user override lives (a USD ceiling, not a credit allowance).
+an admin's optional per-user **Credit** allowance, which replaces the plan's.
 
 **Billing status**:
 Where a **Subscription** stands financially, in Stripe's vocabulary: `active`,
@@ -82,7 +82,8 @@ yet, so nobody is `active` today.
 The unit a **Seeker** sees and spends on AI features. Each feature has a fixed price in
 credits set by its typical cost (a short outreach message is 1, a tailored resume is 6),
 so a heavy feature cannot be run as cheaply as a light one. Known before the call,
-unlike the USD cost.
+unlike the USD cost. The only limit a **Seeker** can hit: they keep going until the
+month's credits are used up.
 _Avoid_: Generation, token, quota (when talking to users)
 
 **Usage**:
@@ -97,10 +98,8 @@ A calendar month in UTC, formatted `YYYY-MM`. The window a **Usage** total cover
 the interval after which spend resets.
 
 **Reservation**:
-An amount charged against a **Seeker** atomically before a model call, so a limit holds
-under concurrent requests. **Credits** are reserved exactly and refunded if the call
-fails; USD is reserved on a pessimistic estimate and corrected to the true cost
-afterwards.
+A **Credit** price charged against a **Seeker** atomically before a model call, and
+refunded if the call fails, so the allowance holds under concurrent requests.
 
 **Margin**:
 What an account pays against what it costs to serve, from its **Plan** price, its
@@ -157,14 +156,14 @@ _Avoid_: Demo user, guest, trial (a trial is a **Billing status**)
 - **"Pipeline" and "funnel" were used interchangeably.** Resolved: the **Pipeline** is the
   kanban working surface; the **Funnel** is the per-status count shown as an analytic.
 
-- **"Limit" meant three different caps.** Resolved: the **Credit** allowance is the limit a
-  **Seeker** sees and hits; the USD ceiling is a backstop underneath it in case a credit
-  price is set too low; resource caps like `maxResumes` are counts checked at both the page
-  and the action. All three live on a **Plan**; only the first two use a **Reservation**.
+- **"Limit" meant different caps.** Resolved: the **Credit** allowance is the only AI limit
+  and uses a **Reservation**; resource caps like `maxResumes` are counts checked at both the
+  page and the action. There is no dollar limit: real spend is recorded, never enforced.
 
 - **"Spend" meant both credits and dollars.** Resolved: talk to users only in **Credits**.
   Dollars are the real cost, shown to admins in **Usage events** and **Margin**, and never
-  to a **Seeker**.
+  to a **Seeker**. "Budget" and "quota" are retired words: they belonged to the old dollar
+  limit.
 
 - **"User" versus "seeker".** The domain actor is a **Seeker**; `User` in code is the
   identity record shared with Clerk. Admins are `User`s who are not acting as **Seekers**.

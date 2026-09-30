@@ -8,17 +8,15 @@ import connectDB from "../src/lib/db/connect";
 import Plan from "../src/lib/models/Plan";
 
 /**
- * Credit allowances are what users see and hit. The USD limit stays as a
- * backstop only. Free is deliberately small: at roughly $0.006 of spend per
- * credit, 60 credits costs at most about $0.36, which is enough to genuinely
- * try the product without funding someone's whole job search.
+ * Credit allowances are the only limit users hit. 500 credits is priced to
+ * cost roughly $3 of real AI spend a month at about $0.006 per credit, well
+ * under the plan price.
  */
 const PLANS = [
   {
     key: "personal",
     name: "Personal",
     monthlyPriceUSD: 12,
-    aiSpendLimitUSD: 5.0,
     monthlyCredits: 500,
     maxResumes: 5,
     pdfParsingEnabled: true,
@@ -35,11 +33,13 @@ async function main() {
   for (const plan of PLANS) {
     await Plan.findOneAndUpdate(
       { key: plan.key },
-      { $set: plan },
-      { upsert: true, returnDocument: "after" }
+      // aiSpendLimitUSD was the old USD ceiling; credits replaced it. strict:false
+      // lets the $unset reach documents even though the schema no longer has it.
+      { $set: plan, $unset: { aiSpendLimitUSD: "" } },
+      { upsert: true, returnDocument: "after", strict: false }
     );
     console.log(
-      `Seeded plan: ${plan.key} ($${plan.monthlyPriceUSD}/mo, ${plan.monthlyCredits} credits, $${plan.aiSpendLimitUSD} ceiling)`
+      `Seeded plan: ${plan.key} ($${plan.monthlyPriceUSD}/mo, ${plan.monthlyCredits} credits)`
     );
   }
 

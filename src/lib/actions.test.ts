@@ -20,12 +20,12 @@ vi.mock("@/lib/auth-helpers", () => ({
 }));
 
 const { defineAction, defineAdminAction } = await import("@/lib/actions");
-const { QuotaExceededError, CreditsExceededError } = await import("@/lib/usage");
+const { CreditsExceededError } = await import("@/lib/usage");
 
 const fakeContext = {
   user: { _id: "user_1", email: "a@example.com" },
   subscription: { planKey: "personal" },
-  plan: { key: "personal", aiSpendLimitUSD: 5 },
+  plan: { key: "personal", monthlyCredits: 500 },
 };
 
 beforeEach(() => {
@@ -88,29 +88,6 @@ describe("defineAction error mapping", () => {
         expect(result.error.limit).toBe(500);
         expect(result.error.periodEndsAt).toBe(periodEndsAt.toISOString());
       }
-    }
-  });
-
-  it("maps QuotaExceededError to a QUOTA_EXCEEDED result with its detail", async () => {
-    const periodEndsAt = new Date("2026-07-01T00:00:00.000Z");
-    const action = defineAction(async () => {
-      throw new QuotaExceededError({
-        kind: "aiGeneration",
-        used: 5.2,
-        limit: 5,
-        periodEndsAt,
-      });
-    });
-
-    const result = await action(undefined);
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.code).toBe("QUOTA_EXCEEDED");
-      expect(result.error).toMatchObject({
-        limit: 5,
-        periodEndsAt: periodEndsAt.toISOString(),
-      });
     }
   });
 

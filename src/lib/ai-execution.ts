@@ -4,12 +4,9 @@ import anthropic from "@/lib/anthropic";
 import { callStructured } from "@/lib/ai";
 import {
   calculateCost,
-  estimateCallCost,
-  reconcileSpend,
-  releaseSpend,
+  recordSpend,
   reserveCredits,
   releaseCredits,
-  reserveSpend,
 } from "@/lib/usage";
 import { assertNotDemoUser } from "@/lib/demo";
 import { creditCost, type CreditFeature } from "@/lib/credits";
@@ -36,22 +33,21 @@ type TextCallParams = MeteredCallParams & {
 };
 
 /**
- * Runs a metered Anthropic call under a budget reservation.
+ * Runs a metered Anthropic call against the user's credit allowance.
  *
- * The reservation is taken atomically before the call and corrected to the
- * true cost afterwards, so concurrent requests cannot all pass a stale budget
- * check and overshoot the cap. A failed call refunds its reservation in full.
+ * Credits are the only limit (docs/adr/0006): the feature's full price is
+ * charged atomically before the call, so concurrent requests cannot overshoot
+ * the allowance, and refunded if the call fails. The real USD cost is then
+ * recorded for the admin margin view; it never refuses anyone.
  *
- * Reconciliation failures are logged rather than thrown: the API call already
- * succeeded and the caller is entitled to its result. The consequence is an
- * over-charge equal to the unreconciled reservation, which is the safe
- * direction to fail in.
+ * Recording failures are logged rather than thrown: the call already succeeded
+ * and the caller is entitled to its result. The cost of that failure is a
+ * missing reporting row, never an unpaid call.
  */
 async function withReservation<T>(
   userId: string,
   model: string,
   feature: CreditFeature,
-  maxTokens: number,
   run: () => Promise<{ value: T; inputTokens: number; outputTokens: number }>
 ): Promise<{ value: T; inputTokens: number; outputTokens: number }> {
   // Last line of defence for the public demo account. Guarding each route
@@ -61,19 +57,13 @@ async function withReservation<T>(
   // substituting output keeps the mistake loud at development time.
   await assertNotDemoUser(userId);
 
-  // Credits are the limit the user sees and hits. Charged first because the
-  // price is exact and known, so a refusal costs nothing.
+  // A refusal here costs nothing: the price is exact and nothing has run.
   const credits = creditCost(feature);
   const reservation = await reserveCredits(userId, credits);
 
-  // USD ceiling underneath, as a backstop against a mis-tuned credit weight.
-  let reservedUSD = 0;
+  let outcome: { value: T; inputTokens: number; outputTokens: number };
   try {
-    ({ reservedUSD } = await reserveSpend(
-      userId,
-      "aiGeneration",
-      estimateCallCost(model, maxTokens)
-    ));
+    outcome = await run();
   } catch (err) {
     await releaseCredits(userId, reservation.creditsCharged).catch((e) =>
       console.error("[releaseCredits failed]", e)
@@ -81,39 +71,25 @@ async function withReservation<T>(
     throw err;
   }
 
-  let outcome: { value: T; inputTokens: number; outputTokens: number };
-  try {
-    outcome = await run();
-  } catch (err) {
-    await Promise.all([
-      releaseSpend(userId, reservedUSD).catch((e) =>
-        console.error("[releaseSpend failed]", e)
-      ),
-      releaseCredits(userId, reservation.creditsCharged).catch((e) =>
-        console.error("[releaseCredits failed]", e)
-      ),
-    ]);
-    throw err;
-  }
-
   const cost = calculateCost(model, outcome.inputTokens, outcome.outputTokens);
-  await reconcileSpend(userId, reservedUSD, cost).catch((err) =>
-    console.error("[reconcileSpend failed]", err)
-  );
 
-  // Analytics only, and deliberately off the enforcement path: a failure here
-  // loses a reporting row, never lets spend through.
-  await usageEvents
-    .record({
-      userId,
-      feature,
-      aiModel: model,
-      inputTokens: outcome.inputTokens,
-      outputTokens: outcome.outputTokens,
-      costUSD: cost,
-      credits,
-    })
-    .catch((err) => console.error("[usageEvent record failed]", err));
+  // Reporting only, and deliberately off the charging path.
+  await Promise.all([
+    recordSpend(userId, cost).catch((err) =>
+      console.error("[recordSpend failed]", err)
+    ),
+    usageEvents
+      .record({
+        userId,
+        feature,
+        aiModel: model,
+        inputTokens: outcome.inputTokens,
+        outputTokens: outcome.outputTokens,
+        costUSD: cost,
+        credits,
+      })
+      .catch((err) => console.error("[usageEvent record failed]", err)),
+  ]);
 
   return outcome;
 }
@@ -125,7 +101,6 @@ export async function callMeteredStructured<T>(
     params.userId,
     params.model,
     params.feature,
-    params.maxTokens,
     async () => {
       const result = await callStructured(
         {
@@ -154,7 +129,6 @@ export async function callMeteredText(
     params.userId,
     params.model,
     params.feature,
-    params.maxTokens,
     async () => {
       const response = await anthropic.messages.create({
         model: params.model,

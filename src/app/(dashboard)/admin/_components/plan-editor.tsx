@@ -22,7 +22,7 @@ function formatLimit(value: number): string {
   return value === -1 ? "Unlimited" : String(value);
 }
 
-function formatSpend(value: number): string {
+function formatPrice(value: number): string {
   return value === -1 ? "Unlimited" : `$${value.toFixed(2)}`;
 }
 
@@ -36,7 +36,6 @@ function PlanRow({ plan }: PlanRowProps) {
 
   function handleOpenChange(next: boolean) {
     if (!next) {
-      setSpendValue(String(plan.aiSpendLimitUSD));
       setCreditsValue(String(plan.monthlyCredits));
       setPriceValue(String(plan.monthlyPriceUSD));
       setResumesValue(String(plan.maxResumes));
@@ -44,21 +43,15 @@ function PlanRow({ plan }: PlanRowProps) {
     setOpen(next);
   }
 
-  const [spendValue, setSpendValue] = useState(String(plan.aiSpendLimitUSD));
   const [creditsValue, setCreditsValue] = useState(String(plan.monthlyCredits));
   const [priceValue, setPriceValue] = useState(String(plan.monthlyPriceUSD));
   const [resumesValue, setResumesValue] = useState(String(plan.maxResumes));
 
   function handleSubmit() {
-    const aiSpendLimitUSD = parseFloat(spendValue);
     const monthlyCredits = parseInt(creditsValue, 10);
     const monthlyPriceUSD = parseFloat(priceValue);
     const maxResumes = parseInt(resumesValue, 10);
 
-    if (Number.isNaN(aiSpendLimitUSD) || (aiSpendLimitUSD !== -1 && aiSpendLimitUSD < 0)) {
-      toast.error("Spend limit must be -1 (unlimited) or a non-negative number");
-      return;
-    }
     if (Number.isNaN(monthlyCredits) || monthlyCredits < -1) {
       toast.error("Credits must be -1 (unlimited) or a non-negative integer");
       return;
@@ -75,7 +68,6 @@ function PlanRow({ plan }: PlanRowProps) {
     startTransition(async () => {
       const result = await updatePlan({
         planId: plan._id,
-        aiSpendLimitUSD,
         monthlyCredits,
         monthlyPriceUSD,
         maxResumes,
@@ -95,11 +87,8 @@ function PlanRow({ plan }: PlanRowProps) {
         <span className="font-medium text-foreground">{plan.name}</span>
         <span className="ml-2 text-xs text-muted-foreground">({plan.key})</span>
       </td>
-      <td className="py-3 pr-4 text-foreground">{formatSpend(plan.monthlyPriceUSD)}</td>
+      <td className="py-3 pr-4 text-foreground">{formatPrice(plan.monthlyPriceUSD)}</td>
       <td className="py-3 pr-4 text-foreground">{formatLimit(plan.monthlyCredits)}</td>
-      <td className="py-3 pr-4 text-muted-foreground hidden lg:table-cell">
-        {formatSpend(plan.aiSpendLimitUSD)}
-      </td>
       <td className="py-3 pr-4 text-foreground hidden md:table-cell">{formatLimit(plan.maxResumes)}</td>
       <td className="py-3 text-right">
         <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -145,29 +134,11 @@ function PlanRow({ plan }: PlanRowProps) {
                   disabled={pending}
                 />
                 <p className="text-xs text-muted-foreground">
-                  What users see and hit.{" "}
+                  The only limit users hit.{" "}
                   {Number.isNaN(parseInt(creditsValue, 10)) ||
                   parseInt(creditsValue, 10) < 0
                     ? "Unlimited."
                     : describeCredits(parseInt(creditsValue, 10))}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor={`spend-${plan._id}`}>
-                  Monthly spend ceiling (USD, -1 for unlimited)
-                </Label>
-                <Input
-                  id={`spend-${plan._id}`}
-                  type="number"
-                  step="0.01"
-                  min="-1"
-                  value={spendValue}
-                  onChange={(e) => setSpendValue(e.target.value)}
-                  disabled={pending}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Backstop only, in case a credit weight is mis-tuned. Users do
-                  not see this.
                 </p>
               </div>
               <div className="space-y-2">
@@ -212,9 +183,6 @@ export function PlanEditor({ plans }: { plans: IPlanListItem[] }) {
             <th className="py-3 text-left font-medium text-muted-foreground">Plan</th>
             <th className="py-3 text-left font-medium text-muted-foreground">Price</th>
             <th className="py-3 text-left font-medium text-muted-foreground">Credits</th>
-            <th className="py-3 text-left font-medium text-muted-foreground hidden lg:table-cell">
-              Spend ceiling
-            </th>
             <th className="py-3 text-left font-medium text-muted-foreground hidden md:table-cell">
               Max resumes
             </th>

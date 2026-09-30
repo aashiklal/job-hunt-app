@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { calculateCost, estimateCallCost, getCurrentPeriod } from "@/lib/usage";
+import { calculateCost, getCurrentPeriod } from "@/lib/usage";
 
 /**
  * Pure-logic tests. No database: everything here is arithmetic or date
@@ -50,22 +50,6 @@ describe("calculateCost", () => {
     const single = calculateCost("claude-sonnet-4-5", 1000, 1000);
     const double = calculateCost("claude-sonnet-4-5", 2000, 2000);
     expect(double).toBeCloseTo(single * 2, 12);
-  });
-});
-
-describe("estimateCallCost", () => {
-  it("assumes the response fills its whole token budget", () => {
-    // Deliberately pessimistic: prompt and completion both at maxTokens.
-    expect(estimateCallCost("claude-sonnet-4-5", 4096)).toBe(
-      calculateCost("claude-sonnet-4-5", 4096, 4096)
-    );
-  });
-
-  it("never estimates below the true cost of a call that fits the budget", () => {
-    const maxTokens = 4096;
-    const estimate = estimateCallCost("claude-sonnet-4-5", maxTokens);
-    const realistic = calculateCost("claude-sonnet-4-5", 2000, 900);
-    expect(estimate).toBeGreaterThan(realistic);
   });
 });
 

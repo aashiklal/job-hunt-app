@@ -92,10 +92,10 @@ export default async function Page({
     usageEvents.byFeature({ userId }),
   ]);
 
-  let planDefault = ctx.plan.aiSpendLimitUSD ?? 5.0;
+  let planCredits = ctx.plan.monthlyCredits;
   if (subscription?.planKey) {
     const plan = await plans.getByKey(subscription.planKey);
-    if (plan) planDefault = plan.aiSpendLimitUSD ?? 5.0;
+    if (plan) planCredits = plan.monthlyCredits;
   }
 
   const targetId = (target._id as { toString(): string }).toString();
@@ -111,8 +111,9 @@ export default async function Page({
         ? "destructive"
         : "secondary";
 
-  const customLimit = subscription?.customLimits?.aiSpendLimitUSD;
-  const hasCustomLimit = typeof customLimit === "number";
+  const customCredits = subscription?.customLimits?.monthlyCredits;
+  const hasCustomLimit = typeof customCredits === "number";
+  const formatAllowance = (n: number) => (n === -1 ? "unlimited" : `${n} credits`);
 
   const creditsUnlimited = credits.limit === -1;
   const percentUsed =
@@ -291,12 +292,12 @@ export default async function Page({
                 <div className="space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-medium text-foreground">
-                      Custom spend ceiling: {fmtUSD(customLimit!)}
+                      Custom allowance: {formatAllowance(customCredits!)} a month
                     </span>
                     <ClearCustomLimitButton userId={targetId} />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Plan default: {fmtUSD(planDefault)} / month
+                    Plan allowance: {formatAllowance(planCredits)} a month
                   </p>
                 </div>
               ) : (
@@ -305,15 +306,14 @@ export default async function Page({
                   <span className="font-medium text-foreground">
                     {usage.planKey ?? "-"}
                   </span>{" "}
-                  ({fmtUSD(planDefault)} spend ceiling, a backstop the user
-                  never sees)
+                  ({formatAllowance(planCredits)} a month)
                 </p>
               )}
               {subscription && (
                 <SetCustomLimitDialog
                   userId={targetId}
-                  currentLimit={usage.limit}
-                  planDefault={planDefault}
+                  currentCredits={credits.limit}
+                  planCredits={planCredits}
                 />
               )}
             </>

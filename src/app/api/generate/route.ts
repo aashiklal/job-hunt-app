@@ -2,8 +2,7 @@ import "server-only";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import * as users from "@/lib/repositories/users";
-import { QuotaExceededError } from "@/lib/usage";
-import { creditsExhaustedResponse } from "@/lib/ai-limit-response";
+import { aiLimitResponse } from "@/lib/ai-limit-response";
 import { consume, rateLimitResponseInit } from "@/lib/rate-limit";
 import {
   generateForJob,
@@ -11,19 +10,6 @@ import {
   jobGenerationRequestSchema,
 } from "@/lib/job-ai-generation";
 import { isDemoExpired } from "@/lib/demo";
-
-function quotaResponse(err: QuotaExceededError) {
-  return NextResponse.json(
-    {
-      error: "QUOTA_EXCEEDED",
-      message: err.message,
-      limit: err.limit,
-      used: err.used,
-      periodEndsAt: err.periodEndsAt.toISOString(),
-    },
-    { status: 429 }
-  );
-}
 
 export async function POST(req: NextRequest) {
   const { userId: clerkUserId } = await auth();
@@ -82,11 +68,8 @@ export async function POST(req: NextRequest) {
       structuredContent: result.structuredContent,
     });
   } catch (err) {
-    const outOfCredits = creditsExhaustedResponse(err);
-    if (outOfCredits) return outOfCredits;
-    if (err instanceof QuotaExceededError) {
-      return quotaResponse(err);
-    }
+    const limited = aiLimitResponse(err);
+    if (limited) return limited;
     if (err instanceof JobGenerationError) {
       return NextResponse.json(
         {

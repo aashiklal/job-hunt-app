@@ -75,17 +75,18 @@ export async function listAll(): Promise<ISubscription[]> {
   return Subscription.find({});
 }
 
+/** Gives one user their own monthly credit allowance. -1 = unlimited. */
 export async function setCustomLimit(
   userId: string,
-  aiSpendLimitUSD: number
+  monthlyCredits: number
 ): Promise<ISubscription | null> {
-  if (typeof aiSpendLimitUSD !== "number" || aiSpendLimitUSD < 0) {
-    throw new Error("aiSpendLimitUSD must be a non-negative number");
+  if (!Number.isInteger(monthlyCredits) || monthlyCredits < -1) {
+    throw new Error("monthlyCredits must be a whole number, or -1 for unlimited");
   }
   await connectDB();
   return Subscription.findOneAndUpdate(
     { userId },
-    { $set: { "customLimits.aiSpendLimitUSD": aiSpendLimitUSD } },
+    { $set: { customLimits: { monthlyCredits } } },
     { returnDocument: "after" }
   );
 }

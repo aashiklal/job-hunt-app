@@ -14,6 +14,13 @@ export function formatAuditAction(
     case "user.admin_revoked":
       return "Revoked admin";
     case "user.custom_limit_set": {
+      const credits = details?.monthlyCredits;
+      if (typeof credits === "number") {
+        return credits === -1
+          ? "Set custom allowance to unlimited credits"
+          : `Set custom allowance to ${credits} credits`;
+      }
+      // Entries written before credits replaced the USD ceiling.
       const usd = details?.aiSpendLimitUSD;
       return `Set custom budget to ${typeof usd === "number" ? `$${usd.toFixed(2)}` : "?"}`;
     }

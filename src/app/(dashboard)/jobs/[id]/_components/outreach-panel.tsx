@@ -183,13 +183,7 @@ export function OutreachPanel({ type, jobId, job, initialContent }: Props) {
       });
       const data = await res.json();
       if (!res.ok) {
-        if (res.status === 429 && data.error === "QUOTA_EXCEEDED") {
-          const spent = typeof data.used === "number" ? `$${data.used.toFixed(2)}` : "your full";
-          const limit = typeof data.limit === "number" ? `$${data.limit.toFixed(2)}` : "";
-          toast.error(`Monthly AI budget reached (${spent} of ${limit} used).`);
-        } else {
-          toast.error(data.error ?? data.message ?? "Generation failed");
-        }
+        toast.error(data.error ?? data.message ?? "Generation failed");
         return;
       }
       setContent(data.content ?? "");

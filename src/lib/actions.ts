@@ -3,14 +3,13 @@ import {
   requireAdminWithPlan,
   type ApprovedUserContext,
 } from "@/lib/auth-helpers";
-import { CreditsExceededError, QuotaExceededError } from "@/lib/usage";
+import { CreditsExceededError } from "@/lib/usage";
 import { creditsExhaustedMessage } from "@/lib/ai-limit-response";
 import { DemoLimitError } from "@/lib/demo-limits";
 
 export type ActionContext = ApprovedUserContext;
 
 export type ActionError =
-  | { code: "QUOTA_EXCEEDED"; message: string; limit: number; periodEndsAt: string }
   | { code: "CREDITS_EXHAUSTED"; message: string; limit: number; periodEndsAt: string }
   | { code: "VALIDATION"; message: string; fieldErrors?: Record<string, string> }
   | { code: "NOT_FOUND"; message: string }
@@ -37,18 +36,6 @@ function isNextNavigationError(err: unknown): boolean {
 function handleError(err: unknown): ActionResult<never> {
   // Re-throw Next.js navigation errors so the framework can handle them
   if (isNextNavigationError(err)) throw err;
-
-  if (err instanceof QuotaExceededError) {
-    return {
-      ok: false,
-      error: {
-        code: "QUOTA_EXCEEDED",
-        message: err.message,
-        limit: err.limit,
-        periodEndsAt: err.periodEndsAt.toISOString(),
-      },
-    };
-  }
 
   if (err instanceof CreditsExceededError) {
     return {

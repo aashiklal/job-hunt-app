@@ -5,8 +5,8 @@ import * as rateLimitRepo from "@/lib/repositories/rate-limit";
 /**
  * Per-user rate limiting for the expensive AI routes.
  *
- * This is defence in depth rather than the budget control itself: spend is
- * enforced atomically in src/lib/usage.ts. What this stops is a single user
+ * This is defence in depth rather than the usage limit itself: credits are
+ * charged atomically in src/lib/usage.ts. What this stops is a single user
  * hammering an endpoint, which costs latency and database load even when every
  * request is correctly refused.
  *

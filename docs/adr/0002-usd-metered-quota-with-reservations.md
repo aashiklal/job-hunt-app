@@ -1,8 +1,10 @@
 # USD-metered quota, enforced by reservation rather than a spend check
 
-> Partly superseded by [ADR 0006](./0006-credits-over-a-usd-backstop.md): users now see and
-> spend credits, and the USD cap described here remains as a backstop underneath them. The
-> reservation design below applies to both.
+> Superseded as a spending limit by [ADR 0006](./0006-credits-over-a-usd-backstop.md) and
+> [ADR 0007](./0007-credits-are-the-only-limit.md): users now spend credits, which are the only
+> limit, and real USD cost is recorded but never refuses anyone. The reservation design below
+> is what credits use, with one simplification: a credit price is exact, so it is charged in
+> full up front and never reconciled.
 
 AI usage is capped in dollars per calendar month, not in number of generations. The cap is
 enforced by atomically reserving an estimated cost before the model call and reconciling to

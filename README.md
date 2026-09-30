@@ -32,9 +32,9 @@ for applications that have gone quiet.
 Each button shows its price before it is clicked, and the usage widget turns the balance
 into something concrete ("About 12 tailored resumes or 25 cover letters").
 
-**Admin** — Approve and reject users, edit plans (credit allowance, spend ceiling, price,
-resume cap), override a user's spend ceiling, manage export templates, see what each account
-costs against what it pays, and read a paginated audit log of every admin action.
+**Admin** — Approve and reject users, edit plans (credit allowance, price, resume cap), give
+one user their own credit allowance, manage export templates, see what each account costs
+against what it pays, and read a paginated audit log of every admin action.
 
 ---
 
@@ -77,33 +77,26 @@ Clerk webhook.
 ### A usage limit that holds under concurrency
 
 Users get a monthly allowance of **credits**, and each AI feature has a fixed credit price
-weighted by what it typically costs: a tailored resume is 6, a short outreach message is 1.
-A flat "N generations a month" would let a resume-heavy user cost five times a note-heavy
-one for the same money. Underneath the credits sits a **USD ceiling per month** as a
-backstop, in case a credit price is ever set too low. Every call is recorded with its real
-cost, which is what the admin margin view is built from. See
-[ADR 0006](./docs/adr/0006-credits-over-a-usd-backstop.md).
+weighted by what it costs to run: a tailored resume is 6, a cover letter 3, an outreach
+message 2. A flat "N generations a month" would let a resume-heavy user cost five times a
+note-heavy one for the same money. Credits are the only limit: a user can keep going until
+they are used up, then waits for the next month. Every call is still recorded with its real
+cost, which is what the admin margin view is built from, and features running over their
+price are flagged for re-pricing. See [ADR 0006](./docs/adr/0006-credits-over-a-usd-backstop.md)
+and [ADR 0007](./docs/adr/0007-credits-are-the-only-limit.md).
 
 The obvious way to enforce any such limit is to read the user's usage, compare it to their
 limit, call the model, and record the cost. That is a check-then-act race with a
 multi-second window: concurrent requests all read the same stale total, all pass, and all
-proceed. The ceiling only holds for serial traffic.
+proceed. The limit only holds for serial traffic. When the app still capped usage in
+dollars, a test reproduced this: twenty parallel requests took a $5.00 budget to **$14.99**.
 
-`src/lib/usage.concurrency.test.ts` reproduces it. Against the naive implementation, twenty
-parallel requests take a $5.00 budget to **$14.99**:
-
-```
-× lets exactly one of many parallel callers through at the threshold
-  AssertionError: expected [ Array(20) ] to have a length of 1 but got 20
-× bounds total spend to one reservation past the limit, not N
-  AssertionError: expected 14.99 to be close to 5.49
-```
-
-The fix makes the check and the charge a single atomic conditional update, so exactly one
-concurrent caller can win at the threshold. Credits are exact, so they are charged in full
-up front and refunded if the call fails; the USD reservation is an estimate, corrected to the
-true cost once token counts are known. Per-user rate limiting sits in front as defence in
-depth. See [ADR 0002](./docs/adr/0002-usd-metered-quota-with-reservations.md).
+The fix makes the check and the charge a single atomic conditional update that only matches
+when the whole price fits, so no number of concurrent requests can overshoot the allowance.
+The credit is charged in full up front and refunded if the call fails. `src/lib/credits.test.ts`
+proves it against a real MongoDB: thirty parallel 6-credit requests against a 100-credit
+allowance grant exactly sixteen. Per-user rate limiting sits in front as defence in depth.
+See [ADR 0002](./docs/adr/0002-usd-metered-quota-with-reservations.md).
 
 ### A private demo per visitor
 
@@ -151,7 +144,7 @@ npm run build        # production build
 ```
 
 `npm test` runs against a real MongoDB via `mongodb-memory-server`, not a mock, because the
-quota and rate-limiting tests depend on atomic updates and unique index enforcement that a
+credit and rate-limiting tests depend on atomic updates and unique index enforcement that a
 mock cannot demonstrate. Nothing needs to be installed or running first.
 
 `check:docs` exists because this repository previously documented a test suite and a CI

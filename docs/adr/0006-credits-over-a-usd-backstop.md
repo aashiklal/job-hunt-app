@@ -1,5 +1,9 @@
 # Credits for users, with a USD ceiling underneath
 
+> Partly superseded by [ADR 0007](./0007-credits-are-the-only-limit.md): the USD ceiling
+> described here was removed and credits are now the only limit. The reasoning for credits
+> over dollars and over flat generation counts still stands.
+
 Users see and spend a monthly allowance of credits. Each AI feature has a fixed credit
 price. A USD spend ceiling still exists underneath, enforced the same way as before, but it
 is a backstop rather than the limit anyone is meant to reach. This partly reverses

@@ -61,7 +61,6 @@ beforeEach(async () => {
   await Plan.create({
     key: "test-plan",
     name: "Test",
-    aiSpendLimitUSD: 5,
     monthlyCredits: CREDIT_LIMIT,
     maxResumes: 5,
     active: true,
@@ -69,6 +68,13 @@ beforeEach(async () => {
 });
 
 describe("credit pricing", () => {
+  it("prices the features whose worst case outran their old weight", () => {
+    // Re-priced from token usage: at 1 and 2 credits these could cost well
+    // over the per-credit target on long outputs.
+    expect(CREDIT_COSTS.outreach).toBe(2);
+    expect(CREDIT_COSTS.latex_export).toBe(3);
+  });
+
   it("prices every feature above zero", () => {
     for (const [feature, cost] of Object.entries(CREDIT_COSTS)) {
       expect(cost, `${feature} must cost at least 1 credit`).toBeGreaterThan(0);
@@ -253,13 +259,13 @@ describe("releaseCredits", () => {
 });
 
 describe("unconfigured plans", () => {
-  it("never lets a plan with no credit allowance become the most generous", async () => {
-    // The free plan predates credits and has no monthlyCredits field. A fixed
-    // generous fallback would silently hand free users the paid allowance.
+  it("gives a plan with no credit allowance nothing, rather than guessing one", async () => {
+    // A plan saved without monthlyCredits is a configuration mistake. Any
+    // guessed fallback could silently hand its users the paid allowance, so it
+    // fails closed and the admin sets an allowance in the plan editor.
     await Plan.create({
       key: "legacy-free",
       name: "Legacy free",
-      aiSpendLimitUSD: 0.5,
       maxResumes: 2,
       active: true,
     });
@@ -275,9 +281,42 @@ describe("unconfigured plans", () => {
 
     const balance = await getCreditBalance(userId);
 
-    // Derived from the plan's own $0.50 ceiling, not from the paid allowance.
-    expect(balance.limit).toBeGreaterThan(0);
-    expect(balance.limit).toBeLessThan(CREDIT_LIMIT);
+    expect(balance.limit).toBe(0);
+    await expect(reserveCredits(userId, 1)).rejects.toBeInstanceOf(
+      CreditsExceededError
+    );
+  });
+});
+
+describe("per-user credit allowance", () => {
+  it("replaces the plan allowance for that user only", async () => {
+    const userId = await makeUser();
+    const otherId = await makeUser();
+    await Subscription.updateOne(
+      { userId },
+      { $set: { "customLimits.monthlyCredits": 1000 } }
+    );
+
+    expect((await getCreditBalance(userId)).limit).toBe(1000);
+    expect((await getCreditBalance(otherId)).limit).toBe(CREDIT_LIMIT);
+
+    // Well past the plan's 100, still inside the user's own 1000.
+    await expect(reserveCredits(userId, 600)).resolves.toMatchObject({
+      creditsCharged: 600,
+      remaining: 400,
+    });
+  });
+
+  it("can be unlimited", async () => {
+    const userId = await makeUser();
+    await Subscription.updateOne(
+      { userId },
+      { $set: { "customLimits.monthlyCredits": -1 } }
+    );
+
+    const res = await reserveCredits(userId, 5000);
+    expect(res.limit).toBe(-1);
+    expect(res.creditsCharged).toBe(0);
   });
 });
 

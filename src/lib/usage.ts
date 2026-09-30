@@ -1,10 +1,9 @@
 import mongoose from "mongoose";
 import connectDB from "@/lib/db/connect";
 import Plan, { IPlan } from "@/lib/models/Plan";
-import Subscription, { ISubscription } from "@/lib/models/Subscription";
+import Subscription from "@/lib/models/Subscription";
 import Usage from "@/lib/models/Usage";
 import User from "@/lib/models/User";
-import { USD_PER_CREDIT_TARGET } from "@/lib/credits";
 
 // ---------------------------------------------------------------------------
 // Pricing table. Update if Anthropic changes rates.
@@ -30,34 +29,7 @@ export function calculateCost(model: string, inputTokens: number, outputTokens: 
 }
 
 // ---------------------------------------------------------------------------
-// Error class
-// ---------------------------------------------------------------------------
-
-export class QuotaExceededError extends Error {
-  public readonly kind: string;
-  public readonly used: number;
-  public readonly limit: number;
-  public readonly periodEndsAt: Date;
-
-  constructor(args: {
-    kind: string;
-    used: number;
-    limit: number;
-    periodEndsAt: Date;
-  }) {
-    super(
-      `Monthly AI budget exceeded ($${args.used.toFixed(4)} of $${args.limit.toFixed(2)} used). Resets ${args.periodEndsAt.toISOString()}.`
-    );
-    this.name = "QuotaExceededError";
-    this.kind = args.kind;
-    this.used = args.used;
-    this.limit = args.limit;
-    this.periodEndsAt = args.periodEndsAt;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Internal helpers
+// Periods
 // ---------------------------------------------------------------------------
 
 /** Returns the current billing period as "YYYY-MM" in UTC. */
@@ -76,198 +48,14 @@ function getPeriodEndsAt(): Date {
   );
 }
 
-/** Returns the effective monthly spend limit in USD, honouring any admin override. */
-function getSpendLimit(plan: IPlan, subscription: ISubscription): number {
-  const customLimit = subscription.customLimits?.aiSpendLimitUSD;
-  if (typeof customLimit === "number") return customLimit;
-  return plan.aiSpendLimitUSD ?? 5.0;
-}
-
-// ---------------------------------------------------------------------------
-// Exported functions
-// ---------------------------------------------------------------------------
-
-/**
- * Reads the user's current spend and throws `QuotaExceededError` if they are
- * at or over their monthly USD budget.
- *
- * Admins always pass because they have no cap.
- *
- * This is a read-only check and does not increment anything. Call
- * `addSpend()` after a successful API call to record the actual cost.
- *
- * @throws {QuotaExceededError} when the user is at or above their budget.
- */
-export async function checkBudget(
-  userId: mongoose.Types.ObjectId | string,
-  kind: "aiGeneration"
-): Promise<{ spentUSD: number; limitUSD: number; periodEndsAt: Date }> {
-  if (kind !== "aiGeneration") throw new Error(`Unknown usage kind: ${kind}`);
-  await connectDB();
-
-  const periodEndsAt = getPeriodEndsAt();
-
-  // Admins have no spending cap
-  const userDoc = await User.findById(userId).lean();
-  if (userDoc?.isAdmin) {
-    const period = getCurrentPeriod();
-    const usageDoc = await Usage.findOne({ userId, period }).lean();
-    return { spentUSD: (usageDoc as { aiSpendUSD?: number } | null)?.aiSpendUSD ?? 0, limitUSD: -1, periodEndsAt };
-  }
-
-  const subscription = await Subscription.findOne({ userId });
-  if (!subscription) {
-    throw new Error(
-      "No subscription found for user. Approve them or run backfill:subscriptions."
-    );
-  }
-
-  const plan = await Plan.findOne({ key: subscription.planKey }).lean();
-  if (!plan) {
-    throw new Error(`Plan not found: ${subscription.planKey}`);
-  }
-
-  const limitUSD = getSpendLimit(plan as IPlan, subscription);
-  const period = getCurrentPeriod();
-
-  const usageDoc = await Usage.findOne({ userId, period }).lean();
-  const spentUSD = (usageDoc as { aiSpendUSD?: number } | null)?.aiSpendUSD ?? 0;
-
-  if (limitUSD !== -1 && spentUSD >= limitUSD) {
-    throw new QuotaExceededError({
-      kind,
-      used: spentUSD,
-      limit: limitUSD,
-      periodEndsAt,
-    });
-  }
-
-  return { spentUSD, limitUSD, periodEndsAt };
-}
-
-// ---------------------------------------------------------------------------
-// Reserve-then-reconcile
-//
-// checkBudget() reads spend and addSpend() writes it, but the Anthropic call
-// sits between them. That gap is a check-then-act race: concurrent requests
-// all read the same stale total, all pass the check, and all proceed, so the
-// budget ceiling only holds for serial traffic.
-//
-// reserveSpend() closes it by making the check and the charge a single atomic
-// conditional update. The business rule is unchanged ("you may start a call
-// while you are under budget"), but now only one concurrent caller can win it,
-// so overrun is bounded by a single call's reservation instead of by however
-// many requests arrive at once.
-// ---------------------------------------------------------------------------
-
-/**
- * Resolves a user's effective spend limit. Returns -1 for unlimited (admins,
- * or a plan with no cap).
- */
-async function resolveLimit(
-  userId: mongoose.Types.ObjectId | string
-): Promise<number> {
-  const userDoc = await User.findById(userId).lean();
-  if (userDoc?.isAdmin) return -1;
-
-  const subscription = await Subscription.findOne({ userId });
-  if (!subscription) {
-    throw new Error(
-      "No subscription found for user. Approve them or run backfill:subscriptions."
-    );
-  }
-
-  const plan = await Plan.findOne({ key: subscription.planKey }).lean();
-  if (!plan) {
-    throw new Error(`Plan not found: ${subscription.planKey}`);
-  }
-
-  return getSpendLimit(plan as IPlan, subscription);
-}
-
-/**
- * A deliberately generous up-front estimate of what a call will cost, assuming
- * the response uses its whole token budget and the prompt is comparable in
- * size. Over-reserving is corrected downward the moment the call returns;
- * under-reserving is what lets concurrent calls overshoot, so err high.
- */
-export function estimateCallCost(model: string, maxTokens: number): number {
-  return calculateCost(model, maxTokens, maxTokens);
-}
-
-export type Reservation = {
-  /** Amount provisionally charged. Always 0 for unlimited users. */
-  reservedUSD: number;
-  limitUSD: number;
-  periodEndsAt: Date;
-};
-
-/**
- * Atomically verifies the user is under budget and charges `estimateUSD`
- * against them in the same operation.
- *
- * @throws {QuotaExceededError} when the user is at or over their budget.
- */
-export async function reserveSpend(
-  userId: mongoose.Types.ObjectId | string,
-  kind: "aiGeneration",
-  estimateUSD: number
-): Promise<Reservation> {
-  if (kind !== "aiGeneration") throw new Error(`Unknown usage kind: ${kind}`);
-  await connectDB();
-
-  const periodEndsAt = getPeriodEndsAt();
-  const period = getCurrentPeriod();
-  const limitUSD = await resolveLimit(userId);
-
-  // Unlimited users skip reservation entirely; their spend is still recorded
-  // after the call, it just cannot be refused.
-  if (limitUSD === -1) {
-    return { reservedUSD: 0, limitUSD: -1, periodEndsAt };
-  }
-
-  // Ensure the period document exists before the conditional update. Doing the
-  // conditional update with upsert:true would insert a duplicate when the
-  // filter fails to match an over-budget document; the unique index on
-  // {userId, period} makes this first write safe under concurrency.
-  await Usage.updateOne(
-    { userId, period },
-    { $setOnInsert: { userId, period, aiSpendUSD: 0 } },
-    { upsert: true, strict: false }
-  ).catch((err: unknown) => {
-    // A concurrent caller won the insert. That is the expected outcome, not an
-    // error, so long as the document now exists.
-    if ((err as { code?: number })?.code !== 11000) throw err;
-  });
-
-  // The atomic step. Matches only while the user is under budget, so exactly
-  // one of N concurrent callers at the threshold can succeed.
-  const updated = await Usage.findOneAndUpdate(
-    { userId, period, aiSpendUSD: { $lt: limitUSD } },
-    { $inc: { aiSpendUSD: estimateUSD } },
-    { returnDocument: "after", strict: false }
-  );
-
-  if (!updated) {
-    const current = await Usage.findOne({ userId, period }).lean();
-    throw new QuotaExceededError({
-      kind,
-      used: (current as { aiSpendUSD?: number } | null)?.aiSpendUSD ?? limitUSD,
-      limit: limitUSD,
-      periodEndsAt,
-    });
-  }
-
-  return { reservedUSD: estimateUSD, limitUSD, periodEndsAt };
-}
-
 // ---------------------------------------------------------------------------
 // Credits
 //
-// Credits are what users see and what actually refuses them. They are exact
-// and known before the call, so unlike the USD path there is nothing to
-// reconcile afterwards. The USD ceiling stays underneath as a backstop in case
-// a credit weight is mis-tuned relative to real token usage.
+// Credits are the only limit a user can hit (docs/adr/0006). Each feature has
+// a fixed price, charged in full before the call by one atomic conditional
+// update, so the allowance holds under concurrent requests and is never
+// overshot. Real USD cost is recorded after each call for the admin margin
+// view, but it never refuses anyone.
 // ---------------------------------------------------------------------------
 
 export class CreditsExceededError extends Error {
@@ -286,32 +74,40 @@ export class CreditsExceededError extends Error {
   }
 }
 
+/**
+ * The user's monthly credit allowance: an admin's per-user override if set,
+ * otherwise their plan's. -1 is unlimited; admins are always unlimited.
+ *
+ * A plan saved without an allowance gives 0 rather than a guessed number, so
+ * a configuration mistake refuses loudly instead of silently handing out the
+ * paid allowance.
+ */
 async function resolveCreditLimit(
   userId: mongoose.Types.ObjectId | string
 ): Promise<number> {
   const userDoc = await User.findById(userId).lean();
   if (userDoc?.isAdmin) return -1;
 
-  const subscription = await Subscription.findOne({ userId });
+  const subscription = await Subscription.findOne({ userId }).lean();
   if (!subscription) {
     throw new Error(
       "No subscription found for user. Approve them or run backfill:subscriptions."
     );
   }
 
+  const override = subscription.customLimits?.monthlyCredits;
+  if (typeof override === "number") return override;
+
   const plan = await Plan.findOne({ key: subscription.planKey }).lean();
   if (!plan) throw new Error(`Plan not found: ${subscription.planKey}`);
 
-  const planDoc = plan as IPlan;
-  if (typeof planDoc.monthlyCredits === "number") return planDoc.monthlyCredits;
+  const allowance = (plan as IPlan).monthlyCredits;
+  if (typeof allowance === "number") return allowance;
 
-  // No allowance configured. Falling back to a fixed generous number would
-  // quietly make an unconfigured plan the most generous on the system, which
-  // is how a free tier ends up costing the same as a paid one. Derive it from
-  // the plan's own USD ceiling instead, so the fallback can never exceed what
-  // that plan was already allowed to spend.
-  const derived = Math.floor((planDoc.aiSpendLimitUSD ?? 0) / USD_PER_CREDIT_TARGET);
-  return Math.max(0, derived);
+  console.error(
+    `[credits] plan "${subscription.planKey}" has no monthlyCredits; its users get none until an admin sets one.`
+  );
+  return 0;
 }
 
 export type CreditReservation = {
@@ -417,53 +213,22 @@ export async function getCreditBalance(
   };
 }
 
-/**
- * Corrects a reservation to the true cost once token counts are known.
- * The delta may be negative, which is the normal case.
- */
-export async function reconcileSpend(
-  userId: mongoose.Types.ObjectId | string,
-  reservedUSD: number,
-  actualUSD: number
-): Promise<void> {
-  const delta = actualUSD - reservedUSD;
-  if (delta === 0) return;
-  await connectDB();
-
-  const period = getCurrentPeriod();
-  await Usage.findOneAndUpdate(
-    { userId, period },
-    { $inc: { aiSpendUSD: delta }, $setOnInsert: { userId, period } },
-    { upsert: true, returnDocument: "after", strict: false }
-  );
-}
-
-/** Refunds a reservation in full after a failed call. */
-export async function releaseSpend(
-  userId: mongoose.Types.ObjectId | string,
-  reservedUSD: number
-): Promise<void> {
-  if (reservedUSD <= 0) return;
-  return reconcileSpend(userId, reservedUSD, 0);
-}
+// ---------------------------------------------------------------------------
+// Real cost, recorded for reporting only
+// ---------------------------------------------------------------------------
 
 /**
- * Records actual API cost after a successful Anthropic call.
- * Uses `$inc` so concurrent writes are safe.
- *
- * Prefer reserveSpend() + reconcileSpend() for anything gated by a budget:
- * this function only records, it does not enforce, so calling it alone
- * reintroduces the check-then-act race described above.
+ * Adds a call's real USD cost to the user's period total. Record-only: it
+ * never refuses, because spend is not a limit, just what the admin margin
+ * view reports against.
  *
  * `strict: false` ensures the write reaches MongoDB even when the Mongoose
  * model cache (from hot-reload in dev) has a stale schema.
  */
-export async function addSpend(
+export async function recordSpend(
   userId: mongoose.Types.ObjectId | string,
-  kind: "aiGeneration",
   costUSD: number
 ): Promise<void> {
-  if (kind !== "aiGeneration") throw new Error(`Unknown usage kind: ${kind}`);
   if (costUSD <= 0) return;
   await connectDB();
 
@@ -479,45 +244,27 @@ export async function addSpend(
 }
 
 /**
- * Returns the user's current USD spend and budget for the active period.
- * Admins return limit = -1 (unlimited).
- * Never throws. Returns zeroed-out data when subscription or plan is missing.
+ * The user's real USD spend for the current period, for admin screens.
+ * Never throws; a user with no subscription reports zero.
  */
 export async function getCurrentUsage(
   userId: mongoose.Types.ObjectId | string
-): Promise<{
-  used: number;
-  limit: number;
-  periodEndsAt: Date;
-  planKey: string | null;
-}> {
+): Promise<{ used: number; periodEndsAt: Date; planKey: string | null }> {
   await connectDB();
 
   const periodEndsAt = getPeriodEndsAt();
   const period = getCurrentPeriod();
 
-  // Admins are unlimited, so show spend but no cap.
-  const userDoc = await User.findById(userId).lean();
-  if (userDoc?.isAdmin) {
-    const usageDoc = await Usage.findOne({ userId, period }).lean();
-    return { used: (usageDoc as { aiSpendUSD?: number } | null)?.aiSpendUSD ?? 0, limit: -1, periodEndsAt, planKey: null };
-  }
+  const [subscription, usageDoc] = await Promise.all([
+    Subscription.findOne({ userId }).lean(),
+    Usage.findOne({ userId, period }).lean(),
+  ]);
 
-  const subscription = await Subscription.findOne({ userId });
-  if (!subscription) {
-    return { used: 0, limit: 0, periodEndsAt, planKey: null };
-  }
-
-  const plan = await Plan.findOne({ key: subscription.planKey }).lean();
-  if (!plan) {
-    return { used: 0, limit: 0, periodEndsAt, planKey: subscription.planKey };
-  }
-
-  const usageDoc = await Usage.findOne({ userId, period }).lean();
-  const used = (usageDoc as { aiSpendUSD?: number } | null)?.aiSpendUSD ?? 0;
-  const limit = getSpendLimit(plan as IPlan, subscription);
-
-  return { used, limit, periodEndsAt, planKey: subscription.planKey };
+  return {
+    used: (usageDoc as { aiSpendUSD?: number } | null)?.aiSpendUSD ?? 0,
+    periodEndsAt,
+    planKey: subscription?.planKey ?? null,
+  };
 }
 
 /**
@@ -563,35 +310,4 @@ export async function getPlatformStats(): Promise<{
   ]);
   const row = result[0] as { totalSpendUSD: number; activeUserCount: number } | undefined;
   return { totalSpendUSD: row?.totalSpendUSD ?? 0, activeUserCount: row?.activeUserCount ?? 0 };
-}
-
-/**
- * Wraps an AI call with quota enforcement and spend recording.
- * Sequence: reserveSpend → fn() → calculateCost → reconcileSpend, releasing
- * the reservation if the call throws.
- * Re-throws QuotaExceededError so routes continue to return 429.
- */
-export async function withBudget<T>(
-  userId: string,
-  model: string,
-  maxTokens: number,
-  fn: () => Promise<{ result: T; inputTokens: number; outputTokens: number }>
-): Promise<T> {
-  const { reservedUSD } = await reserveSpend(
-    userId,
-    "aiGeneration",
-    estimateCallCost(model, maxTokens)
-  );
-
-  try {
-    const { result, inputTokens, outputTokens } = await fn();
-    const cost = calculateCost(model, inputTokens, outputTokens);
-    await reconcileSpend(userId, reservedUSD, cost);
-    return result;
-  } catch (err) {
-    await releaseSpend(userId, reservedUSD).catch((releaseErr) =>
-      console.error("[releaseSpend failed]", releaseErr)
-    );
-    throw err;
-  }
 }
