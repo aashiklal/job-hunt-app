@@ -1,26 +1,26 @@
 import { JobStatus } from "@/lib/repositories/jobs";
+import {
+  FUNNEL_STAGES,
+  conversionRates,
+  type FunnelStage,
+} from "./funnel-conversion";
 
 type Props = {
   funnelCounts: Record<JobStatus, number>;
 };
 
-// Ordered pipeline stages (left to right)
-const PIPELINE: { status: JobStatus; label: string }[] = [
-  { status: "saved", label: "Saved" },
-  { status: "applied", label: "Applied" },
-  { status: "screening", label: "Screening" },
-  { status: "interview", label: "Interview" },
-  { status: "assessment", label: "Assessment" },
-  { status: "offer", label: "Offer" },
-];
-
-function dropOffRate(from: number, to: number): string | null {
-  if (from === 0) return null;
-  const rate = Math.round(((from - to) / from) * 100);
-  return `−${rate}%`;
-}
+const LABELS: Record<FunnelStage, string> = {
+  saved: "Saved",
+  applied: "Applied",
+  screening: "Screening",
+  interview: "Interview",
+  assessment: "Assessment",
+  offer: "Offer",
+};
 
 export function ApplicationFunnel({ funnelCounts }: Props) {
+  const rates = conversionRates(funnelCounts);
+
   return (
     <div className="rounded-xl border bg-card p-5">
       <p className="mb-4 text-sm font-medium text-muted-foreground">
@@ -28,22 +28,28 @@ export function ApplicationFunnel({ funnelCounts }: Props) {
       </p>
 
       <div className="flex items-stretch gap-0 overflow-x-auto pb-1">
-        {PIPELINE.map(({ status, label }, i) => {
+        {FUNNEL_STAGES.map((status, i) => {
+          const label = LABELS[status];
           const count = funnelCounts[status];
-          const prevCount =
-            i > 0 ? funnelCounts[PIPELINE[i - 1].status] : null;
-          const dropOff =
-            prevCount !== null ? dropOffRate(prevCount, count) : null;
+          const rate = rates[i];
           const isActive = count > 0;
 
           return (
             <div key={status} className="flex shrink-0 items-stretch">
-              {/* Arrow connector + drop-off label */}
+              {/* Arrow connector + share of jobs that moved on */}
               {i > 0 && (
                 <div className="flex flex-col items-center justify-center px-1">
-                  <span className="mb-0.5 text-[10px] leading-none text-muted-foreground/60">
-                    {dropOff ?? ""}
+                  <span
+                    className="mb-0.5 text-[10px] leading-none text-muted-foreground/60"
+                    aria-hidden="true"
+                  >
+                    {rate === null ? "" : `${rate}%`}
                   </span>
+                  {rate !== null && (
+                    <span className="sr-only">
+                      {`${rate}% moved from ${LABELS[FUNNEL_STAGES[i - 1]]} to ${label}`}
+                    </span>
+                  )}
                   <svg
                     width="20"
                     height="12"

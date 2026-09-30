@@ -215,7 +215,7 @@ export function JobForm({ mode, initialValues, jobId }: Props) {
           {importOpen && (
             <div className="border-t px-4 pb-4 pt-3 space-y-3">
               <p className="text-xs text-muted-foreground">
-                Paste the full job description and we&apos;ll fill in the fields and estimate Fit Score.
+                Paste the full job description and we&apos;ll fill in the fields and estimate a fit score.
               </p>
               <Textarea
                 placeholder="Paste the job posting here…"
@@ -475,7 +475,7 @@ function FitScorePreview({
       <div ref={ref} className="scroll-mt-24 rounded-lg border bg-muted/30 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-sm font-medium">Fit Score unavailable</p>
+            <p className="text-sm font-medium">Fit score unavailable</p>
             <p className="mt-1 text-sm text-muted-foreground">
               Add a default resume to see how well it matches this job.
             </p>
@@ -502,7 +502,7 @@ function FitScorePreview({
     <div ref={ref} className="scroll-mt-24 rounded-lg border p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm font-medium">Fit Score</p>
+          <p className="text-sm font-medium">Fit score</p>
           <p className="mt-1 text-xs text-muted-foreground">
             Estimates resume-to-JD keyword coverage, not your chance of getting hired.
           </p>

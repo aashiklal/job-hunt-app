@@ -72,7 +72,7 @@ export function JDAnalysisPanel({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>JD Analysis</CardTitle>
+        <CardTitle>JD analysis</CardTitle>
         <p className="text-sm text-muted-foreground">
           Get a structured breakdown of what this role wants: required skills,
           nice-to-haves, keywords to mirror in your resume, and red flags.
