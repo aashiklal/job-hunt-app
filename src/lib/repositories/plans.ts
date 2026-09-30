@@ -7,9 +7,9 @@ export type IPlanListItem = {
   _id: string;
   key: string;
   name: string;
-  aiSpendLimitUSD: number;
+  monthlyCredits: number;
+  monthlyPriceUSD: number;
   maxResumes: number;
-  maxJobs: number;
   active: boolean;
 };
 
@@ -18,9 +18,9 @@ export function toPlanListItem(doc: IPlan): IPlanListItem {
     _id: (doc._id as { toString(): string }).toString(),
     key: doc.key,
     name: doc.name,
-    aiSpendLimitUSD: doc.aiSpendLimitUSD,
+    monthlyCredits: doc.monthlyCredits,
+    monthlyPriceUSD: doc.monthlyPriceUSD ?? 0,
     maxResumes: doc.maxResumes,
-    maxJobs: doc.maxJobs,
     active: doc.active,
   };
 }
@@ -37,7 +37,11 @@ export async function listAll(): Promise<IPlan[]> {
 
 export async function update(
   id: string,
-  fields: { aiSpendLimitUSD: number; maxResumes: number; maxJobs: number }
+  fields: {
+    monthlyCredits: number;
+    monthlyPriceUSD: number;
+    maxResumes: number;
+  }
 ): Promise<IPlan | null> {
   await connectDB();
   return Plan.findByIdAndUpdate(id, { $set: fields }, { returnDocument: "after" });

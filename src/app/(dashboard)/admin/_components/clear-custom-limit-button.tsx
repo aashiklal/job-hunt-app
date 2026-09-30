@@ -18,7 +18,7 @@ export function ClearCustomLimitButton({ userId }: Props) {
     startTransition(async () => {
       const result = await clearUserCustomLimit({ userId });
       if (result.ok) {
-        toast.success("Custom limit cleared. Plan default applies.");
+        toast.success("Custom allowance cleared. The plan allowance applies.");
         router.refresh();
       } else {
         toast.error(result.error.message);
@@ -28,7 +28,7 @@ export function ClearCustomLimitButton({ userId }: Props) {
 
   return (
     <Button variant="outline" size="sm" onClick={handleClick} disabled={pending}>
-      {pending ? "Clearing..." : "Clear custom limit"}
+      {pending ? "Clearing..." : "Clear custom allowance"}
     </Button>
   );
 }

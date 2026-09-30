@@ -10,7 +10,7 @@ import { WeeklyActivity } from "./_components/weekly-activity";
 import { WeeklyGoal } from "./_components/weekly-goal";
 
 export const metadata: Metadata = {
-  title: "Tracker: Job Hunt",
+  title: "Tracker: JobHunt",
   description: "Analytics and insights for your job search.",
 };
 

@@ -5,10 +5,13 @@ import { z } from "zod";
 import { callMeteredStructured } from "@/lib/ai-execution";
 import * as users from "@/lib/repositories/users";
 import * as resumes from "@/lib/repositories/resumes";
-import { QuotaExceededError } from "@/lib/usage";
+import { aiLimitResponse } from "@/lib/ai-limit-response";
 import { buildJobParsePrompt } from "@/lib/prompts";
 import { computeFitScore } from "@/lib/fit-score";
 import { jdAnalysisSchema, type JDAnalysis } from "@/lib/job-analysis";
+import { consume, rateLimitResponseInit } from "@/lib/rate-limit";
+import { isDemoUser, withDemoLatency, isDemoExpired } from "@/lib/demo";
+import { demoAnalysis, demoParsedJob } from "@/lib/demo-fixtures";
 
 const MODEL = "claude-sonnet-4-5";
 const MAX_TOKENS = 3072;
@@ -60,7 +63,45 @@ export async function POST(req: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
+  if (isDemoExpired(user)) {
+    return NextResponse.json({ error: "This demo has ended." }, { status: 401 });
+  }
   const userIdStr = (user._id as { toString(): string }).toString();
+
+  const limit = await consume(userIdStr, "jobs-parse");
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "RATE_LIMITED", message: "Too many imports in a row. Try again shortly." },
+      rateLimitResponseInit(limit.retryAfterSeconds)
+    );
+  }
+
+  if (isDemoUser(user)) {
+    const fields = demoParsedJob();
+    const analysis = demoAnalysis({
+      _id: "demo",
+      company: fields.company ?? "Example Corp",
+      role: fields.role ?? "Senior Full Stack Engineer",
+    });
+    const defaultResume = await resumes.getDefault(userIdStr);
+    const fitScore = defaultResume
+      ? computeFitScore({
+          resumeText: defaultResume.content,
+          requiredSkills: analysis.requiredSkills,
+          niceToHaves: analysis.niceToHaves,
+          keywordsForResume: analysis.keywordsForResume,
+        })
+      : null;
+
+    return NextResponse.json(
+      await withDemoLatency({
+        fields,
+        analysis: analysis satisfies JDAnalysis,
+        fitScore,
+        hasDefaultResume: !!defaultResume,
+      })
+    );
+  }
 
   const { system, userMessage } = buildJobParsePrompt({ text });
 
@@ -72,6 +113,7 @@ export async function POST(req: NextRequest) {
       model: MODEL,
       maxTokens: MAX_TOKENS,
       schema: parsedSchema,
+      feature: "jobs_parse",
     });
     const { analysis, ...fields } = result.data;
     const defaultResume = await resumes.getDefault(userIdStr);
@@ -91,12 +133,8 @@ export async function POST(req: NextRequest) {
       hasDefaultResume: !!defaultResume,
     });
   } catch (err) {
-    if (err instanceof QuotaExceededError) {
-      return NextResponse.json(
-        { error: "QUOTA_EXCEEDED", message: err.message },
-        { status: 429 }
-      );
-    }
+    const limited = aiLimitResponse(err);
+    if (limited) return limited;
     console.error("[jobs/parse] parse failed:", err);
     return NextResponse.json(
       { error: "Failed to parse the job posting. Please try again." },

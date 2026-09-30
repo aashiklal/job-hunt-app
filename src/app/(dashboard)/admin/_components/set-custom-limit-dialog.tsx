@@ -16,40 +16,44 @@ import {
   DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog";
+import { describeCredits } from "@/lib/credits";
 import { setUserCustomLimit } from "../_actions";
 
 type Props = {
   userId: string;
-  currentLimit: number;
-  planDefault: number;
+  /** The user's current monthly allowance in credits. -1 = unlimited. */
+  currentCredits: number;
+  /** The plan's allowance, shown for reference. -1 = unlimited. */
+  planCredits: number;
 };
 
-export function SetCustomLimitDialog({ userId, currentLimit, planDefault }: Props) {
+const MAX_CREDITS = 100_000;
+
+function formatCredits(n: number): string {
+  return n === -1 ? "unlimited" : `${n} credits`;
+}
+
+export function SetCustomLimitDialog({ userId, currentCredits, planCredits }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
-  const [value, setValue] = useState(currentLimit.toFixed(2));
+  const [value, setValue] = useState(String(currentCredits));
   const [error, setError] = useState<string | null>(null);
 
+  const parsed = Number(value);
+  const valid = Number.isInteger(parsed) && parsed >= -1 && parsed <= MAX_CREDITS;
+
   function handleSubmit() {
-    const parsed = parseFloat(value);
-    if (Number.isNaN(parsed) || parsed < 0) {
-      setError("Enter a non-negative dollar amount (e.g. 10.00)");
-      return;
-    }
-    if (parsed > 500) {
-      setError("Maximum is $500.00");
+    if (!valid) {
+      setError(`Enter a whole number of credits up to ${MAX_CREDITS}, or -1 for unlimited.`);
       return;
     }
     setError(null);
 
     startTransition(async () => {
-      const result = await setUserCustomLimit({
-        userId,
-        aiSpendLimitUSD: parsed,
-      });
+      const result = await setUserCustomLimit({ userId, monthlyCredits: parsed });
       if (result.ok) {
-        toast.success(`Custom budget set to $${parsed.toFixed(2)}`);
+        toast.success(`Allowance set to ${formatCredits(parsed)} a month`);
         setOpen(false);
         router.refresh();
       } else {
@@ -62,34 +66,38 @@ export function SetCustomLimitDialog({ userId, currentLimit, planDefault }: Prop
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
-          Set custom budget
+          Set custom allowance
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Set custom AI budget</DialogTitle>
+          <DialogTitle>Set custom credit allowance</DialogTitle>
           <DialogDescription>
-            Override this user&apos;s monthly AI spend budget. The plan
-            default is ${planDefault.toFixed(2)}/month. Use this for users
-            in heavy job-hunt mode who need more than the default.
+            Give this user their own monthly allowance in place of the plan&apos;s{" "}
+            {formatCredits(planCredits)}. Use it for someone in a heavy stretch
+            of their search who needs more.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
-          <Label htmlFor="limit-input">Monthly budget (USD)</Label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
-            <Input
-              id="limit-input"
-              type="number"
-              min={0}
-              max={500}
-              step={0.01}
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              disabled={pending}
-              className="pl-7"
-            />
-          </div>
+          <Label htmlFor="credits-input">Credits per month (-1 for unlimited)</Label>
+          <Input
+            id="credits-input"
+            type="number"
+            inputMode="numeric"
+            min={-1}
+            max={MAX_CREDITS}
+            step={1}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            disabled={pending}
+          />
+          <p className="text-xs text-muted-foreground">
+            {valid
+              ? parsed === -1
+                ? "No limit."
+                : describeCredits(parsed)
+              : " "}
+          </p>
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
         <DialogFooter>

@@ -2,25 +2,14 @@ import "server-only";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import * as users from "@/lib/repositories/users";
-import { QuotaExceededError } from "@/lib/usage";
+import { aiLimitResponse } from "@/lib/ai-limit-response";
+import { consume, rateLimitResponseInit } from "@/lib/rate-limit";
 import {
   generateForJob,
   JobGenerationError,
   jobGenerationRequestSchema,
 } from "@/lib/job-ai-generation";
-
-function quotaResponse(err: QuotaExceededError) {
-  return NextResponse.json(
-    {
-      error: "QUOTA_EXCEEDED",
-      message: err.message,
-      limit: err.limit,
-      used: err.used,
-      periodEndsAt: err.periodEndsAt.toISOString(),
-    },
-    { status: 429 }
-  );
-}
+import { isDemoExpired } from "@/lib/demo";
 
 export async function POST(req: NextRequest) {
   const { userId: clerkUserId } = await auth();
@@ -47,6 +36,20 @@ export async function POST(req: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
+  if (isDemoExpired(user)) {
+    return NextResponse.json({ error: "This demo has ended." }, { status: 401 });
+  }
+
+  const limit = await consume(user._id.toString(), "generate");
+  if (!limit.allowed) {
+    return NextResponse.json(
+      {
+        error: "RATE_LIMITED",
+        message: "Too many generations in a row. Try again shortly.",
+      },
+      rateLimitResponseInit(limit.retryAfterSeconds)
+    );
+  }
 
   try {
     const result = await generateForJob(user, parseResult.data);
@@ -65,9 +68,8 @@ export async function POST(req: NextRequest) {
       structuredContent: result.structuredContent,
     });
   } catch (err) {
-    if (err instanceof QuotaExceededError) {
-      return quotaResponse(err);
-    }
+    const limited = aiLimitResponse(err);
+    if (limited) return limited;
     if (err instanceof JobGenerationError) {
       return NextResponse.json(
         {

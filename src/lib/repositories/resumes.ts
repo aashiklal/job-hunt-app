@@ -119,3 +119,9 @@ export async function deleteResume(
 
   return true;
 }
+
+export async function deleteAllForUser(userId: string): Promise<number> {
+  await connectDB();
+  const result = await Resume.deleteMany({ userId });
+  return result.deletedCount ?? 0;
+}

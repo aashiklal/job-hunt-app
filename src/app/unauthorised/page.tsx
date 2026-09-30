@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { ShieldOff, Briefcase } from "lucide-react";
+import { ShieldOff } from "lucide-react";
 import SignOutButton from "@/components/auth/SignOutButton";
+import { BrandLogo } from "@/components/BrandLogo";
 
 export const metadata: Metadata = {
-  title: "Access Denied: Job Hunt",
+  title: "Access Denied: JobHunt",
   description: "You are not authorised to access this application.",
 };
 
@@ -12,12 +13,7 @@ export default function UnauthorisedPage() {
     <main className="min-h-screen bg-background">
       <div className="flex min-h-screen flex-col items-center justify-center px-4 py-6">
         {/* Brand */}
-        <div className="mb-10 flex items-center gap-2">
-          <Briefcase className="size-5 text-foreground" strokeWidth={1.75} />
-          <span className="text-base font-semibold tracking-tight text-foreground">
-            JobHunt
-          </span>
-        </div>
+        <BrandLogo className="mb-10" />
 
         <div className="w-full max-w-md rounded-xl border border-border/60 bg-card p-8 shadow-xs text-center">
           <div className="mx-auto mb-5 flex h-10 w-10 items-center justify-center rounded-lg bg-muted">

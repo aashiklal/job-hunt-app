@@ -3,12 +3,15 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { callMeteredStructured } from "@/lib/ai-execution";
-import { QuotaExceededError } from "@/lib/usage";
+import { aiLimitResponse } from "@/lib/ai-limit-response";
 import { buildSkillsGapPrompt } from "@/lib/prompts";
 import * as users from "@/lib/repositories/users";
 import * as jobs from "@/lib/repositories/jobs";
 import * as resumes from "@/lib/repositories/resumes";
 import * as documents from "@/lib/repositories/documents";
+import { consume, rateLimitResponseInit } from "@/lib/rate-limit";
+import { isDemoUser, withDemoLatency, isDemoExpired } from "@/lib/demo";
+import { demoSkillsGap } from "@/lib/demo-fixtures";
 
 const MODEL = "claude-sonnet-4-5";
 
@@ -40,7 +43,18 @@ export async function POST() {
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
+  if (isDemoExpired(user)) {
+    return NextResponse.json({ error: "This demo has ended." }, { status: 401 });
+  }
   const userIdStr = (user._id as { toString(): string }).toString();
+
+  const limit = await consume(userIdStr, "skills-gap");
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "RATE_LIMITED", message: "Too many analyses in a row. Try again shortly." },
+      rateLimitResponseInit(limit.retryAfterSeconds)
+    );
+  }
 
   const jobList = await jobs.list(userIdStr);
 
@@ -80,6 +94,10 @@ export async function POST() {
   const missingNiceToHave = allNiceToHave.filter((s) => !skillInResume(s, resumeText));
   const appliedRoles = [...new Set(jobList.map((j) => j.role))];
 
+  if (isDemoUser(user)) {
+    return NextResponse.json({ gap: await withDemoLatency(demoSkillsGap()) });
+  }
+
   try {
     const { system, userMessage } = buildSkillsGapPrompt({
       missingRequired,
@@ -95,16 +113,13 @@ export async function POST() {
       model: MODEL,
       maxTokens: 2048,
       schema: skillsGapSchema,
+      feature: "skills_gap",
     });
 
     return NextResponse.json({ gap: data });
   } catch (err) {
-    if (err instanceof QuotaExceededError) {
-      return NextResponse.json(
-        { error: "QUOTA_EXCEEDED", message: err.message, limit: err.limit, used: err.used, periodEndsAt: err.periodEndsAt.toISOString() },
-        { status: 429 }
-      );
-    }
+    const limited = aiLimitResponse(err);
+    if (limited) return limited;
     console.error("[skills-gap] generation failed:", err);
     return NextResponse.json({ error: "Generation failed." }, { status: 500 });
   }

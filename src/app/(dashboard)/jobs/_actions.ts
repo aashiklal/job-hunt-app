@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { defineAction } from "@/lib/actions";
+import { assertDemoCapacity } from "@/lib/demo-accounts";
 import * as jobs from "@/lib/repositories/jobs";
 import * as documents from "@/lib/repositories/documents";
 import * as jobLifecycle from "@/lib/job-application-lifecycle";
@@ -52,6 +53,7 @@ const setStatusSchema = z.object({
 export const createJob = defineAction(
   async (ctx, input: z.infer<typeof createJobSchema>) => {
     const data = createJobSchema.parse(input);
+    await assertDemoCapacity(ctx.user, "jobs");
     const { initialAnalysis, ...jobData } = data;
     const cleanData = { ...jobData, url: jobData.url === "" ? undefined : jobData.url };
     const job = await jobs.create(ctx.user._id.toString(), cleanData);

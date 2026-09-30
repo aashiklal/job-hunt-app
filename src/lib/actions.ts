@@ -3,12 +3,14 @@ import {
   requireAdminWithPlan,
   type ApprovedUserContext,
 } from "@/lib/auth-helpers";
-import { QuotaExceededError } from "@/lib/usage";
+import { CreditsExceededError } from "@/lib/usage";
+import { creditsExhaustedMessage } from "@/lib/ai-limit-response";
+import { DemoLimitError } from "@/lib/demo-limits";
 
 export type ActionContext = ApprovedUserContext;
 
 export type ActionError =
-  | { code: "QUOTA_EXCEEDED"; message: string; limit: number; periodEndsAt: string }
+  | { code: "CREDITS_EXHAUSTED"; message: string; limit: number; periodEndsAt: string }
   | { code: "VALIDATION"; message: string; fieldErrors?: Record<string, string> }
   | { code: "NOT_FOUND"; message: string }
   | { code: "FORBIDDEN"; message: string }
@@ -35,16 +37,20 @@ function handleError(err: unknown): ActionResult<never> {
   // Re-throw Next.js navigation errors so the framework can handle them
   if (isNextNavigationError(err)) throw err;
 
-  if (err instanceof QuotaExceededError) {
+  if (err instanceof CreditsExceededError) {
     return {
       ok: false,
       error: {
-        code: "QUOTA_EXCEEDED",
-        message: err.message,
+        code: "CREDITS_EXHAUSTED",
+        message: creditsExhaustedMessage(err),
         limit: err.limit,
         periodEndsAt: err.periodEndsAt.toISOString(),
       },
     };
+  }
+
+  if (err instanceof DemoLimitError) {
+    return { ok: false, error: { code: "FORBIDDEN", message: err.message } };
   }
 
   // Duck-type ZodError to avoid importing zod solely for instanceof

@@ -48,9 +48,12 @@ export type CreateDocumentInput = {
   resumeIdUsed?: string;
 };
 
-export async function countAll(): Promise<number> {
+/** Public landing-page stat. Pass demo account ids to keep sample data out. */
+export async function countAll(excludeUserIds: string[] = []): Promise<number> {
   await connectDB();
-  return Doc.countDocuments({});
+  return Doc.countDocuments(
+    excludeUserIds.length > 0 ? { userId: { $nin: excludeUserIds } } : {}
+  );
 }
 
 export async function list(
@@ -149,11 +152,8 @@ export async function setLatexCache(
   );
 }
 
-export async function listByType(
-  userId: string,
-  type: DocumentType
-): Promise<DocItem[]> {
+export async function deleteAllForUser(userId: string): Promise<number> {
   await connectDB();
-  const docs = await Doc.find({ userId, type }).sort({ createdAt: -1 });
-  return docs.map(toDocItem);
+  const result = await Doc.deleteMany({ userId });
+  return result.deletedCount ?? 0;
 }

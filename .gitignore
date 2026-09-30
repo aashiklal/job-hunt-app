@@ -46,7 +46,6 @@ next-env.d.ts
 # AI agent instructions (generated on init, not source-controlled)
 CLAUDE.md
 AGENTS.md
-CONTEXT.md
 
 # Generated DOCX artifacts (upload these to the admin panel, don't commit them)
 *.docx
@@ -54,7 +53,9 @@ CONTEXT.md
 # Local fixtures used by export diagnostic harness
 /tmp/
 
-docs/
+# Local working notes stay out; architecture decision records are for readers.
+docs/*
+!docs/adr/
 
 
 

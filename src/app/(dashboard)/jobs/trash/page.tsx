@@ -16,7 +16,7 @@ import { RestoreJobButton } from "./_components/restore-job-button";
 import { PermanentDeleteButton } from "./_components/permanent-delete-button";
 
 export const metadata: Metadata = {
-  title: "Trash: Job Hunt",
+  title: "Trash: JobHunt",
   description: "Restore or permanently delete job applications.",
 };
 

@@ -6,7 +6,8 @@ import * as templates from "@/lib/repositories/templates";
 import * as auditLog from "@/lib/repositories/audit-log";
 import type { AuditAction } from "@/lib/repositories/audit-log";
 import * as plansRepo from "@/lib/repositories/plans";
-import { getBulkSpend, getPlatformStats } from "@/lib/usage";
+import { getPlatformStats } from "@/lib/usage";
+import * as usageEvents from "@/lib/repositories/usage-events";
 import type { ThemeCapacity } from "@/lib/export/pixel-theme-contract";
 import { TemplateManager } from "./_components/template-manager";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +20,7 @@ import { StatsBar } from "./_components/stats-bar";
 import { UserFilters } from "./_components/user-filters";
 
 export const metadata: Metadata = {
-  title: "Admin: Job Hunt",
+  title: "Admin: JobHunt",
   description: "Manage user access requests.",
 };
 
@@ -139,9 +140,10 @@ export default async function AdminPage({
     page?: string;
     audit_page?: string;
     audit_action?: string;
+    sort?: string;
   }>;
 }) {
-  const { user: admin, plan } = await requireAdminWithPlan();
+  const { user: admin } = await requireAdminWithPlan();
   const adminId = (admin._id as { toString(): string }).toString();
   const params = await searchParams;
   const userTab = parseUserStatus(params.tab);
@@ -149,6 +151,9 @@ export default async function AdminPage({
   const userPage = parsePositiveInt(params.page);
   const auditPage = parsePositiveInt(params.audit_page);
   const auditAction = parseAuditAction(params.audit_action);
+  const sortByCost = params.sort === "cost";
+  const costWindow = new Date();
+  costWindow.setUTCDate(costWindow.getUTCDate() - 30);
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
 
@@ -164,12 +169,29 @@ export default async function AdminPage({
   ] = await Promise.all([
     usersRepo.countByStatus(),
     usersRepo.countByStatusWithSearch(search),
-    usersRepo.listPaginated({
-      status: userTab,
-      search,
-      page: userPage,
-      limit: USER_PAGE_SIZE,
-    }),
+    sortByCost
+      ? usersRepo
+          .listIdsForFilter({ status: userTab, search })
+          .then(async (ids) => {
+            const totals = await usageEvents.bulkTotals(ids, {
+              since: costWindow,
+            });
+            const ordered = [...ids].sort(
+              (a, b) => (totals[b]?.costUSD ?? 0) - (totals[a]?.costUSD ?? 0)
+            );
+            const start = (userPage - 1) * USER_PAGE_SIZE;
+            const pageIds = ordered.slice(start, start + USER_PAGE_SIZE);
+            return {
+              users: await usersRepo.listByIds(pageIds),
+              total: ids.length,
+            };
+          })
+      : usersRepo.listPaginated({
+          status: userTab,
+          search,
+          page: userPage,
+          limit: USER_PAGE_SIZE,
+        }),
     templates.list(),
     auditLog.listRecent({
       limit: AUDIT_PAGE_SIZE,
@@ -185,7 +207,11 @@ export default async function AdminPage({
   const approvedUserIds = currentUsers
     .filter((u) => u.status === "approved")
     .map((u) => u._id);
-  const approvedSpend = await getBulkSpend(approvedUserIds);
+  // Rolling 30 days rather than calendar month, so a spike late in a month
+  // does not vanish the moment the month ticks over.
+  const approvedUsage = await usageEvents.bulkTotals(approvedUserIds, {
+    since: costWindow,
+  });
   const plans = planDocs.map(plansRepo.toPlanListItem);
 
   const currentAdminTemplates = Object.fromEntries(
@@ -210,7 +236,6 @@ export default async function AdminPage({
     >
   >;
 
-  const planSpendLimit = plan.aiSpendLimitUSD ?? 5.0;
   const entries = auditResult.entries.map(auditLog.toAuditLogItem);
   const userTotalPages = pageCount(paginatedUsers.total, USER_PAGE_SIZE);
   const safeUserPage = Math.min(userPage, userTotalPages);
@@ -273,8 +298,8 @@ export default async function AdminPage({
             pendingCount={filteredStatusCounts.pending}
             approvedCount={filteredStatusCounts.approved}
             rejectedCount={filteredStatusCounts.rejected}
-            approvedSpend={approvedSpend}
-            spendLimit={planSpendLimit}
+            approvedUsage={approvedUsage}
+            sortByCost={sortByCost}
             page={safeUserPage}
             totalPages={userTotalPages}
           />

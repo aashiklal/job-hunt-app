@@ -222,9 +222,56 @@ export async function restore(
   return doc ? toJobListItem(doc) : null;
 }
 
-export async function countAll(): Promise<number> {
+/**
+ * Every job the user holds, trash included. Used for the demo creation cap, so
+ * that deleting to the trash cannot be used to keep adding records.
+ */
+export async function countForUserIncludingTrash(userId: string): Promise<number> {
   await connectDB();
-  return Job.countDocuments({ deletedAt: null });
+  return Job.countDocuments({ userId });
+}
+
+/** Public landing-page stat. Pass demo account ids to keep sample data out. */
+export async function countAll(excludeUserIds: string[] = []): Promise<number> {
+  await connectDB();
+  return Job.countDocuments({
+    deletedAt: null,
+    ...(excludeUserIds.length > 0 && { userId: { $nin: excludeUserIds } }),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Demo seeding
+// ---------------------------------------------------------------------------
+
+export type JobSeedInput = JobCreateInput & {
+  status: JobStatus;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+/**
+ * Bulk-inserts jobs with explicit timestamps. The regular create() path lets
+ * Mongoose manage createdAt/updatedAt, which would stamp every seeded job with
+ * "now" and leave the funnel, weekly-activity and stale-application widgets
+ * with nothing to show. Seeding is the only legitimate caller.
+ */
+export async function createSeededMany(
+  userId: string,
+  rows: JobSeedInput[]
+): Promise<JobListItem[]> {
+  await connectDB();
+  const docs = await Job.insertMany(
+    rows.map((row) => ({ userId, deletedAt: null, ...row })),
+    { timestamps: false }
+  );
+  return docs.map((doc) => toJobListItem(doc as IJob));
+}
+
+export async function deleteAllForUser(userId: string): Promise<number> {
+  await connectDB();
+  const result = await Job.deleteMany({ userId });
+  return result.deletedCount ?? 0;
 }
 
 // ---------------------------------------------------------------------------

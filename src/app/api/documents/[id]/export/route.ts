@@ -13,7 +13,11 @@ import {
   RESUME_TEX_FULL_EXAMPLE,
   COVER_LETTER_TEX_PREAMBLE,
   COVER_LETTER_TEX_FULL_EXAMPLE,
+  buildDefaultLatexDoc,
+  buildDefaultCoverLetterLatexDoc,
 } from "@/lib/export/to-latex";
+import { isDemoUser, isDemoExpired } from "@/lib/demo";
+import { aiLimitResponse } from "@/lib/ai-limit-response";
 
 const querySchema = z.object({
   format: z.enum(["docx", "tex"]).default("docx"),
@@ -44,6 +48,9 @@ export async function GET(
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
+  if (isDemoExpired(user)) {
+    return NextResponse.json({ error: "This demo has ended." }, { status: 401 });
+  }
 
   const { id } = await params;
   const userIdStr = (user._id as { toString(): string }).toString();
@@ -67,6 +74,30 @@ export async function GET(
 
       if (cacheValid && cache.latexBodyCache) {
         tex = cache.latexBodyCache;
+      } else if (isDemoUser(user)) {
+        // The themed renderer calls Haiku to lay the content into the
+        // template. The demo must not, so it uses the deterministic builders
+        // instead: real, valid LaTeX for the same document, just laid out by
+        // code rather than by a model.
+        if (doc.type === "resume") {
+          const parsedResume = generatedResumeSchema.safeParse(doc.structuredContent);
+          if (!parsedResume.success) {
+            return NextResponse.json(
+              { error: "Resume data not available. Please regenerate the resume." },
+              { status: 422 }
+            );
+          }
+          tex = buildDefaultLatexDoc(parsedResume.data);
+        } else {
+          const parsedLetter = generatedCoverLetterSchema.safeParse(doc.structuredContent);
+          if (!parsedLetter.success) {
+            return NextResponse.json(
+              { error: "Cover letter data not available. Please regenerate the cover letter." },
+              { status: 422 }
+            );
+          }
+          tex = buildDefaultCoverLetterLatexDoc(parsedLetter.data);
+        }
       } else {
         const hardcodedTemplate =
           doc.type === "resume"
@@ -81,7 +112,7 @@ export async function GET(
               { status: 422 }
             );
           }
-          const result = await renderThemedLatex(parsed2.data, hardcodedTemplate);
+          const result = await renderThemedLatex(userIdStr, parsed2.data, hardcodedTemplate);
           tex = result.tex;
         } else {
           const parsed2 = generatedCoverLetterSchema.safeParse(doc.structuredContent);
@@ -91,7 +122,7 @@ export async function GET(
               { status: 422 }
             );
           }
-          const result = await renderThemedCoverLetterLatex(parsed2.data, hardcodedTemplate);
+          const result = await renderThemedCoverLetterLatex(userIdStr, parsed2.data, hardcodedTemplate);
           tex = result.tex;
         }
 
@@ -108,6 +139,9 @@ export async function GET(
         },
       });
     } catch (err) {
+      // LaTeX export is metered (it costs credits); DOCX export is not.
+      const limited = aiLimitResponse(err);
+      if (limited) return limited;
       console.error("[documents/export] latex export failed:", err);
       return NextResponse.json({ error: "Export failed" }, { status: 500 });
     }

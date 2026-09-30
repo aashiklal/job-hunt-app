@@ -13,6 +13,11 @@ const eslintConfig = defineConfig([
       "src/lib/repositories/**",
       "src/lib/auth-helpers.ts",
       "src/lib/usage.ts",
+      // Tests construct fixture state and assert on raw documents. Forcing
+      // that through the repository layer would mean testing the repositories
+      // with themselves.
+      "src/**/*.test.ts",
+      "src/test/**",
     ],
     rules: {
       "no-restricted-imports": [
@@ -36,6 +41,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Flat config does not read .gitignore, so gitignored trees that still
+    // contain source have to be listed here or they fail the lint run.
+    ".worktrees/**",
+    "tmp/**",
   ]),
 ]);
 

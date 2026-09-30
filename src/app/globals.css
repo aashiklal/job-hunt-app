@@ -38,6 +38,7 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-highlight: var(--highlight);
 
   /* Radius */
   --radius-sm: calc(var(--radius) * 0.6);
@@ -118,6 +119,10 @@
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
 
+  /* Highlighter pen mark, landing page only. A material from the job
+     seeker's world (marking up a posting), never a UI accent. */
+  --highlight: oklch(0.92 0.16 98 / 0.75);
+
   /* Layered shadows */
   --shadow-xs:
     0 1px 2px color(display-p3 0 0 0 / 0.04),
@@ -197,6 +202,8 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
 
+  --highlight: oklch(0.80 0.14 85 / 0.35);
+
   /* Dark mode shadows */
   --shadow-xs:
     0 1px 2px color(display-p3 0 0 0 / 0.16),
@@ -232,5 +239,73 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+/* ------------------------------------------------------------------------
+   Landing page: the application trail.
+   Every element's resting style is its final state; the keyframes only
+   describe how it got there. With reduced motion the animation is dropped
+   and the finished scene shows immediately.
+   ------------------------------------------------------------------------ */
+
+@utility pen-mark {
+  background-image: linear-gradient(var(--highlight), var(--highlight));
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+@utility animate-pen {
+  animation: pen-draw 500ms var(--ease-out-expo) both;
+}
+
+@utility animate-fill-bar {
+  transform-origin: left;
+  animation: fill-bar 900ms var(--ease-out-expo) both;
+}
+
+@utility animate-letter-out {
+  animation: letter-out 700ms var(--ease-out-expo) both;
+}
+
+@utility animate-trail-card {
+  animation: trail-card 1400ms var(--ease-out-expo) both;
+}
+
+@utility animate-stage-on {
+  animation: stage-on 300ms ease-out both;
+}
+
+@keyframes pen-draw {
+  from { background-size: 0% 100%; }
+}
+
+@keyframes fill-bar {
+  from { transform: scaleX(0); }
+}
+
+/* Tailwind v4 translate-* / rotate-* set the individual properties, so the
+   keyframe animates those, not transform. */
+@keyframes letter-out {
+  from { translate: 0 0; rotate: 0deg; opacity: 0; }
+}
+
+@keyframes trail-card {
+  from { left: 0; }
+}
+
+@keyframes stage-on {
+  from { background-color: var(--background); border-color: var(--border); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pen,
+  .animate-fill-bar,
+  .animate-letter-out,
+  .animate-trail-card,
+  .animate-stage-on {
+    animation: none;
   }
 }

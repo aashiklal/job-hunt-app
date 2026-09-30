@@ -8,7 +8,7 @@ const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   "user.rejected": "Rejected user",
   "user.admin_granted": "Granted admin",
   "user.admin_revoked": "Revoked admin",
-  "user.custom_limit_set": "Set custom budget",
+  "user.custom_limit_set": "Set custom allowance",
   "user.custom_limit_cleared": "Cleared custom limit",
   "template.uploaded": "Uploaded template",
   "template.deleted": "Deleted template",
