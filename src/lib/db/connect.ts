@@ -31,6 +31,13 @@ export default async function connectDB(): Promise<typeof mongoose> {
     });
   }
 
-  cache.conn = await cache.promise;
+  try {
+    cache.conn = await cache.promise;
+  } catch (error) {
+    // Drop the rejected promise so a transient failure (e.g. a DNS timeout)
+    // is retried on the next request instead of being cached until restart.
+    cache.promise = null;
+    throw error;
+  }
   return cache.conn;
 }
