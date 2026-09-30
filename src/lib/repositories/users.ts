@@ -76,18 +76,6 @@ export async function setAdmin(
 }
 
 /**
- * Flags a user as the shared public demo account. Demo users keep full CRUD
- * but never reach Anthropic, and their data is reset on a schedule.
- */
-export async function setDemo(
-  id: string,
-  isDemo: boolean
-): Promise<IUser | null> {
-  await connectDB();
-  return User.findByIdAndUpdate(id, { isDemo }, { returnDocument: "after" });
-}
-
-/**
  * Real people only. Per-visitor demo accounts are created and deleted all day,
  * so any count or list shown to an admin or on the landing page filters them.
  */
@@ -148,23 +136,6 @@ export async function deleteById(id: string): Promise<boolean> {
   await connectDB();
   const result = await User.findByIdAndDelete(id);
   return result !== null;
-}
-
-export async function createFromClerk(args: {
-  clerkId: string;
-  email: string;
-  firstName?: string;
-  lastName?: string;
-}): Promise<IUser> {
-  await connectDB();
-  return User.create({
-    clerkId: args.clerkId,
-    email: args.email,
-    firstName: args.firstName,
-    lastName: args.lastName,
-    status: "pending",
-    isAdmin: false,
-  });
 }
 
 export async function upsertFromClerk(args: {

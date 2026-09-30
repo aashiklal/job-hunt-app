@@ -513,9 +513,8 @@ export async function wipeDemoData(userId: string): Promise<void> {
     offers.deleteAllForUser(userId),
     starStories.deleteAllForUser(userId),
     // Demo generations are served from fixtures and should never cost
-    // anything, but spend that does slip through would otherwise accumulate
-    // across resets until the shared account hit its cap and broke for
-    // everyone. Clearing it makes the reset genuinely restorative.
+    // anything, but any spend that does slip through belongs to the demo and
+    // must go with it, so a deleted demo leaves no usage records behind.
     usage.deleteAllForUser(userId),
     usageEvents.deleteAllForUser(userId),
   ]);

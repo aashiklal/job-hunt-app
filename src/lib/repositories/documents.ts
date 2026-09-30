@@ -152,15 +152,6 @@ export async function setLatexCache(
   );
 }
 
-export async function listByType(
-  userId: string,
-  type: DocumentType
-): Promise<DocItem[]> {
-  await connectDB();
-  const docs = await Doc.find({ userId, type }).sort({ createdAt: -1 });
-  return docs.map(toDocItem);
-}
-
 export async function deleteAllForUser(userId: string): Promise<number> {
   await connectDB();
   const result = await Doc.deleteMany({ userId });

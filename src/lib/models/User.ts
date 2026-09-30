@@ -9,9 +9,9 @@ export type IUser = {
   status: "pending" | "approved" | "rejected";
   isAdmin: boolean;
   /**
-   * Marks the shared public demo account. Demo users get full CRUD but their
+   * Marks a per-visitor demo account. Demo users get full CRUD but their
    * AI requests are served from fixtures instead of calling Anthropic, and
-   * their data is reset on a schedule. See src/lib/demo.ts.
+   * the account is deleted when it expires. See src/lib/demo-accounts.ts.
    */
   isDemo: boolean;
   /**

@@ -10,16 +10,12 @@ import * as offers from "@/lib/repositories/offers";
 import * as starStories from "@/lib/repositories/star-stories";
 import { DEMO_SEED_COUNTS, seedDemoData, wipeDemoData } from "@/lib/demo-seed";
 import { buildDemoEmail } from "@/lib/demo-constants";
-export { isDemoDisabled } from "@/lib/demo-constants";
 import { isDemoUser } from "@/lib/demo";
-export { isDemoExpired } from "@/lib/demo";
 import {
   DEMO_EXTRA_ALLOWANCE,
   DemoLimitError,
   type DemoCapacityKind,
 } from "@/lib/demo-limits";
-
-export { DEMO_EXTRA_ALLOWANCE, DemoLimitError, type DemoCapacityKind };
 
 /**
  * Per-visitor demo accounts.
@@ -48,12 +44,12 @@ function positiveIntFromEnv(name: string, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-export function demoTtlMs(): number {
+function demoTtlMs(): number {
   return positiveIntFromEnv("DEMO_TTL_MINUTES", 120) * 60 * 1000;
 }
 
 /** Ceiling on concurrently live demo accounts, whatever the traffic source. */
-export function maxLiveDemos(): number {
+function maxLiveDemos(): number {
   return positiveIntFromEnv("DEMO_MAX_LIVE", 200);
 }
 

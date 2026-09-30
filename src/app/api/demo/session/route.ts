@@ -5,9 +5,9 @@ import {
   DemoCapacityError,
   createDefaultDemoClerk,
   createDemoAccount,
-  isDemoDisabled,
   sweepExpiredDemoAccounts,
 } from "@/lib/demo-accounts";
+import { isDemoDisabled } from "@/lib/demo-constants";
 import { consumeByKey, rateLimitResponseInit } from "@/lib/rate-limit";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 

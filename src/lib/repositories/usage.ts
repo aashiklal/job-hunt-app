@@ -91,10 +91,9 @@ export async function monthlyTotals(
 /**
  * Deletes every usage record for a user, resetting their spend to zero.
  *
- * Used by the demo reset. Demo AI calls are served from fixtures and should
- * never cost anything, but if any spend does accrue it would otherwise
- * accumulate across resets until the shared demo account hit its cap and
- * stopped working for every visitor.
+ * Used when a demo account is deleted. Demo AI calls are served from fixtures
+ * and should never cost anything, but any spend that does accrue is removed
+ * with the demo rather than left orphaned.
  */
 export async function deleteAllForUser(userId: string): Promise<number> {
   await connectDB();

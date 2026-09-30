@@ -44,9 +44,8 @@ const {
   sweepExpiredDemoAccounts,
   sweepOrphanClerkDemoUsers,
   DemoCapacityError,
-  DemoLimitError,
-  DEMO_EXTRA_ALLOWANCE,
 } = await import("@/lib/demo-accounts");
+const { DemoLimitError, DEMO_EXTRA_ALLOWANCE } = await import("@/lib/demo-limits");
 const { DEMO_SEED_COUNTS } = await import("@/lib/demo-seed");
 type DemoClerk = import("@/lib/demo-accounts").DemoClerk;
 
