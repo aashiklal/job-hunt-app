@@ -56,7 +56,10 @@ const TURNSTILE_SRC =
 export function DemoSignInButton({
   alreadySignedIn = false,
   turnstileSiteKey,
+  align = "center",
 }: {
+  /** Horizontal alignment of the button and its messages. */
+  align?: "center" | "start";
   /** The visitor still holds a live demo session, so skip creating another. */
   alreadySignedIn?: boolean;
   turnstileSiteKey: string;
@@ -186,18 +189,9 @@ export function DemoSignInButton({
         : "Try the live demo";
 
   return (
-    <div className="flex w-full flex-col items-center">
-      {!alreadySignedIn && (
-        <>
-          <Script
-            src={TURNSTILE_SRC}
-            strategy="lazyOnload"
-            onReady={() => setScriptReady(true)}
-          />
-          <div ref={containerRef} className="mb-3 w-full empty:mb-0" />
-        </>
-      )}
-
+    <div
+      className={`flex w-full flex-col ${align === "start" ? "items-start" : "items-center"}`}
+    >
       <button
         type="button"
         onClick={openDemo}
@@ -211,8 +205,25 @@ export function DemoSignInButton({
         {label}
       </button>
 
+      {/* Below the button, so the invisible widget never shifts it. When
+          Cloudflare does want a checkbox, it appears under the action it
+          unlocks. */}
+      {!alreadySignedIn && (
+        <>
+          <Script
+            src={TURNSTILE_SRC}
+            strategy="lazyOnload"
+            onReady={() => setScriptReady(true)}
+          />
+          <div ref={containerRef} className="w-full" />
+        </>
+      )}
+
       {error && (
-        <p role="alert" className="mt-3 text-center text-sm text-destructive">
+        <p
+          role="alert"
+          className={`mt-3 text-sm text-destructive ${align === "start" ? "text-left" : "text-center"}`}
+        >
           {error}
         </p>
       )}
