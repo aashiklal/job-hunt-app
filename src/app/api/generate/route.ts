@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import * as users from "@/lib/repositories/users";
 import { QuotaExceededError } from "@/lib/usage";
+import { creditsExhaustedResponse } from "@/lib/ai-limit-response";
 import { consume, rateLimitResponseInit } from "@/lib/rate-limit";
 import {
   generateForJob,
@@ -81,6 +82,8 @@ export async function POST(req: NextRequest) {
       structuredContent: result.structuredContent,
     });
   } catch (err) {
+    const outOfCredits = creditsExhaustedResponse(err);
+    if (outOfCredits) return outOfCredits;
     if (err instanceof QuotaExceededError) {
       return quotaResponse(err);
     }

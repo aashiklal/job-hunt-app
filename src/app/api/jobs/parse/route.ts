@@ -6,6 +6,7 @@ import { callMeteredStructured } from "@/lib/ai-execution";
 import * as users from "@/lib/repositories/users";
 import * as resumes from "@/lib/repositories/resumes";
 import { QuotaExceededError } from "@/lib/usage";
+import { creditsExhaustedResponse } from "@/lib/ai-limit-response";
 import { buildJobParsePrompt } from "@/lib/prompts";
 import { computeFitScore } from "@/lib/fit-score";
 import { jdAnalysisSchema, type JDAnalysis } from "@/lib/job-analysis";
@@ -133,6 +134,8 @@ export async function POST(req: NextRequest) {
       hasDefaultResume: !!defaultResume,
     });
   } catch (err) {
+    const outOfCredits = creditsExhaustedResponse(err);
+    if (outOfCredits) return outOfCredits;
     if (err instanceof QuotaExceededError) {
       return NextResponse.json(
         { error: "QUOTA_EXCEEDED", message: err.message },

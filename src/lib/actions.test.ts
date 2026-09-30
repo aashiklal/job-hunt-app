@@ -20,7 +20,7 @@ vi.mock("@/lib/auth-helpers", () => ({
 }));
 
 const { defineAction, defineAdminAction } = await import("@/lib/actions");
-const { QuotaExceededError } = await import("@/lib/usage");
+const { QuotaExceededError, CreditsExceededError } = await import("@/lib/usage");
 
 const fakeContext = {
   user: { _id: "user_1", email: "a@example.com" },
@@ -70,6 +70,27 @@ describe("defineAction success path", () => {
 });
 
 describe("defineAction error mapping", () => {
+  it("maps CreditsExceededError to a CREDITS_EXHAUSTED result a user can read", async () => {
+    const periodEndsAt = new Date("2026-10-01T00:00:00.000Z");
+    const action = defineAction(async () => {
+      throw new CreditsExceededError({ used: 500, limit: 500, periodEndsAt });
+    });
+
+    const result = await action(undefined);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("CREDITS_EXHAUSTED");
+      expect(result.error.message).toBe(
+        "You have used all 500 credits for this month. They reset on October 1."
+      );
+      if (result.error.code === "CREDITS_EXHAUSTED") {
+        expect(result.error.limit).toBe(500);
+        expect(result.error.periodEndsAt).toBe(periodEndsAt.toISOString());
+      }
+    }
+  });
+
   it("maps QuotaExceededError to a QUOTA_EXCEEDED result with its detail", async () => {
     const periodEndsAt = new Date("2026-07-01T00:00:00.000Z");
     const action = defineAction(async () => {

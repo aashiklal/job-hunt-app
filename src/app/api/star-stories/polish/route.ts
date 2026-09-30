@@ -6,6 +6,7 @@ import { callMeteredText } from "@/lib/ai-execution";
 import * as users from "@/lib/repositories/users";
 import * as starStories from "@/lib/repositories/star-stories";
 import { QuotaExceededError } from "@/lib/usage";
+import { creditsExhaustedResponse } from "@/lib/ai-limit-response";
 import { buildSTARStoryPolishPrompt } from "@/lib/prompts";
 import { consume, rateLimitResponseInit } from "@/lib/rate-limit";
 import { isDemoUser, withDemoLatency, isDemoExpired } from "@/lib/demo";
@@ -91,6 +92,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ polished });
   } catch (err) {
+    const outOfCredits = creditsExhaustedResponse(err);
+    if (outOfCredits) return outOfCredits;
     if (err instanceof QuotaExceededError) {
       return NextResponse.json(
         {

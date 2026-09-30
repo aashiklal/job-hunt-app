@@ -4,6 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { callMeteredStructured } from "@/lib/ai-execution";
 import { QuotaExceededError } from "@/lib/usage";
+import { creditsExhaustedResponse } from "@/lib/ai-limit-response";
 import { buildOfferComparisonPrompt } from "@/lib/prompts";
 import * as users from "@/lib/repositories/users";
 import * as offers from "@/lib/repositories/offers";
@@ -87,6 +88,8 @@ export async function POST() {
 
     return NextResponse.json({ comparison: data });
   } catch (err) {
+    const outOfCredits = creditsExhaustedResponse(err);
+    if (outOfCredits) return outOfCredits;
     if (err instanceof QuotaExceededError) {
       return NextResponse.json(
         { error: "QUOTA_EXCEEDED", message: err.message, limit: err.limit, used: err.used, periodEndsAt: err.periodEndsAt.toISOString() },
