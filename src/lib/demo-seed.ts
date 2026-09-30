@@ -6,12 +6,15 @@ import * as documents from "@/lib/repositories/documents";
 import * as usage from "@/lib/repositories/usage";
 import * as usageEvents from "@/lib/repositories/usage-events";
 import type { JobSeedInput } from "@/lib/repositories/jobs";
-import { demoAnalysis, demoStructuredDocument } from "@/lib/demo-fixtures";
+import { demoAnalysis, demoPrep, demoStructuredDocument } from "@/lib/demo-fixtures";
+import { DEMO_PERSONA, personaResumeMarkdown } from "@/lib/demo-persona";
 
 
 const DEMO_SEED_MODEL = "claude-sonnet-4-5 (demo fixture)";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+type SeedKey = "screening" | "assessment" | "interview";
 
 function daysAgo(n: number): Date {
   return new Date(Date.now() - n * DAY_MS);
@@ -37,10 +40,12 @@ const JOB_SEEDS: Array<{
   applied?: number;
   notes?: string;
   jobDescription?: string;
+  /** Marks the jobs that get pre-generated AI documents in seedDocuments(). */
+  seedKey?: SeedKey;
 }> = [
   // --- Terminal: rejected -------------------------------------------------
   {
-    company: "Stripe",
+    company: "Ledgerline",
     role: "Senior Full Stack Engineer",
     location: "Remote (US)",
     salary: "$180k - $220k",
@@ -51,7 +56,7 @@ const JOB_SEEDS: Array<{
     notes: "Rejected after the system design round. Feedback: wanted deeper distributed systems experience.",
   },
   {
-    company: "Notion",
+    company: "Paperkite",
     role: "Product Engineer",
     location: "San Francisco, CA",
     salary: "$170k - $200k",
@@ -62,7 +67,7 @@ const JOB_SEEDS: Array<{
     notes: "No response after the take-home. Closed the loop myself.",
   },
   {
-    company: "Retool",
+    company: "Toolhouse",
     role: "Full Stack Engineer",
     location: "Remote",
     status: "rejected",
@@ -72,7 +77,7 @@ const JOB_SEEDS: Array<{
   },
   // --- Terminal: withdrawn ------------------------------------------------
   {
-    company: "Palantir",
+    company: "Granite Analytics",
     role: "Software Engineer, Platform",
     location: "New York, NY",
     status: "withdrawn",
@@ -83,7 +88,7 @@ const JOB_SEEDS: Array<{
   },
   // --- Applied and gone quiet (stale: updated > 14 days ago) --------------
   {
-    company: "Ramp",
+    company: "Cardinal Finance",
     role: "Senior Software Engineer",
     location: "Remote (US)",
     salary: "$190k - $230k",
@@ -93,7 +98,7 @@ const JOB_SEEDS: Array<{
     applied: 33,
   },
   {
-    company: "Airtable",
+    company: "Gridwork",
     role: "Full Stack Engineer, Growth",
     location: "Remote",
     salary: "$165k - $195k",
@@ -103,7 +108,7 @@ const JOB_SEEDS: Array<{
     applied: 28,
   },
   {
-    company: "Webflow",
+    company: "Canvasly",
     role: "Senior Frontend Engineer",
     location: "Remote (US)",
     status: "applied",
@@ -112,7 +117,7 @@ const JOB_SEEDS: Array<{
     applied: 23,
   },
   {
-    company: "Sentry",
+    company: "Watchpoint",
     role: "Software Engineer, Backend",
     location: "San Francisco, CA",
     salary: "$175k - $205k",
@@ -123,7 +128,7 @@ const JOB_SEEDS: Array<{
   },
   // --- Applied recently (not yet stale) -----------------------------------
   {
-    company: "Cloudflare",
+    company: "Edgeway Networks",
     role: "Systems Engineer",
     location: "Austin, TX",
     salary: "$160k - $195k",
@@ -133,7 +138,7 @@ const JOB_SEEDS: Array<{
     applied: 10,
   },
   {
-    company: "Shopify",
+    company: "Marketfield",
     role: "Senior Developer, Core",
     location: "Remote (Canada/US)",
     status: "applied",
@@ -142,7 +147,7 @@ const JOB_SEEDS: Array<{
     applied: 7,
   },
   {
-    company: "Datadog",
+    company: "Tracewell",
     role: "Full Stack Engineer",
     location: "New York, NY",
     salary: "$185k - $215k",
@@ -153,7 +158,8 @@ const JOB_SEEDS: Array<{
   },
   // --- In flight: screening -----------------------------------------------
   {
-    company: "Anthropic",
+    company: "Northstar AI",
+    seedKey: "screening",
     role: "Full Stack Engineer, Product",
     location: "San Francisco, CA",
     salary: "$200k - $260k",
@@ -163,10 +169,10 @@ const JOB_SEEDS: Array<{
     applied: 15,
     notes: "Recruiter screen went well. Technical phone screen scheduled for next week.",
     jobDescription:
-      "We are looking for a Full Stack Engineer to build product surfaces on top of our models. You will work across a TypeScript and React frontend and a Python backend, own features end to end, and partner closely with research. We value engineers who can move fast without breaking the things that matter.\n\nRequirements:\n- 5+ years building and shipping production web applications\n- Strong TypeScript and React, including modern server-rendering patterns\n- Comfort designing and evolving relational or document data models\n- Experience integrating with LLM APIs, including streaming responses\n- A bias toward clear written communication",
+      "We are looking for a Full Stack Engineer to build product surfaces on top of our models. You will work across a TypeScript and React frontend and a Python backend, own features end to end, and partner closely with research. We value engineers who can move fast without breaking the things that matter.\n\nRequirements:\n- 5+ years building and shipping production web applications\n- Strong TypeScript and React, including modern server-rendering patterns\n- Comfort designing and evolving relational or document data models\n- Experience integrating third-party APIs, including streaming responses\n- A bias toward clear written communication",
   },
   {
-    company: "Linear",
+    company: "Tidemark",
     role: "Product Engineer",
     location: "Remote (Europe/US)",
     salary: "$170k - $210k",
@@ -178,8 +184,9 @@ const JOB_SEEDS: Array<{
   },
   // --- In flight: assessment ----------------------------------------------
   {
-    company: "Vercel",
-    role: "Senior Software Engineer, Next.js",
+    company: "Framewise",
+    seedKey: "assessment",
+    role: "Senior Software Engineer, Framework",
     location: "Remote",
     salary: "$190k - $240k",
     status: "assessment",
@@ -188,10 +195,10 @@ const JOB_SEEDS: Array<{
     applied: 20,
     notes: "Take-home: build a small streaming UI. Due Friday.",
     jobDescription:
-      "Join the team building Next.js. You will work on the framework itself, on the rendering and caching layers, and on the developer experience that millions of engineers rely on daily.\n\nRequirements:\n- Deep React expertise, including Server Components\n- Experience with build tooling, bundlers, or compilers\n- Strong systems thinking and a track record of shipping developer-facing work\n- Open source contributions are a plus",
+      "Join the team building our open source web framework. You will work on the framework itself, on the rendering and caching layers, and on the developer experience that thousands of teams rely on daily.\n\nRequirements:\n- Deep React expertise, including Server Components\n- Experience with build tooling, bundlers, or compilers\n- Strong systems thinking and a track record of shipping developer-facing work\n- Open source contributions are a plus",
   },
   {
-    company: "Supabase",
+    company: "Quarry Data",
     role: "Full Stack Engineer",
     location: "Remote",
     status: "assessment",
@@ -201,7 +208,8 @@ const JOB_SEEDS: Array<{
   },
   // --- In flight: interview -----------------------------------------------
   {
-    company: "Figma",
+    company: "Pixelfold",
+    seedKey: "interview",
     role: "Senior Product Engineer",
     location: "San Francisco, CA",
     salary: "$195k - $245k",
@@ -211,10 +219,10 @@ const JOB_SEEDS: Array<{
     applied: 25,
     notes: "Onsite loop next Tuesday: system design, two coding rounds, values interview.",
     jobDescription:
-      "Figma is looking for a Senior Product Engineer to build collaborative editing features used by millions. You will work on real-time multiplayer surfaces, own complex frontend architecture, and collaborate with design on interactions that feel instant.\n\nRequirements:\n- 6+ years of product engineering experience\n- Expert-level TypeScript and React\n- Experience with real-time collaboration or conflict resolution\n- Strong product intuition and an eye for craft",
+      "Pixelfold is looking for a Senior Product Engineer to build collaborative editing features used by millions. You will work on real-time multiplayer surfaces, own complex frontend architecture, and collaborate with design on interactions that feel instant.\n\nRequirements:\n- 6+ years of product engineering experience\n- Expert-level TypeScript and React\n- Experience with real-time collaboration or conflict resolution\n- Strong product intuition and an eye for craft",
   },
   {
-    company: "Render",
+    company: "Kiln Cloud",
     role: "Senior Full Stack Engineer",
     location: "Remote (US)",
     salary: "$175k - $210k",
@@ -226,7 +234,7 @@ const JOB_SEEDS: Array<{
   },
   // --- Offers -------------------------------------------------------------
   {
-    company: "PlanetScale",
+    company: "Orbital DB",
     role: "Senior Software Engineer",
     location: "Remote (US)",
     salary: "$185k base + equity",
@@ -237,7 +245,7 @@ const JOB_SEEDS: Array<{
     notes: "Verbal offer received. Written offer due this week. Negotiating base.",
   },
   {
-    company: "Fly.io",
+    company: "Skylane",
     role: "Full Stack Engineer",
     location: "Remote",
     salary: "$170k base + equity",
@@ -249,8 +257,8 @@ const JOB_SEEDS: Array<{
   },
   // --- Saved, not yet applied ---------------------------------------------
   {
-    company: "Replit",
-    role: "Full Stack Engineer, Agents",
+    company: "Codewright",
+    role: "Full Stack Engineer, Developer Tools",
     location: "San Francisco, CA",
     salary: "$180k - $220k",
     status: "saved",
@@ -258,7 +266,7 @@ const JOB_SEEDS: Array<{
     updated: 4,
   },
   {
-    company: "Resend",
+    company: "Inkwell Mail",
     role: "Founding Engineer",
     location: "Remote",
     status: "saved",
@@ -266,7 +274,7 @@ const JOB_SEEDS: Array<{
     updated: 3,
   },
   {
-    company: "Clerk",
+    company: "Keystone Auth",
     role: "Senior Full Stack Engineer",
     location: "Remote (US)",
     salary: "$175k - $205k",
@@ -275,7 +283,7 @@ const JOB_SEEDS: Array<{
     updated: 2,
   },
   {
-    company: "Neon",
+    company: "Lamplight",
     role: "Software Engineer, Console",
     location: "Remote",
     status: "saved",
@@ -288,76 +296,12 @@ const RESUME_SEEDS = [
   {
     title: "Full Stack Engineer (primary)",
     isDefault: true,
-    content: `# Alex Morgan
-alex.morgan@example.com | San Francisco, CA | github.com/example | linkedin.com/in/example
-
-## Summary
-Full stack engineer with 7 years building and operating production web applications.
-Depth in TypeScript, React and Node, with a track record of owning features from data
-model through to interface. Comfortable working close to the product and to the database.
-
-## Experience
-
-### Senior Software Engineer, Meridian Labs
-2021 - Present | San Francisco, CA
-- Led the migration of a 200k-line React application to server-side rendering, cutting
-  median time to interactive from 4.1s to 1.3s.
-- Designed the billing and metering subsystem handling roughly 40k priced events per day,
-  including the idempotency and reconciliation logic behind it.
-- Introduced the team's testing strategy, taking a codebase from no automated coverage to
-  a deterministic suite running on every pull request.
-- Mentored four engineers, two of whom were promoted within eighteen months.
-
-### Software Engineer, Northwind Systems
-2018 - 2021 | Remote
-- Built the customer-facing analytics dashboard used by roughly 8,000 accounts.
-- Replaced a nightly batch pipeline with an incremental one, reducing data latency from
-  18 hours to under 5 minutes.
-- Owned on-call for the ingestion service and drove a reduction in paging volume of 60%.
-
-### Junior Developer, Cobalt Interactive
-2017 - 2018 | Portland, OR
-- Shipped features across a Rails monolith and a React frontend.
-
-## Skills
-TypeScript, JavaScript, React, Next.js, Node.js, Python, PostgreSQL, MongoDB, Redis,
-Docker, AWS, CI/CD, system design, technical writing
-
-## Education
-BSc Computer Science, University of Oregon, 2017`,
+    content: personaResumeMarkdown("primary"),
   },
   {
     title: "Backend-leaning variant",
     isDefault: false,
-    content: `# Alex Morgan
-alex.morgan@example.com | San Francisco, CA
-
-## Summary
-Backend-focused engineer with 7 years of experience in distributed systems, data
-modelling and API design. Equally comfortable owning a service end to end or going deep
-on a performance problem.
-
-## Experience
-
-### Senior Software Engineer, Meridian Labs
-2021 - Present
-- Designed and operated the metering and billing subsystem, including the concurrency
-  controls that make spend limits hold under parallel load.
-- Reduced p99 API latency from 850ms to 190ms by restructuring the hot query path and
-  introducing targeted indexes.
-- Owned the service's observability: structured logging, tracing and alerting.
-
-### Software Engineer, Northwind Systems
-2018 - 2021
-- Replaced a nightly batch pipeline with an incremental streaming one.
-- Built and operated the ingestion service handling roughly 12M events per day.
-
-## Skills
-Node.js, TypeScript, Python, PostgreSQL, MongoDB, Redis, Kafka, Docker, Kubernetes, AWS,
-distributed systems, observability
-
-## Education
-BSc Computer Science, University of Oregon, 2017`,
+    content: personaResumeMarkdown("backend"),
   },
 ];
 
@@ -419,7 +363,13 @@ export async function seedDemoData(userId: string): Promise<SeedSummary> {
     createdResumes.push(await resumes.create(userId, seed));
   }
 
-  const documentCount = await seedDocuments(userId, createdJobs);
+  // insertMany keeps input order, so createdJobs[i] is JOB_SEEDS[i].
+  const seededByKey = new Map<SeedKey, { _id: string; company: string; role: string }>();
+  JOB_SEEDS.forEach((seed, i) => {
+    if (seed.seedKey && createdJobs[i]) seededByKey.set(seed.seedKey, createdJobs[i]);
+  });
+
+  const documentCount = await seedDocuments(userId, seededByKey);
 
   return {
     jobs: createdJobs.length,
@@ -435,22 +385,21 @@ export async function seedDemoData(userId: string): Promise<SeedSummary> {
  */
 async function seedDocuments(
   userId: string,
-  createdJobs: Array<{ _id: string; company: string; role: string }>
+  seeded: Map<SeedKey, { _id: string; company: string; role: string }>
 ): Promise<number> {
-  const byCompany = new Map(createdJobs.map((job) => [job.company, job]));
   let count = 0;
 
-  const anthropic = byCompany.get("Anthropic");
-  const figma = byCompany.get("Figma");
-  const vercel = byCompany.get("Vercel");
+  const screening = seeded.get("screening");
+  const interview = seeded.get("interview");
+  const assessment = seeded.get("assessment");
 
-  if (anthropic) {
+  if (screening) {
     // Built through the same fixture path the Generate button uses, so the
     // document carries structuredContent. Writing only markdown here meant the
     // seeded cover letter could not be exported to LaTeX at all: that branch
     // re-validates structuredContent and returns 422 without it.
-    await demoStructuredDocument(userId, anthropic, "cover_letter");
-    await demoStructuredDocument(userId, anthropic, "resume");
+    await demoStructuredDocument(userId, screening, "cover_letter");
+    await demoStructuredDocument(userId, screening, "resume");
     count += 2;
 
   }
@@ -459,7 +408,7 @@ async function seedDocuments(
   // back with JSON.parse and needs at least two before it will run. Seeding
   // one, as markdown, left the skills-gap feature permanently unreachable in
   // the demo.
-  for (const job of [anthropic, figma, vercel].filter((j) => j !== undefined)) {
+  for (const job of [screening, interview, assessment].filter((j) => j !== undefined)) {
     await documents.upsert(userId, {
       jobId: job._id,
       type: "jd_analysis",
@@ -472,11 +421,15 @@ async function seedDocuments(
     count += 1;
   }
 
-  if (figma) {
+  if (interview) {
+    // Stored as JSON, like a real generation: the job page JSON.parses it.
+    // Seeding markdown here left the panel empty.
+    const prep = demoPrep(interview);
     await documents.upsert(userId, {
-      jobId: figma._id,
+      jobId: interview._id,
       type: "interview_prep",
-      content: DEMO_INTERVIEW_PREP,
+      content: JSON.stringify(prep),
+      structuredContent: prep as unknown as Record<string, unknown>,
       aiModel: DEMO_SEED_MODEL,
       inputTokens: 1960,
       outputTokens: 880,
@@ -484,9 +437,9 @@ async function seedDocuments(
     count += 1;
   }
 
-  if (vercel) {
+  if (assessment) {
     await documents.upsert(userId, {
-      jobId: vercel._id,
+      jobId: assessment._id,
       type: "followup_email",
       content: DEMO_FOLLOWUP_EMAIL,
       aiModel: DEMO_SEED_MODEL,
@@ -502,64 +455,6 @@ async function seedDocuments(
 // ---------------------------------------------------------------------------
 // Pre-generated AI content
 // ---------------------------------------------------------------------------
-
-
-
-const DEMO_INTERVIEW_PREP = `## Loop structure
-
-Four rounds: system design, two coding, values. Figma interviews heavily for craft, so
-expect the coding rounds to reward readable, well-factored code over raw speed.
-
-## System design: likely prompt
-
-Given the product, expect a real-time collaborative editing question. The most probable
-framing is "design multiplayer cursors and presence for a document editor."
-
-**Structure to follow**
-
-1. Clarify scale first: concurrent editors per document, acceptable latency, offline
-   support. Do not skip this; they are watching for it.
-2. Separate presence (ephemeral, lossy, high frequency) from document state (durable,
-   ordered, must converge). Conflating them is the common failure.
-3. For presence: WebSocket fan-out, last-write-wins, no persistence, aggressive
-   throttling on the client.
-4. For document state: discuss CRDTs versus operational transformation. Know the
-   trade-off: CRDTs are simpler to reason about distributed but carry metadata overhead;
-   OT is more compact but needs a central server to order operations.
-5. Cover reconnection and how a client catches up after a network partition.
-
-**Where candidates lose points:** jumping to CRDT versus OT before establishing
-requirements, and ignoring the reconnection path entirely.
-
-## Coding rounds
-
-Expect frontend-weighted problems with real interaction, not algorithm puzzles. Likely
-shapes: implement a debounced multi-select with keyboard navigation, or build a small
-undo/redo stack.
-
-Practise talking while writing. Name the trade-off as you make it. Figma weights
-communication during coding more than most.
-
-For undo/redo specifically, know the command-pattern approach and be ready to discuss how
-it interacts with collaborative editing, since undo in a multiplayer context should undo
-your own action rather than the last global one. Raising that unprompted lands well.
-
-## Values interview
-
-Figma asks about craft and about disagreement. Two of your stories fit directly:
-
-- **Disagreeing with a technical decision** maps to their collaboration signal. Your
-  framing of prototyping rather than debating is the strongest part; keep it.
-- **The SSR migration** covers craft and long-horizon thinking.
-
-Prepare one story about a time your work was visibly not good enough and what you did.
-They ask some version of this and a polished non-answer is worse than a real one.
-
-## Questions to ask
-
-- How do you balance shipping against the craft bar when they conflict?
-- What does the relationship between design and engineering look like day to day?
-- What is the most painful part of the current codebase?`;
 
 const DEMO_FOLLOWUP_EMAIL = `Subject: Following up on the take-home
 
@@ -577,4 +472,4 @@ Still very interested in the role, and glad to go into any of the decisions in m
 detail.
 
 Best,
-Alex`;
+${DEMO_PERSONA.firstName}`;
