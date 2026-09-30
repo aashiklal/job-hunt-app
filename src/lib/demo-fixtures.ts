@@ -8,6 +8,7 @@ import {
 } from "@/lib/generated-documents";
 import type { JDAnalysis } from "@/lib/job-analysis";
 import type { InterviewPrep } from "@/lib/job-ai-generation";
+import { DEMO_PERSONA, DEMO_SIGNATURE_STORY, personaResume } from "@/lib/demo-persona";
 
 /**
  * Canned AI output for the public demo account.
@@ -37,15 +38,9 @@ export type DemoJob = {
   location?: string | null;
 };
 
-const DEMO_CONTACT = {
-  location: "San Francisco, CA",
-  phone: "+1 (555) 014-2277",
-  email: "alex.morgan@example.com",
-  linkedin: "linkedin.com/in/example",
-  github: "github.com/example",
-  website: null,
-  workRights: null,
-};
+const { name: PERSONA_NAME, firstName: PERSONA_FIRST_NAME } = DEMO_PERSONA;
+const YEARS = DEMO_PERSONA.yearsExperience;
+const CURRENT_EMPLOYER = DEMO_PERSONA.experience[0].company;
 
 // ---------------------------------------------------------------------------
 // Structured documents (resume / cover letter)
@@ -53,82 +48,8 @@ const DEMO_CONTACT = {
 
 function demoResume(job: DemoJob): GeneratedResume {
   return {
-    kind: "resume",
-    name: "Alex Morgan",
-    contact: DEMO_CONTACT,
-    summary: `Full stack engineer with 7 years building and operating production web applications, targeting the ${job.role} role at ${job.company}. Depth in TypeScript, React and Node, with a track record of owning features from data model through to interface.`,
-    skills: [
-      {
-        category: "Languages",
-        items: ["TypeScript", "JavaScript", "Python", "SQL"],
-      },
-      {
-        category: "Frontend",
-        items: ["React", "Next.js", "Server Components", "Tailwind CSS"],
-      },
-      {
-        category: "Backend",
-        items: ["Node.js", "PostgreSQL", "MongoDB", "Redis", "REST APIs"],
-      },
-      {
-        category: "Infrastructure",
-        items: ["AWS", "Docker", "CI/CD", "Observability"],
-      },
-    ],
-    experience: [
-      {
-        jobTitle: "Senior Software Engineer",
-        company: "Meridian Labs",
-        dateRange: "2021 - Present",
-        subtitle: "San Francisco, CA",
-        bullets: [
-          "Led the migration of a 200,000-line React application to server-side rendering, cutting median time to interactive from 4.1s to 1.3s and shrinking the client bundle by 40%.",
-          "Designed the billing and metering subsystem handling roughly 40,000 priced events per day, including the concurrency controls that keep spend limits correct under parallel load.",
-          "Took the codebase from no automated coverage to a deterministic suite running on every pull request, reducing regressions per release by roughly 80%.",
-          "Mentored four engineers, two of whom were promoted within eighteen months.",
-        ],
-      },
-      {
-        jobTitle: "Software Engineer",
-        company: "Northwind Systems",
-        dateRange: "2018 - 2021",
-        subtitle: "Remote",
-        bullets: [
-          "Built the customer-facing analytics dashboard used by roughly 8,000 accounts.",
-          "Replaced a nightly batch pipeline with an incremental one, reducing data latency from 18 hours to under 5 minutes with zero incorrect intermediate states.",
-          "Owned on-call for the ingestion service and drove a 60% reduction in paging volume.",
-        ],
-      },
-      {
-        jobTitle: "Junior Developer",
-        company: "Cobalt Interactive",
-        dateRange: "2017 - 2018",
-        subtitle: "Portland, OR",
-        bullets: [
-          "Shipped features across a Rails monolith and a React frontend.",
-        ],
-      },
-    ],
-    projects: [
-      {
-        name: "Job Hunt",
-        techStack: "Next.js, TypeScript, MongoDB, Claude API",
-        bullets: [
-          "Full stack application tracker with AI-assisted document generation and USD-metered spend controls.",
-          "Implemented atomic reserve-then-reconcile budgeting after finding a check-then-act race that let parallel requests exceed the cap.",
-        ],
-      },
-    ],
-    education: [
-      {
-        degree: "BSc Computer Science",
-        school: "University of Oregon",
-        gradDate: "2017",
-        notes: null,
-      },
-    ],
-    certifications: [],
-    footer: null,
+    ...personaResume(),
+    summary: `Full stack engineer with ${YEARS} years building customer-facing web products, targeting the ${job.role} role at ${job.company}. Depth in TypeScript, React and Node, with a habit of measuring before changing anything and owning features from the database through to the interface.`,
   };
 }
 
@@ -141,20 +62,20 @@ function demoCoverLetter(job: DemoJob): GeneratedCoverLetter {
 
   return {
     kind: "cover_letter",
-    name: "Alex Morgan",
-    contact: DEMO_CONTACT,
+    name: PERSONA_NAME,
+    contact: { ...DEMO_PERSONA.contact },
     date: today,
     recipient: "Hiring Team",
     company: job.company,
     role: job.role,
     bodyParagraphs: [
-      `I am applying for the ${job.role} role at ${job.company}. What drew me to the posting was the emphasis on owning features end to end, because that is the shape of work I have sought out for most of the last seven years.`,
-      `At Meridian Labs I own a metered generation pipeline from the data model through to the interface. The part I am most proud of is unglamorous: I found that our spend limits were enforced with a check-then-act sequence, so twenty parallel requests all read the same stale total and all passed. I reproduced it with a test, replaced it with an atomic conditional update, and the reproduction now guards the invariant on every change. I mention it because it is a fair sample of how I work.`,
-      `The wider context is seven years shipping production web applications in TypeScript and React. I led the migration of a 200,000-line application to server-side rendering, taking median time to interactive from 4.1 seconds to 1.3, and I took a codebase from no automated tests to a suite that runs on every pull request. I tend to be the person who wants the data model right before the interface.`,
+      `I am applying for the ${job.role} role at ${job.company}. What drew me to the posting was the emphasis on owning features end to end, because that is the kind of work I have sought out for most of the last ${YEARS} years.`,
+      `At ${CURRENT_EMPLOYER} I led the rebuild of our checkout. Before writing any code I instrumented the existing flow and found that most of the delay came from three blocking requests, not from the interface. Fixing those first took load time from 3.8 seconds to 1.2 and lifted completed orders by 9%. I mention it because it is a fair sample of how I work: measure, fix the thing that matters, then polish.`,
+      `Before that I spent three years at Harbor Health building appointment booking for around 40 clinics, including making it work offline in buildings with poor signal. I enjoy the unglamorous parts of product work, and I tend to be the person who wants the data model right before the interface.`,
       `I would welcome the chance to talk about the ${job.role} role and what the team is working on.`,
     ],
     closing: null,
-    signoff: "Best regards,\nAlex Morgan",
+    signoff: `Best regards,\n${PERSONA_NAME}`,
   };
 }
 
@@ -170,13 +91,13 @@ function demoJDAnalysis(job: DemoJob): JDAnalysis {
       "TypeScript",
       "React",
       "Node.js",
-      "Relational or document data modelling",
+      "Relational data modelling",
       "REST API design",
       "Automated testing",
     ],
     niceToHaves: [
       "Server-side rendering experience",
-      "LLM API integration",
+      "Search or recommendations work",
       "Observability and on-call ownership",
       "Mentoring or technical leadership",
     ],
@@ -188,7 +109,7 @@ function demoJDAnalysis(job: DemoJob): JDAnalysis {
       "Node.js",
       "data modelling",
       "end to end ownership",
-      "production systems",
+      "performance",
       "code review",
       "testing",
     ],
@@ -210,11 +131,11 @@ function demoInterviewPrep(job: DemoJob): InterviewPrep {
     behavioral: [
       {
         question: "Tell me about a time you disagreed with a technical decision.",
-        hint: "Use the prototype-not-debate story. Lead with the questions you asked before asserting anything, and be explicit that you offered to support the other design if the numbers had not held up.",
+        hint: "Lead with the questions you asked before asserting anything, and say explicitly that you offered to support the other approach if the evidence went against you.",
       },
       {
         question: "Describe a project you owned end to end.",
-        hint: "The SSR migration is the strongest option: it has scope, a measurable outcome, and evidence you brought a sceptical team along rather than acting alone.",
+        hint: DEMO_SIGNATURE_STORY.interviewHint,
       },
       {
         question: "Tell me about a time you made a mistake in production.",
@@ -227,12 +148,12 @@ function demoInterviewPrep(job: DemoJob): InterviewPrep {
         hint: "Clarify access patterns before writing anything down. Say out loud which queries you are optimising for and what you are willing to make slower.",
       },
       {
-        question: "Walk me through how you would debug a slow endpoint.",
-        hint: "Measure before hypothesising. Name your tools, then talk about distinguishing a slow query from a slow serialisation path from a slow downstream call.",
+        question: "Walk me through how you would debug a slow page.",
+        hint: "Measure before hypothesising. Separate network, server and rendering time, then talk about how you would confirm the fix actually moved the number users feel.",
       },
       {
-        question: "How do you enforce a spending limit correctly under concurrency?",
-        hint: "Your billing-path story fits exactly. Draw the check-then-act gap, then the atomic conditional update that closes it.",
+        question: "How would you make search results feel more relevant?",
+        hint: "Start with how you would measure relevance (click-through, search-to-cart), then cover synonyms, typo tolerance and boosting before reaching for anything exotic.",
       },
     ],
     roleSpecific: [
@@ -242,7 +163,7 @@ function demoInterviewPrep(job: DemoJob): InterviewPrep {
       },
       {
         question: "How do you decide what to test?",
-        hint: "Money paths, permission checks, and anything with a concurrency dimension. Say explicitly that you do not chase a coverage number and why.",
+        hint: "Payment paths, permission checks and anything customers make decisions from. Say explicitly that you do not chase a coverage number and why.",
       },
     ],
     cultureFit: [
@@ -271,28 +192,28 @@ function demoInterviewPrep(job: DemoJob): InterviewPrep {
 
 const OUTREACH_FIXTURES: Record<string, (job: DemoJob) => string> = {
   linkedin_note: (job) =>
-    `Hi - I have just applied for the ${job.role} role at ${job.company}. I spent the last few years on metering and data-model work that lines up closely with what the posting describes, and I would welcome the chance to connect.`,
+    `Hi - I have just applied for the ${job.role} role at ${job.company}. I have spent the last few years on checkout and search work that lines up closely with what the posting describes, and I would welcome the chance to connect.`,
 
   linkedin_dm: (job) =>
-    `Hi,\n\nI applied for the ${job.role} role last week and wanted to introduce myself directly.\n\nThe short version: seven years of full stack work, most recently owning a metered generation pipeline end to end, including the concurrency controls that make spend limits hold under parallel load. The posting's emphasis on end-to-end ownership is what made me apply rather than the stack.\n\nHappy to send more detail if useful, and equally happy if the timing is not right.\n\nBest,\nAlex`,
+    `Hi,\n\nI applied for the ${job.role} role last week and wanted to introduce myself directly.\n\nThe short version: ${YEARS} years of full stack work, most recently ${DEMO_SIGNATURE_STORY.short}. The posting's emphasis on end-to-end ownership is what made me apply, more than the stack.\n\nHappy to send more detail if useful, and equally happy if the timing is not right.\n\nBest,\n${PERSONA_FIRST_NAME}`,
 
   followup_email: (job) =>
-    `Subject: Following up on the ${job.role} application\n\nHi,\n\nI applied for the ${job.role} role at ${job.company} a couple of weeks ago and wanted to check in briefly in case my application had not surfaced.\n\nSince applying I have been working on exactly the kind of problem the posting describes: closing a concurrency hole in a billing path where the spend check and the charge were separate operations. Happy to walk through it if it is relevant.\n\nStill interested, and I appreciate you taking the time.\n\nBest,\nAlex Morgan`,
+    `Subject: Following up on the ${job.role} application\n\nHi,\n\nI applied for the ${job.role} role at ${job.company} a couple of weeks ago and wanted to check in briefly in case my application had not surfaced.\n\nThe posting mentions improving conversion on key flows, which is close to what I have been doing at ${CURRENT_EMPLOYER}: ${DEMO_SIGNATURE_STORY.short}. Happy to walk through it if it is relevant.\n\nStill interested, and I appreciate you taking the time.\n\nBest,\n${PERSONA_NAME}`,
 
   thankyou_email: (job) =>
-    `Subject: Thank you\n\nHi,\n\nThank you for the time today. I enjoyed the conversation more than I expected to, particularly the discussion about where the data model is creaking.\n\nOne thing I did not say well: when you asked how I would approach the migration, I jumped to the mechanics. The part I should have led with is that I would want to run both paths in parallel with automated reconciliation before cutting over, because on a path that customers make decisions from, being briefly slow is survivable and being briefly wrong is not.\n\nThanks again. I would be glad to keep talking about the ${job.role} role.\n\nBest,\nAlex`,
+    `Subject: Thank you\n\nHi,\n\nThank you for the time today. I enjoyed the conversation, particularly the discussion about where the product is growing fastest.\n\nOne thing I did not say well: when you asked how I would approach the redesign, I jumped to the mechanics. The part I should have led with is that I would ship it behind a flag to a small share of traffic first and compare the numbers, because on a flow customers pay through, being briefly slow is survivable and being briefly wrong is not.\n\nThanks again. I would be glad to keep talking about the ${job.role} role.\n\nBest,\n${PERSONA_FIRST_NAME}`,
 
   linkedin_followup_dm: (job) =>
-    `Hi - following up on my note about the ${job.role} role. I know inboxes are busy, so no problem at all if the timing is not right or the search has moved on. If it would help to see how I think rather than read about it, I am happy to send a short write-up of a recent piece of work. Either way, thanks.`,
+    `Hi - following up on my note about the ${job.role} role. I know inboxes are busy, so no problem at all if the timing is not right or the search has moved on. If it would help to see how I think rather than read about it, I am happy to send a short write-up of a recent project. Either way, thanks.`,
 
   cold_email: (job) =>
-    `Subject: Full stack engineer, interested in ${job.company}\n\nHi,\n\nI do not think you have an open ${job.role} posting right now, so this is speculative.\n\nI am a full stack engineer with seven years of experience, most recently at Meridian Labs where I own a metered generation pipeline end to end. The work I am proudest of is a concurrency fix in our billing path: the spend check and the charge were separate operations, so parallel requests all read the same stale total and the limit only held for serial traffic. I reproduced it with a test and closed it with an atomic conditional update.\n\nI am reaching out to ${job.company} specifically because the problems you are working on are close to that. If there is nothing now, I would still value being on your radar.\n\nBest,\nAlex Morgan`,
+    `Subject: Full stack engineer, interested in ${job.company}\n\nHi,\n\nI do not think you have an open ${job.role} posting right now, so this is speculative.\n\nI am a full stack engineer with ${YEARS} years of experience, most recently at ${CURRENT_EMPLOYER}, where I led a checkout rebuild. Before touching the interface I measured the existing flow and found most of the delay came from three blocking requests. Fixing those took load time from 3.8s to 1.2s and lifted completed orders by 9%.\n\nI am reaching out to ${job.company} specifically because the problems you are working on look close to that. If there is nothing now, I would still value being on your radar.\n\nBest,\n${PERSONA_NAME}`,
 
   checkin_email: (job) =>
-    `Subject: Checking in\n\nHi,\n\nIt has been a few weeks since we spoke about the ${job.role} role, so I wanted to check in without being a nuisance.\n\nNothing has changed on my end: still interested, still available. If the role is on hold or has gone to someone else, I would genuinely rather know than keep wondering, and it would not change my view of the conversation we had.\n\nBest,\nAlex`,
+    `Subject: Checking in\n\nHi,\n\nIt has been a few weeks since we spoke about the ${job.role} role, so I wanted to check in without being a nuisance.\n\nNothing has changed on my end: still interested, still available. If the role is on hold or has gone to someone else, I would genuinely rather know than keep wondering, and it would not change my view of the conversation we had.\n\nBest,\n${PERSONA_FIRST_NAME}`,
 
   salary_negotiation: (job) =>
-    `Subject: ${job.role} offer\n\nHi,\n\nThank you for the offer. I want to say clearly up front that I want to work at ${job.company} and I expect us to land this.\n\nOn compensation: the base is below where I need to be. Based on the level of the role and what I have seen for comparable senior full stack positions, I am looking for a base of $205,000. I have another offer at $195,000 that I am not trying to leverage so much as be transparent about, because I would rather take this role at a fair number than the other one.\n\nIf base is constrained, I am open to discussing the equity or the signing component instead. What I care about is the total landing somewhere defensible.\n\nHappy to talk it through live if that is easier.\n\nBest,\nAlex`,
+    `Subject: ${job.role} offer\n\nHi,\n\nThank you for the offer. I want to say clearly up front that I want to work at ${job.company} and I expect us to land this.\n\nOn compensation: the base is below where I need to be. Based on the level of the role and what I have seen for comparable senior full stack positions, I am looking for a base of $185,000. I have another offer at $178,000 that I am not trying to leverage so much as be transparent about, because I would rather take this role at a fair number than the other one.\n\nIf base is constrained, I am open to discussing the equity or the signing component instead. What I care about is the total landing somewhere defensible.\n\nHappy to talk it through live if that is easier.\n\nBest,\n${PERSONA_FIRST_NAME}`,
 };
 
 // ---------------------------------------------------------------------------
@@ -371,8 +292,8 @@ export function demoSkillsGap(): DemoSkillsGap {
       },
       {
         skill: "Distributed systems vocabulary",
-        why: "Several senior postings ask for it explicitly, and the system-design round assumes it. Your metering and reconciliation work already demonstrates the thinking; what is missing is the shared language for it.",
-        howToLearn: "Work through Designing Data-Intensive Applications chapters 5 to 9, then write up your billing concurrency fix in those terms. You solved the problem already.",
+        why: "Several senior postings ask for it explicitly, and the system-design round assumes it. Your checkout and scheduling work already shows the thinking; what is missing is the shared language for it.",
+        howToLearn: "Work through Designing Data-Intensive Applications chapters 5 to 9, then write up the checkout rebuild in those terms. You solved the problem already.",
         timeEstimate: "4 to 6 weeks",
       },
     ],
@@ -406,8 +327,8 @@ export function demoSkillsGap(): DemoSkillsGap {
     ],
     quickWins: [
       "Add Python to your resume skills line. You have shipped it; leaving it off reads as not having it at all.",
-      "Rewrite your billing concurrency fix in distributed-systems terms. It is your strongest story and it is currently described in application language.",
-      "Put explicit numbers on the SSR migration in every version of your resume. 4.1s to 1.3s is more persuasive than the project's scope.",
+      "Describe the checkout rebuild in system-design terms (latency budget, blocking calls, rollout). It is your strongest story and it is currently described only in product language.",
+      "Put the checkout numbers in every version of your resume. 3.8s to 1.2s and a 9% lift is more persuasive than the project's scope.",
       "Deploy one project to a managed Kubernetes cluster this weekend, purely to remove the blank.",
     ],
   };

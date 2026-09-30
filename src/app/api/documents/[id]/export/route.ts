@@ -147,8 +147,10 @@ export async function GET(
     }
   }
 
-  // DOCX export branch (existing)
-  const adminTemplate = await templates.get(doc.type);
+  // DOCX export branch (existing). Demo exports skip the admin template: any
+  // text or author metadata the template carries would reach anonymous
+  // visitors, so they get the generic builder instead.
+  const adminTemplate = isDemoUser(user) ? null : await templates.get(doc.type);
   const templateId = adminTemplate
     ? (adminTemplate._id as { toString(): string }).toString()
     : null;
