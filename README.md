@@ -8,9 +8,9 @@ Built with Next.js 16 (App Router), React 19, MongoDB and the Claude API.
 
 ### [Try the live demo](https://panikandupidivaazhe.vercel.app)
 
-Sign in with the demo credentials shown on the landing page. The account is fully
-interactive with realistic data already in it, its AI requests are served from fixtures so
-nothing you do costs anything, and it resets nightly.
+Click "Try the live demo" on the landing page. You get a private workspace with realistic
+data already in it, fully interactive, deleted after 2 hours. Its AI requests are served from
+fixtures, so nothing you do costs anything, and nobody else sees what you change.
 
 ---
 
@@ -174,9 +174,13 @@ CLERK_WEBHOOK_SIGNING_SECRET=your_clerk_webhook_signing_secret
 RESEND_API_KEY=your_resend_api_key
 RESEND_FROM_EMAIL=onboarding@resend.dev
 
-# Optional: public demo account
-DEMO_ACCOUNT_PASSWORD=a_password_you_are_happy_to_publish
+# Optional: public demo (per-visitor private workspaces)
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=your_cloudflare_turnstile_site_key
+TURNSTILE_SECRET_KEY=your_cloudflare_turnstile_secret_key
 CRON_SECRET=a_long_random_string
+# DEMO_DISABLED=true      # kill switch: hides the demo and refuses new ones
+# DEMO_TTL_MINUTES=120    # how long each demo lives
+# DEMO_MAX_LIVE=200       # cap on concurrently live demos
 
 # Optional: Telegram admin notifications
 TELEGRAM_BOT_TOKEN=
@@ -200,17 +204,23 @@ Sign up, then promote yourself:
 npm run bootstrap:admin your@email.com
 ```
 
-### Optional: the demo account
+### Optional: the demo
 
-Sign up through Clerk as `demo@jobhunt.app`, then:
+Each "Try the live demo" click creates a private, temporary account seeded with roughly two
+dozen jobs across every status, resumes, offers, STAR stories and pre-generated AI output. It
+is deleted after `DEMO_TTL_MINUTES` (2 hours by default).
+
+Create a [Cloudflare Turnstile](https://dash.cloudflare.com/?to=/:account/turnstile) widget
+and set its keys as above. In local development the keys can be left unset: Cloudflare's
+always-pass test keys are used automatically. In production the demo panel stays hidden until
+the site key is set, and the API refuses every request until the secret is set.
+
+Expired demos are deleted by the daily cron and a few at a time whenever a new demo starts.
+To sweep by hand, including the legacy shared `demo@jobhunt.app` account if one exists:
 
 ```bash
-npm run seed:demo
+npm run demo:sweep
 ```
-
-This approves the account, flags it as the demo, and populates it with roughly two dozen
-jobs across every status, two resumes, three offers, five STAR stories and pre-generated AI
-output. Re-running it resets everything.
 
 ### Clerk webhook
 
@@ -234,7 +244,7 @@ URL, or use Clerk's built-in webhook tester.
 | `npm test` / `npm run test:watch` / `npm run test:coverage` | Vitest |
 | `npm run check:docs` | Verify documented npm scripts exist |
 | `npm run seed:plans` | Seed Plan documents |
-| `npm run seed:demo` | Create and populate the demo account |
+| `npm run demo:sweep` | Delete expired demo accounts, the legacy shared demo account and orphaned Clerk demo users |
 | `npm run bootstrap:admin` | Promote a user to admin by email, idempotent |
 | `npm run backfill:subscriptions` | Create Subscriptions for existing approved users |
 | `npm run test:generate` | Manual AI generation smoke test |
@@ -251,7 +261,7 @@ once against the production database:
 MONGODB_URI=your_production_uri npm run seed:plans
 ```
 
-`vercel.json` registers the nightly demo reset cron. Vercel authenticates it with
+`vercel.json` registers the daily demo sweep cron. Vercel authenticates it with
 `CRON_SECRET`.
 
 ### Admin recovery
