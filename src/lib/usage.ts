@@ -96,7 +96,7 @@ async function resolveCreditLimit(
   const subscription = await Subscription.findOne({ userId }).lean();
   if (!subscription) {
     throw new Error(
-      "No subscription found for user. Approve them or run backfill:subscriptions."
+      "No subscription found for user. Approving them creates one."
     );
   }
 

@@ -15,11 +15,9 @@
     "bootstrap:admin": "tsx scripts/bootstrap-admin.ts",
     "seed:plans": "tsx --conditions=react-server scripts/seed-plans.ts",
     "demo:sweep": "tsx --conditions=react-server scripts/demo-sweep.ts",
-    "backfill:subscriptions": "tsx scripts/backfill-subscriptions.ts",
     "backfill:billing": "tsx --conditions=react-server scripts/backfill-billing-status.ts",
     "test:generate": "tsx scripts/test-generate.ts",
-    "test:docx-export": "tsx scripts/test-docx-export.ts",
-    "generate:cover-letter-template": "tsx scripts/generate-cover-letter-template.ts"
+    "test:docx-export": "tsx scripts/test-docx-export.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.92.0",

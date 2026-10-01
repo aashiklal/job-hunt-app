@@ -44,6 +44,20 @@ for (const file of DOC_FILES) {
   }
 }
 
+// A script can exist in package.json and still point at a file that was
+// deleted, which is the same broken promise one step later.
+const SCRIPT_TARGET = /\b(?:tsx|node)\b[^&|;]*?\s(scripts\/[\w./-]+\.[cm]?[jt]s)\b/g;
+for (const [name, command] of Object.entries(pkg.scripts ?? {})) {
+  for (const match of command.matchAll(SCRIPT_TARGET)) {
+    if (!existsSync(resolve(ROOT, match[1]))) {
+      problems.push({
+        file: "package.json",
+        script: `npm run ${name} (missing ${match[1]})`,
+      });
+    }
+  }
+}
+
 if (problems.length > 0) {
   console.error("\nDocumentation references npm scripts that do not exist:\n");
   for (const { file, script } of problems) {
@@ -56,5 +70,5 @@ if (problems.length > 0) {
 }
 
 console.log(
-  `Checked ${DOC_FILES.join(", ")}: every documented npm script exists.`
+  `Checked ${DOC_FILES.join(", ")}: every documented npm script exists, and every script's file exists.`
 );
