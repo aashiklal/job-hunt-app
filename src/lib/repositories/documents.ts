@@ -148,7 +148,9 @@ export async function setLatexCache(
         latexBodyCachedAt: new Date(),
       },
     },
-    { returnDocument: "after" }
+    // Without this, the write bumps updatedAt past latexBodyCachedAt and the
+    // export route treats the cache as stale forever, re-charging credits.
+    { returnDocument: "after", timestamps: false }
   );
 }
 
