@@ -7,7 +7,7 @@ import { RequestAccessButton } from "./_components/RequestAccessButton";
 import { BrandLogo } from "@/components/BrandLogo";
 
 export const metadata = {
-  title: "Access Not Approved | JobHunt",
+  title: "Access not approved",
   description: "Your account access request was not approved.",
 };
 

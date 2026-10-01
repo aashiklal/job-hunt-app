@@ -11,7 +11,7 @@ import { JobsListView } from "./_components/jobs-list-view";
 import { JobsPipelineView } from "./_components/jobs-pipeline-view";
 
 export const metadata: Metadata = {
-  title: "Jobs: JobHunt",
+  title: "Jobs",
   description: "Browse and manage your job applications.",
 };
 
@@ -38,12 +38,12 @@ export default async function JobsPage() {
         <Card className="mx-auto max-w-xl border border-border/60 shadow-xs transition-shadow duration-200 ease-[var(--ease-out-expo)] hover:shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg font-medium">
-              Welcome to JobHunt
+              Welcome to Offerstitch
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
             <p className="text-sm text-muted-foreground">
-              JobHunt helps you track job applications and tailor resumes for
+              Offerstitch helps you track job applications and tailor resumes for
               each one. Start by saving your base resume, then add your first
               job.
             </p>

@@ -14,9 +14,9 @@ import { turnstileSiteKey } from "@/lib/turnstile";
 import { isDemoDisabled } from "@/lib/demo-constants";
 
 export const metadata: Metadata = {
-  title: "JobHunt: every application, from posting to offer",
+  title: { absolute: "Offerstitch: every application, from posting to offer" },
   description:
-    "Paste a job posting and JobHunt pulls out the details, checks your resume against it, drafts a tailored resume and cover letter, and tracks the application until you hear back.",
+    "Paste a job posting and Offerstitch pulls out the details, checks your resume against it, drafts a tailored resume and cover letter, and tracks the application until you hear back.",
 };
 
 /** Display face for the headline only; the product itself stays in Geist. */
@@ -123,7 +123,7 @@ export default async function LandingPage() {
               Every application, from posting to offer.
             </h1>
             <p className="mt-6 max-w-md text-base leading-relaxed text-muted-foreground">
-              Paste a job posting. JobHunt pulls out the details, checks your
+              Paste a job posting. Offerstitch pulls out the details, checks your
               resume against it, and drafts a tailored resume and cover letter.
               Then you track it on one board until you hear back.
             </p>
@@ -195,7 +195,7 @@ export default async function LandingPage() {
             Privacy
           </Link>
           <p className="text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} JobHunt
+            &copy; {new Date().getFullYear()} Offerstitch
           </p>
         </div>
       </footer>

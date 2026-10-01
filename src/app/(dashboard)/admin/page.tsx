@@ -20,7 +20,7 @@ import { StatsBar } from "./_components/stats-bar";
 import { UserFilters } from "./_components/user-filters";
 
 export const metadata: Metadata = {
-  title: "Admin: JobHunt",
+  title: "Admin",
   description: "Manage user access requests.",
 };
 

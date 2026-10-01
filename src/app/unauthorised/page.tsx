@@ -4,7 +4,7 @@ import SignOutButton from "@/components/auth/SignOutButton";
 import { BrandLogo } from "@/components/BrandLogo";
 
 export const metadata: Metadata = {
-  title: "Access Denied: JobHunt",
+  title: "Access denied",
   description: "You are not authorised to access this application.",
 };
 

@@ -11,6 +11,8 @@
  * The retired shared demo account. Kept only so the sweep can recognise and
  * remove it, and so isDemoUser() keeps refusing AI calls for it until then.
  */
+// The jobhunt.app domain predates the Offerstitch rename. Live demo accounts and
+// the sweep match on it, so it stays until every old-domain demo has expired.
 export const DEMO_EMAIL = "demo@jobhunt.app";
 
 const DEMO_EMAIL_DOMAIN = "jobhunt.app";

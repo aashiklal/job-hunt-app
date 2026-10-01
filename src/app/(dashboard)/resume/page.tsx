@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ResumesTable } from "./_components/resumes-table";
 
 export const metadata: Metadata = {
-  title: "Resumes: JobHunt",
+  title: "Resumes",
   description: "Manage your base resumes for AI tailoring.",
 };
 
@@ -58,7 +58,7 @@ export default async function ResumePage() {
               No resumes yet
             </p>
             <p className="max-w-sm text-sm text-muted-foreground">
-              Save your base resume here. JobHunt will use it when tailoring
+              Save your base resume here. Offerstitch will use it when tailoring
               your resume for specific job applications.
             </p>
             <Button asChild className="mt-1">

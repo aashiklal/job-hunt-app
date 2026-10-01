@@ -3,8 +3,8 @@ import { SignIn } from "@clerk/nextjs";
 import { BrandLogo } from "@/components/BrandLogo";
 
 export const metadata: Metadata = {
-  title: "Sign In: JobHunt",
-  description: "Sign in to JobHunt",
+  title: "Sign in",
+  description: "Sign in to Offerstitch",
 };
 
 export default function SignInPage() {

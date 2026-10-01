@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ResumeForm } from "../_components/resume-form";
 
 export const metadata: Metadata = {
-  title: "New Resume: JobHunt",
+  title: "New resume",
   description: "Create a new base resume.",
 };
 

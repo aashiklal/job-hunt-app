@@ -3,8 +3,8 @@ import { SignUp } from "@clerk/nextjs";
 import { BrandLogo } from "@/components/BrandLogo";
 
 export const metadata: Metadata = {
-  title: "Sign Up: JobHunt",
-  description: "Create your JobHunt account",
+  title: "Sign up",
+  description: "Create your Offerstitch account",
 };
 
 export default function SignUpPage() {

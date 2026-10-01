@@ -14,7 +14,7 @@ import { JobDetailTabs } from "./_components/job-detail-tabs";
 import { StatusBadge } from "@/app/(dashboard)/jobs/_components/status-badge";
 
 export const metadata: Metadata = {
-  title: "Job Detail: JobHunt",
+  title: "Job detail",
   description: "View your job application details.",
 };
 

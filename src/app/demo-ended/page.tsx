@@ -5,7 +5,7 @@ import { EndDemoSession } from "./EndDemoSession";
 import { BrandLogo } from "@/components/BrandLogo";
 
 export const metadata: Metadata = {
-  title: "Demo ended | JobHunt",
+  title: "Demo ended",
   description: "Your private demo workspace has expired.",
 };
 
