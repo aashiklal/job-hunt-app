@@ -63,7 +63,7 @@ type Props = {
 export function TemplateManager({
   current,
   apiBase,
-  title = "Document Themes",
+  title = "Document themes",
   description = "Upload normal .docx files as visual references. The app keeps the look and replaces the sample text with each user's generated content.",
 }: Props) {
   const router = useRouter();
