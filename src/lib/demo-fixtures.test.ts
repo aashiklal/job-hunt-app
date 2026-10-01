@@ -10,7 +10,6 @@ import {
   demoOutreach,
   demoParsedJob,
   demoPrep,
-  demoSkillsGap,
 } from "@/lib/demo-fixtures";
 import { seedDemoData } from "@/lib/demo-seed";
 
@@ -57,7 +56,6 @@ describe("demo fixtures", () => {
       jobGenerationRequestSchema.shape.type.options.map((t) => demoOutreach(t, JOB)),
       demoAnalysis(JOB),
       demoPrep(JOB),
-      demoSkillsGap(),
       demoParsedJob(),
     ]);
     expect(findForbidden(text)).toEqual([]);

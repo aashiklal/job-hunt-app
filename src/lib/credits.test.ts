@@ -23,7 +23,6 @@ import {
   costPerCredit,
   creditCost,
   describeCredits,
-  featureForGenerationType,
   isOverTarget,
   targetCostPerCall,
 } from "@/lib/credits";
@@ -63,7 +62,6 @@ beforeEach(async () => {
     name: "Test",
     monthlyCredits: CREDIT_LIMIT,
     maxResumes: 5,
-    active: true,
   });
 });
 
@@ -91,28 +89,6 @@ describe("credit pricing", () => {
     expect(creditCost("resume")).toBeGreaterThan(creditCost("cover_letter"));
     expect(creditCost("cover_letter")).toBeGreaterThan(creditCost("outreach"));
     expect(creditCost("interview_prep")).toBeGreaterThan(creditCost("outreach"));
-  });
-
-  it("maps every outreach variant onto the outreach price", () => {
-    for (const type of [
-      "linkedin_note",
-      "linkedin_dm",
-      "followup_email",
-      "thankyou_email",
-      "cold_email",
-      "checkin_email",
-      "salary_negotiation",
-      "linkedin_followup_dm",
-    ]) {
-      expect(featureForGenerationType(type)).toBe("outreach");
-    }
-  });
-
-  it("maps the document types onto their own prices", () => {
-    expect(featureForGenerationType("resume")).toBe("resume");
-    expect(featureForGenerationType("cover_letter")).toBe("cover_letter");
-    expect(featureForGenerationType("jd_analysis")).toBe("jd_analysis");
-    expect(featureForGenerationType("interview_prep")).toBe("interview_prep");
   });
 });
 
@@ -284,13 +260,13 @@ describe("unconfigured plans", () => {
     // A plan saved without monthlyCredits is a configuration mistake. Any
     // guessed fallback could silently hand its users the paid allowance, so it
     // fails closed and the admin sets an allowance in the plan editor.
-    await Plan.create({
+    // Inserted raw because the schema now requires monthlyCredits; old
+    // documents can still lack it.
+    await Plan.collection.insertOne({
       key: "legacy-free",
       name: "Legacy free",
       maxResumes: 2,
-      active: true,
     });
-    await Plan.updateOne({ key: "legacy-free" }, { $unset: { monthlyCredits: 1 } });
 
     const user = await User.create({
       clerkId: "clerk_legacy",

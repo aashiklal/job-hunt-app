@@ -271,69 +271,6 @@ export async function demoStructuredDocument(
 // means a route added without a fixture fails loudly rather than billing.
 // ---------------------------------------------------------------------------
 
-export type DemoSkillsGap = {
-  summary: string;
-  highPriority: Array<{ skill: string; why: string; howToLearn: string; timeEstimate: string }>;
-  mediumPriority: Array<{ skill: string; why: string; howToLearn: string; timeEstimate: string }>;
-  lowPriority: Array<{ skill: string; why: string; howToLearn: string; timeEstimate: string }>;
-  quickWins: string[];
-};
-
-export function demoSkillsGap(): DemoSkillsGap {
-  return {
-    summary:
-      "Across the job descriptions you have analysed, your TypeScript, React and data-modelling experience covers the large majority of stated requirements. The consistent gaps are Python (named in roughly a third of the roles), Kubernetes, and explicit distributed-systems depth. None are disqualifying for a product-facing full stack role, but Python appears often enough to be worth closing rather than explaining away.",
-    highPriority: [
-      {
-        skill: "Python",
-        why: "Named in about a third of the roles you saved, usually as the backend alongside a TypeScript frontend. You have shipped it, but not recently enough to speak fluently about it under pressure.",
-        howToLearn: "Port one existing Node service to FastAPI. You already know the domain, so the effort goes into the language and its idioms rather than the problem.",
-        timeEstimate: "2 to 3 weeks part time",
-      },
-      {
-        skill: "Distributed systems vocabulary",
-        why: "Several senior postings ask for it explicitly, and the system-design round assumes it. Your checkout and scheduling work already shows the thinking; what is missing is the shared language for it.",
-        howToLearn: "Work through Designing Data-Intensive Applications chapters 5 to 9, then write up the checkout rebuild in those terms. You solved the problem already.",
-        timeEstimate: "4 to 6 weeks",
-      },
-    ],
-    mediumPriority: [
-      {
-        skill: "Kubernetes",
-        why: "Appears in the infrastructure-leaning roles but rarely as a hard requirement for product engineering. Worth enough to not be a blank.",
-        howToLearn: "Deploy one of your own projects to a managed cluster end to end. Depth beyond that has poor returns for the roles you are targeting.",
-        timeEstimate: "1 to 2 weeks",
-      },
-      {
-        skill: "Go",
-        why: "Shows up in the infrastructure companies you have saved, particularly the database and platform ones.",
-        howToLearn: "Build one small CLI tool. Enough to read the language confidently and say honestly that you have written some.",
-        timeEstimate: "2 weeks",
-      },
-    ],
-    lowPriority: [
-      {
-        skill: "GraphQL",
-        why: "Named in only one saved role, and REST is stated more often. Low return on the time.",
-        howToLearn: "Read the spec overview and be able to discuss the trade-off against REST. Do not build anything.",
-        timeEstimate: "2 days",
-      },
-      {
-        skill: "Rust",
-        why: "Nice signal for the systems companies, but none of your saved roles require it and the learning curve is steep.",
-        howToLearn: "Defer this until a specific role justifies it.",
-        timeEstimate: "Not now",
-      },
-    ],
-    quickWins: [
-      "Add Python to your resume skills line. You have shipped it; leaving it off reads as not having it at all.",
-      "Describe the checkout rebuild in system-design terms (latency budget, blocking calls, rollout). It is your strongest story and it is currently described only in product language.",
-      "Put the checkout numbers in every version of your resume. 3.8s to 1.2s and a 9% lift is more persuasive than the project's scope.",
-      "Deploy one project to a managed Kubernetes cluster this weekend, purely to remove the blank.",
-    ],
-  };
-}
-
 export type DemoParsedJob = {
   company: string | null;
   role: string | null;

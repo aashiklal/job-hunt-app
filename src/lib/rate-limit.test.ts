@@ -80,7 +80,7 @@ describe("consume", () => {
     expect((await consume(userId, "generate")).allowed).toBe(false);
 
     // A different route has its own counter and is unaffected.
-    expect((await consume(userId, "skills-gap")).allowed).toBe(true);
+    expect((await consume(userId, "jobs-parse")).allowed).toBe(true);
   });
 
   it("keeps separate budgets per user", async () => {

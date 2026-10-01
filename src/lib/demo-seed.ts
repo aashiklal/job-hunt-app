@@ -404,10 +404,8 @@ async function seedDocuments(
 
   }
 
-  // JD analyses are stored as JSON, not markdown: /api/skills-gap reads them
-  // back with JSON.parse and needs at least two before it will run. Seeding
-  // one, as markdown, left the skills-gap feature permanently unreachable in
-  // the demo.
+  // JD analyses are stored as JSON, not markdown, matching what a real
+  // analysis saves, so the job page can show them.
   for (const job of [screening, interview, assessment].filter((j) => j !== undefined)) {
     await documents.upsert(userId, {
       jobId: job._id,
