@@ -146,7 +146,7 @@ function NavLinks({
 }
 
 /**
- * The JobHunt logo. Always a plain link home, for demo visitors too: the
+ * The Offerstitch logo. Always a plain link home, for demo visitors too: the
  * landing page offers a live demo "Back to your demo", so leaving the
  * dashboard no longer has to end it.
  */
@@ -160,7 +160,7 @@ function HomeLink({
   return (
     <Link
       href="/"
-      aria-label="JobHunt home"
+      aria-label="Offerstitch home"
       className={`rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none ${className}`}
     >
       {children}
@@ -225,7 +225,7 @@ function SidebarContent({
           <Briefcase className="size-5 shrink-0 text-foreground" strokeWidth={1.75} />
           {!collapsed && (
             <span className="text-base font-semibold tracking-tight text-foreground">
-              JobHunt
+              Offerstitch
             </span>
           )}
         </HomeLink>
@@ -312,7 +312,7 @@ export default function DashboardShell({
           >
             <Briefcase className="size-4 text-foreground" strokeWidth={1.75} />
             <span className="text-sm font-semibold tracking-tight text-foreground">
-              JobHunt
+              Offerstitch
             </span>
           </HomeLink>
         </div>

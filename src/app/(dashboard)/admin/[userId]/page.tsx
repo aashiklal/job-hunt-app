@@ -42,7 +42,7 @@ import {
 } from "../_components/usage-display";
 
 export const metadata: Metadata = {
-  title: "User Detail: Admin",
+  title: "User detail",
   description: "View and manage a user's access, limits, and activity.",
 };
 

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Briefcase } from "lucide-react";
 
 /**
- * The JobHunt logo, always a link to the landing page.
+ * The Offerstitch logo, always a link to the landing page.
  *
  * The landing page decides what each visitor sees, so the logo never needs to
  * know who is clicking: signed-out visitors get the demo and sign-up, real
@@ -21,7 +21,7 @@ export function BrandLogo({
   return (
     <Link
       href="/"
-      aria-label="JobHunt home"
+      aria-label="Offerstitch home"
       className={`flex items-center gap-2 rounded-md transition-opacity duration-200 hover:opacity-70 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none ${className}`}
     >
       <Briefcase
@@ -36,7 +36,7 @@ export function BrandLogo({
             : "text-base font-semibold tracking-tight text-foreground"
         }
       >
-        JobHunt
+        Offerstitch
       </span>
     </Link>
   );

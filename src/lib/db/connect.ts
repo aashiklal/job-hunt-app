@@ -25,6 +25,8 @@ export default async function connectDB(): Promise<typeof mongoose> {
   }
 
   if (!cache.promise) {
+    // "jobhunt" predates the Offerstitch rename. It names the live database, so
+    // changing it would point the app at an empty one.
     cache.promise = mongoose.connect(uri, { dbName: "jobhunt" }).then((instance) => {
       console.log("MongoDB connected");
       return instance;

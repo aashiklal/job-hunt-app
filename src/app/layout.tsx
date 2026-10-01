@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "JobHunt",
-  description: "Track your job applications",
+  title: { default: "Offerstitch", template: "%s | Offerstitch" },
+  description: "Tailor every application and track it from posting to offer.",
 };
 
 export default function RootLayout({

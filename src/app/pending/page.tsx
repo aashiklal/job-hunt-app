@@ -6,7 +6,7 @@ import { getCurrentUser } from "@/lib/auth-helpers";
 import { BrandLogo } from "@/components/BrandLogo";
 
 export const metadata = {
-  title: "Awaiting Approval | JobHunt",
+  title: "Awaiting approval",
   description: "Your account is pending admin approval.",
 };
 

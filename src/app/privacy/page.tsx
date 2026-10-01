@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { BrandLogo } from "@/components/BrandLogo";
 
 export const metadata: Metadata = {
-  title: "Privacy | JobHunt",
+  title: "Privacy",
   description:
-    "What JobHunt stores, who processes it, and how to have your data deleted.",
+    "What Offerstitch stores, who processes it, and how to have your data deleted.",
 };
 
 /** Where deletion and privacy requests go. One place to change it. */
@@ -25,7 +25,7 @@ export default function PrivacyPage() {
               Privacy
             </h1>
             <p>
-              JobHunt is a personal project run by one developer. This page says
+              Offerstitch is a personal project run by one developer. This page says
               plainly what it keeps about you and what happens to it.
             </p>
           </header>

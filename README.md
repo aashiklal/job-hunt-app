@@ -1,4 +1,4 @@
-# JobHunt
+# Offerstitch
 
 **An AI-assisted job application tracker.** Track every role through a kanban pipeline,
 generate a tailored resume and cover letter against each job description, prepare for
@@ -167,30 +167,8 @@ CI runs all five on every push and pull request to `main`.
 
 ### Environment
 
-Create `.env.local`:
-
-```env
-MONGODB_URI=your_mongodb_connection_string
-ANTHROPIC_API_KEY=your_anthropic_api_key
-CLERK_SECRET_KEY=your_clerk_secret_key
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
-CLERK_WEBHOOK_SIGNING_SECRET=your_clerk_webhook_signing_secret
-
-RESEND_API_KEY=your_resend_api_key
-RESEND_FROM_EMAIL=onboarding@resend.dev
-
-# Optional: public demo (per-visitor private workspaces)
-NEXT_PUBLIC_TURNSTILE_SITE_KEY=your_cloudflare_turnstile_site_key
-TURNSTILE_SECRET_KEY=your_cloudflare_turnstile_secret_key
-CRON_SECRET=a_long_random_string
-# DEMO_DISABLED=true      # kill switch: hides the demo and refuses new ones
-# DEMO_TTL_MINUTES=120    # how long each demo lives
-# DEMO_MAX_LIVE=200       # cap on concurrently live demos
-
-# Optional: Telegram admin notifications
-TELEGRAM_BOT_TOKEN=
-TELEGRAM_CHAT_ID=
-```
+Copy `.env.example` to `.env.local` and fill it in. It lists every variable the app reads,
+with the optional ones marked.
 
 `RESEND_FROM_EMAIL` can stay `onboarding@resend.dev` for testing, which delivers only to
 your own Resend account address.
@@ -295,3 +273,7 @@ npx tsx scripts/bootstrap-admin.ts your@email.com
 | Extraction | `unpdf` (PDF), `mammoth` (DOCX) |
 | Email | Resend |
 | Hosting | Vercel |
+
+## License
+
+[MIT](./LICENSE)
