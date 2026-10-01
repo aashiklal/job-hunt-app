@@ -82,7 +82,6 @@ beforeEach(async () => {
     name: "Test",
     monthlyCredits: CREDIT_LIMIT,
     maxResumes: 5,
-    active: true,
   });
 });
 

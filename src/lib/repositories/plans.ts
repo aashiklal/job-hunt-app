@@ -10,7 +10,6 @@ export type IPlanListItem = {
   monthlyCredits: number;
   monthlyPriceUSD: number;
   maxResumes: number;
-  active: boolean;
 };
 
 export function toPlanListItem(doc: IPlan): IPlanListItem {
@@ -21,7 +20,6 @@ export function toPlanListItem(doc: IPlan): IPlanListItem {
     monthlyCredits: doc.monthlyCredits,
     monthlyPriceUSD: doc.monthlyPriceUSD ?? 0,
     maxResumes: doc.maxResumes,
-    active: doc.active,
   };
 }
 

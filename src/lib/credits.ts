@@ -24,7 +24,6 @@ export type CreditFeature =
   | "interview_prep"
   | "outreach"
   | "jobs_parse"
-  | "skills_gap"
   | "latex_export";
 
 // outreach and latex_export were re-priced (from 1 and 2) when credits became
@@ -36,7 +35,6 @@ export const CREDIT_COSTS: Record<CreditFeature, number> = {
   jd_analysis: 3,
   cover_letter: 3,
   jobs_parse: 3,
-  skills_gap: 4,
   interview_prep: 4,
   resume: 6,
 };
@@ -49,7 +47,6 @@ export const CREDIT_LABELS: Record<CreditFeature, string> = {
   interview_prep: "Interview prep",
   outreach: "Outreach message",
   jobs_parse: "Quick import",
-  skills_gap: "Skills gap report",
   latex_export: "LaTeX export",
 };
 
@@ -118,19 +115,3 @@ export function describeCredits(remaining: number): string {
   return `About ${resumes} tailored ${resumes === 1 ? "resume" : "resumes"} or ${coverLetters} cover ${coverLetters === 1 ? "letter" : "letters"}`;
 }
 
-/** Maps a generation type from the API onto its credit feature. */
-export function featureForGenerationType(type: string): CreditFeature {
-  switch (type) {
-    case "resume":
-      return "resume";
-    case "cover_letter":
-      return "cover_letter";
-    case "jd_analysis":
-      return "jd_analysis";
-    case "interview_prep":
-      return "interview_prep";
-    default:
-      // The eight outreach variants all produce short messages at similar cost.
-      return "outreach";
-  }
-}

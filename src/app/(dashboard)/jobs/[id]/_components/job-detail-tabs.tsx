@@ -5,7 +5,7 @@ import { GeneratePanel } from "./generate-panel";
 import { JDAnalysisPanel } from "./jd-analysis-panel";
 import { OutreachPanel } from "./outreach-panel";
 import { InterviewPrepPanel } from "./interview-prep-panel";
-import { ATSScorePanel } from "./ats-score-panel";
+import { FitScorePanel } from "./fit-score-panel";
 import type { JobStatus } from "@/lib/repositories/jobs";
 
 type ResumeOption = { _id: string; title: string; isDefault: boolean };
@@ -165,7 +165,7 @@ export function JobDetailTabs({
           hasJobDescription={!!job.jobDescription && job.jobDescription.trim().length >= 50}
           initialAnalysis={initialAnalysis}
         />
-        <ATSScorePanel
+        <FitScorePanel
           analysis={initialAnalysis}
           defaultResumeContent={defaultResumeContent}
         />

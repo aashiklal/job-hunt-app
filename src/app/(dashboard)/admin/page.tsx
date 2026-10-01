@@ -306,12 +306,7 @@ export default async function AdminPage({
         </TabsContent>
 
         <TabsContent value="templates" className="mt-6">
-          <TemplateManager
-            current={currentAdminTemplates}
-            apiBase="/api/admin/templates"
-            title="Default export templates"
-            description="Every user's DOCX export uses these. Upload a styled .docx for each document type; without one, exports use a clean default format."
-          />
+          <TemplateManager current={currentAdminTemplates} />
         </TabsContent>
 
         <TabsContent value="plans" className="mt-6 space-y-4">

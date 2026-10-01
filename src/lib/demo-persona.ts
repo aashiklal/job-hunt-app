@@ -4,7 +4,7 @@ import type { GeneratedResume } from "@/lib/generated-documents";
  * The fictional person behind every piece of demo content.
  *
  * The seeded resumes, the generated resume and cover letter, the outreach
- * fixtures, interview prep and skills gap all read from here, so they describe
+ * fixtures, and interview prep all read from here, so they describe
  * the same person and cannot drift apart. Everything in this file is invented:
  * the person, the employers and the numbers. Keep it that way. Do not base
  * the persona on a real resume, and do not borrow stories from this app's own

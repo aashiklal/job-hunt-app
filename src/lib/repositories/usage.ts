@@ -3,14 +3,6 @@ import Usage, { IUsage } from "@/lib/models/Usage";
 import { Types } from "mongoose";
 import { getCurrentPeriod } from "@/lib/usage";
 
-export async function getCurrentPeriodUsage(
-  userId: string
-): Promise<IUsage | null> {
-  await connectDB();
-  const period = getCurrentPeriod();
-  return Usage.findOne({ userId, period });
-}
-
 export async function listForUser(
   userId: string,
   options?: { limit?: number }

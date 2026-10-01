@@ -5,7 +5,7 @@ import {
   type GeneratedDocumentBlockRole,
 } from "@/lib/generated-document-blocks";
 import { getParagraphText } from "@/lib/export/analyze-docx-theme";
-import { loadTemplate, setParaText } from "@/lib/export/from-template";
+import { loadTemplate, setParaText } from "@/lib/export/docx-template-io";
 import { escapeXml, textToXmlTextRuns } from "@/lib/export/docx-xml";
 import type { PixelThemeMap } from "@/lib/export/map-pixel-theme";
 import type { PixelThemeContract } from "@/lib/export/pixel-theme-contract";

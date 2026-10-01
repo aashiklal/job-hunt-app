@@ -8,10 +8,6 @@ export type IPlan = {
   /** What this plan charges per month. Drives the margin view. */
   monthlyPriceUSD: number;
   maxResumes: number;
-  pdfParsingEnabled: boolean;
-  docxParsingEnabled: boolean;
-  pdfExportEnabled: boolean;
-  active: boolean;
   createdAt: Date;
   updatedAt: Date;
 } & Document;
@@ -20,13 +16,11 @@ const PlanSchema = new Schema<IPlan>(
   {
     key: { type: String, required: true, unique: true, index: true },
     name: { type: String, required: true },
-    monthlyCredits: { type: Number, required: true, default: 500 },
+    // No default: a plan without an allowance must fail closed (0 credits),
+    // not quietly hand out a guessed one. See resolveCreditLimit in usage.ts.
+    monthlyCredits: { type: Number, required: true },
     monthlyPriceUSD: { type: Number, required: true, default: 0 },
     maxResumes: { type: Number, required: true },
-    pdfParsingEnabled: { type: Boolean, default: true },
-    docxParsingEnabled: { type: Boolean, default: true },
-    pdfExportEnabled: { type: Boolean, default: true },
-    active: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

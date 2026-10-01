@@ -273,27 +273,6 @@ export async function getCurrentUsage(
 }
 
 /**
- * Returns current-period spend for a list of user IDs in one query.
- * Used by the admin users table to show per-user spend.
- * Returns a map of userId string → spentUSD.
- */
-export async function getBulkSpend(
-  userIds: string[]
-): Promise<Record<string, number>> {
-  if (userIds.length === 0) return {};
-  await connectDB();
-
-  const period = getCurrentPeriod();
-  const docs = await Usage.find({ userId: { $in: userIds }, period }).lean();
-
-  const map: Record<string, number> = {};
-  for (const doc of docs) {
-    map[doc.userId.toString()] = (doc as { aiSpendUSD?: number }).aiSpendUSD ?? 0;
-  }
-  return map;
-}
-
-/**
  * Returns total platform AI spend and the count of users who have spent
  * anything in the current billing period. Used by the admin stats bar.
  */

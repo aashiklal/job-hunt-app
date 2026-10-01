@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { untrusted, UNTRUSTED_INPUT_NOTE } from "@/lib/prompt-safety";
-import { parseResumeContactInfo } from "@/lib/export/template-data";
+import { parseResumeContactInfo } from "@/lib/export/parse-contact-info";
 import { themeCapacityPrompt, type ThemeCapacity } from "@/lib/export/pixel-theme-contract";
 
 export const generatedResumeSchema = z.object({

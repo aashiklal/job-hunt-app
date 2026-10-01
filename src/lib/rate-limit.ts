@@ -18,7 +18,6 @@ import * as rateLimitRepo from "@/lib/repositories/rate-limit";
 export type RateLimitRoute =
   | "generate"
   | "jobs-parse"
-  | "skills-gap"
   | "resume-parse"
   | "demo-create-ip"
   | "demo-create-global";
@@ -33,7 +32,6 @@ type Policy = { limit: number; windowSeconds: number };
 const POLICIES: Record<RateLimitRoute, Policy> = {
   generate: { limit: 10, windowSeconds: 60 },
   "jobs-parse": { limit: 20, windowSeconds: 60 },
-  "skills-gap": { limit: 10, windowSeconds: 60 },
   // Resume extraction makes no model call but parses untrusted files, which
   // costs CPU and memory. Generous for a person, tight for a script.
   "resume-parse": { limit: 10, windowSeconds: 60 },

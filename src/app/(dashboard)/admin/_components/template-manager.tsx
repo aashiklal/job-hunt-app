@@ -55,16 +55,12 @@ type Props = {
       }
     >
   >;
-  apiBase: string;
-  title?: string;
-  description?: string;
 };
+
+const API_BASE = "/api/admin/templates";
 
 export function TemplateManager({
   current,
-  apiBase,
-  title = "Document themes",
-  description = "Upload normal .docx files as visual references. The app keeps the look and replaces the sample text with each user's generated content.",
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -84,7 +80,7 @@ export function TemplateManager({
       formData.append("file", file);
       formData.append("type", type);
 
-      const res = await fetch(apiBase, { method: "POST", body: formData });
+      const res = await fetch(API_BASE, { method: "POST", body: formData });
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
@@ -123,7 +119,7 @@ export function TemplateManager({
   async function handleRemove(type: SlotType) {
     setBusy(type);
     try {
-      const res = await fetch(`${apiBase}?type=${type}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE}?type=${type}`, { method: "DELETE" });
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
@@ -151,8 +147,12 @@ export function TemplateManager({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">{title}</CardTitle>
-        <p className="text-sm text-muted-foreground">{description}</p>
+        <CardTitle className="text-base">Default export templates</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Every user&apos;s DOCX export uses these. Upload a styled .docx for each
+          document type; the app keeps its look and fills in each user&apos;s
+          generated content. Without one, exports use a clean default format.
+        </p>
       </CardHeader>
       <CardContent className="space-y-4">
         {SLOTS.map(({ type, label, hint, accept }) => {

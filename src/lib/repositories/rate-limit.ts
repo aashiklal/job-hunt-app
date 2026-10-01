@@ -37,9 +37,3 @@ export async function increment(args: {
   return doc?.count ?? 1;
 }
 
-/** Test and maintenance helper. Not used in request paths. */
-export async function clearForUser(userId: string): Promise<number> {
-  await connectDB();
-  const result = await RateLimit.deleteMany({ userId });
-  return result.deletedCount ?? 0;
-}

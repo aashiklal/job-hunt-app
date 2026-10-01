@@ -189,11 +189,6 @@ export async function claimByEmail(
   );
 }
 
-export async function countApproved(): Promise<number> {
-  await connectDB();
-  return User.countDocuments({ ...NOT_DEMO, status: "approved" });
-}
-
 export async function countByStatus(): Promise<{
   pending: number;
   approved: number;

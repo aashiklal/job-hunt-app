@@ -432,60 +432,6 @@ Write the negotiation email. Subject first, body under 200 words.`;
   return { system, userMessage };
 }
 
-export function buildSkillsGapPrompt(args: {
-  missingRequired: string[];
-  missingNiceToHave: string[];
-  resumeSkillsText: string;
-  appliedRoles: string[];
-}): { system: string; userMessage: string } {
-  const { missingRequired, missingNiceToHave, resumeSkillsText, appliedRoles } = args;
-  const system = `You are a career coach helping a job applicant understand their skills gap based on the roles they have been applying to.
-
-You have been given a list of skills that repeatedly appear in job descriptions the applicant has applied to, but are missing from their resume. Your job is to produce a prioritised, actionable learning roadmap.
-
-Respond with ONLY a JSON object matching this schema - no preamble, no markdown fences:
-
-{
-  "summary": "string - 2-3 sentence plain English summary of the overall gap pattern",
-  "highPriority": [
-    {
-      "skill": "string",
-      "why": "string - one sentence: why this skill matters for their target role type",
-      "howToLearn": "string - one specific, free or low-cost resource or approach (e.g. 'Build a small project using X', 'Complete the official Y docs tutorial'). No paid course recommendations unless free tier is available.",
-      "timeEstimate": "string - e.g. '2-4 weeks part-time'"
-    }
-  ],
-  "mediumPriority": [ same shape as highPriority ],
-  "lowPriority": [ same shape as highPriority ],
-  "quickWins": [
-    "string - skills the user almost certainly has but has not written on the resume (inferred from adjacent skills present). One sentence each: 'You use X - consider adding Y explicitly since it appears in N job descriptions.'"
-  ]
-}
-
-Rules:
-- highPriority: required skills missing from the most job descriptions. Max 5 items.
-- mediumPriority: required skills missing from fewer job descriptions, or frequently missing nice-to-haves. Max 5 items.
-- lowPriority: nice-to-haves missing from few job descriptions. Max 3 items.
-- quickWins: infer from the user's resume what adjacent skills they might have but not listed. Max 3 items.
-- howToLearn: be specific. "Learn Docker" is not useful. "Build a containerised version of a personal project and push it to Docker Hub" is useful.
-- Do NOT recommend paid courses. Suggest official docs, open source projects, personal projects, or free platforms.`;
-
-  const userMessage = `Roles I have been applying to: ${appliedRoles.join(", ")}
-
-Required skills missing from my resume:
-${missingRequired.map((s) => `- ${s}`).join("\n")}
-
-Nice-to-have skills missing from my resume:
-${missingNiceToHave.map((s) => `- ${s}`).join("\n")}
-
-My resume skills (to identify adjacent skills for quick wins):
-${resumeSkillsText.slice(0, 1500)}
-
-Return the JSON skills gap analysis.`;
-
-  return { system, userMessage };
-}
-
 export function buildLatexBodyPrompt(
   fullTemplate: string,
   resume: Record<string, unknown>

@@ -13,7 +13,6 @@ export type ISubscription = {
     /** Admin-set monthly credit allowance for this user, replacing the plan's. -1 = unlimited. */
     monthlyCredits?: number;
   };
-  currentPeriodEnd?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 } & Document;
@@ -34,7 +33,6 @@ const SubscriptionSchema = new Schema<ISubscription>(
       ),
       required: false,
     },
-    currentPeriodEnd: { type: Date, default: null },
   },
   { timestamps: true }
 );

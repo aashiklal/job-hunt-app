@@ -183,29 +183,6 @@ export async function byFeature(
   }));
 }
 
-/** The heaviest users over a window, for spotting runaway cost. */
-export async function topUsers(opts: {
-  since?: Date;
-  limit?: number;
-}): Promise<Array<UsageTotals & { userId: string }>> {
-  await connectDB();
-  const rows = await UsageEvent.aggregate([
-    { $match: matchStage(opts) },
-    { $group: { _id: "$userId", ...SUM_FIELDS } },
-    { $sort: { costUSD: -1 } },
-    { $limit: opts.limit ?? 10 },
-  ]);
-
-  return rows.map((r) => ({
-    userId: (r._id as { toString(): string }).toString(),
-    costUSD: r.costUSD ?? 0,
-    credits: r.credits ?? 0,
-    calls: r.calls ?? 0,
-    inputTokens: r.inputTokens ?? 0,
-    outputTokens: r.outputTokens ?? 0,
-  }));
-}
-
 export async function deleteAllForUser(userId: string): Promise<number> {
   await connectDB();
   const result = await UsageEvent.deleteMany({ userId });
