@@ -252,7 +252,6 @@ URL, or use Clerk's built-in webhook tester.
 | `npm run demo:sweep` | Delete expired demo accounts, the legacy shared demo account and orphaned Clerk demo users |
 | `npm run bootstrap:admin` | Promote a user to admin by email, idempotent |
 | `npm run backfill:billing` | Set honest billing status on existing subscriptions (trialing, comped for demos) |
-| `npm run test:generate` | Manual AI generation smoke test |
 | `npm run test:docx-export` | Fixture-driven export regression harness |
 
 ### Deployment
