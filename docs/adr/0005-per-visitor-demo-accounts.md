@@ -42,3 +42,9 @@ is deleted requests still arrive carrying it. The access check sends such a sess
 instead of recreating the user, the landing page treats it as signed out, and the demo buttons
 leave with a full page load rather than a client-side navigation, so the next request carries
 a fresh session.
+
+AI requests are served from fixtures and never reach Anthropic, but each is charged the live
+feature's credits against a 60-credit allowance set on the demo's subscription
+(`DEMO_CREDITS`). A balance stuck at 500 misrepresented the app, and a small allowance lets a
+visitor see what running out looks like. No spend or `UsageEvent` is recorded, so demos never
+appear in admin cost figures.
