@@ -9,13 +9,16 @@ import User from "@/lib/models/User";
 // Pricing table. Update if Anthropic changes rates.
 // ---------------------------------------------------------------------------
 
+// USD per million tokens, Anthropic first-party rates (checked 2026-10-01).
+// Haiku 4.5 was $0.80/$4 and Opus $15/$75 here, which overstated Opus and
+// understated Haiku, skewing the LaTeX export and template-analysis margins.
 const MODEL_PRICING: Record<string, { inputPerMToken: number; outputPerMToken: number }> = {
   "claude-sonnet-4-5":            { inputPerMToken: 3.00,  outputPerMToken: 15.00 },
   "claude-sonnet-4-6":            { inputPerMToken: 3.00,  outputPerMToken: 15.00 },
-  "claude-haiku-4-5":             { inputPerMToken: 0.80,  outputPerMToken: 4.00  },
-  "claude-haiku-4-5-20251001":    { inputPerMToken: 0.80,  outputPerMToken: 4.00  },
-  "claude-opus-4-5":              { inputPerMToken: 15.00, outputPerMToken: 75.00 },
-  "claude-opus-4-6":              { inputPerMToken: 15.00, outputPerMToken: 75.00 },
+  "claude-haiku-4-5":             { inputPerMToken: 1.00,  outputPerMToken: 5.00  },
+  "claude-haiku-4-5-20251001":    { inputPerMToken: 1.00,  outputPerMToken: 5.00  },
+  "claude-opus-4-5":              { inputPerMToken: 5.00,  outputPerMToken: 25.00 },
+  "claude-opus-4-6":              { inputPerMToken: 5.00,  outputPerMToken: 25.00 },
 };
 
 /**

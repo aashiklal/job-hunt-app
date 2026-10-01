@@ -35,6 +35,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -49,6 +50,12 @@ AGENTS.md
 
 # Generated DOCX artifacts (upload these to the admin panel, don't commit them)
 *.docx
+
+# Resumes and exports used while testing locally
+*.pdf
+
+# Local Claude Code settings and session state
+.claude/
 
 # Local fixtures used by export diagnostic harness
 /tmp/
