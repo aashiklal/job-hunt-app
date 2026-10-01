@@ -14,6 +14,8 @@ _Avoid_: Application, listing, posting, opportunity
 **Status**:
 Where a **Job** currently sits in the pipeline: `saved`, `applied`, `screening`,
 `interview`, `assessment`, `offer`, `rejected`, `withdrawn`.
+A Job can move from any Status to any other, including out of `rejected` and `withdrawn`;
+mis-drops and reopened roles both need it.
 _Avoid_: Stage, phase, step
 
 **Application**:
