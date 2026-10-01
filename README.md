@@ -251,11 +251,9 @@ URL, or use Clerk's built-in webhook tester.
 | `npm run seed:plans` | Seed Plan documents |
 | `npm run demo:sweep` | Delete expired demo accounts, the legacy shared demo account and orphaned Clerk demo users |
 | `npm run bootstrap:admin` | Promote a user to admin by email, idempotent |
-| `npm run backfill:subscriptions` | Create Subscriptions for existing approved users |
 | `npm run backfill:billing` | Set honest billing status on existing subscriptions (trialing, comped for demos) |
 | `npm run test:generate` | Manual AI generation smoke test |
 | `npm run test:docx-export` | Fixture-driven export regression harness |
-| `npm run generate:cover-letter-template` | Regenerate the local cover-letter template |
 
 ### Deployment
 

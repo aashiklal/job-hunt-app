@@ -163,8 +163,6 @@ export function GeneratePanel({
         return;
       }
 
-      const fallback = res.headers.get("X-Template-Fallback");
-
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -175,13 +173,7 @@ export function GeneratePanel({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      if (fallback === "admin") {
-        toast.info("Your template didn't have enough structure. The default template was used instead.");
-      } else if (fallback === "generic") {
-        toast.info("Your template didn't have enough structure. A clean default format was used instead.");
-      } else {
-        toast.success("Downloaded as DOCX");
-      }
+      toast.success("Downloaded as DOCX");
     } catch {
       toast.error("Download failed");
     } finally {
@@ -203,7 +195,6 @@ export function GeneratePanel({
         return;
       }
 
-      const fallback = res.headers.get("X-Template-Fallback");
       const text = await res.text();
       const blob = new Blob([text], { type: "text/plain" });
       const url = URL.createObjectURL(blob);
@@ -215,11 +206,7 @@ export function GeneratePanel({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      if (fallback === "generic") {
-        toast.info("No LaTeX template found. A clean default format was used.");
-      } else {
-        toast.success("Downloaded as LaTeX");
-      }
+      toast.success("Downloaded as LaTeX");
     } catch {
       toast.error("Download failed");
     } finally {

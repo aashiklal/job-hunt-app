@@ -310,7 +310,7 @@ export default async function AdminPage({
             current={currentAdminTemplates}
             apiBase="/api/admin/templates"
             title="Default export templates"
-            description="These templates are used for all users who have not uploaded their own. Upload a styled .docx file for each document type."
+            description="Every user's DOCX export uses these. Upload a styled .docx for each document type; without one, exports use a clean default format."
           />
         </TabsContent>
 
@@ -318,7 +318,7 @@ export default async function AdminPage({
           <div>
             <h2 className="text-lg font-medium text-foreground">Plan limits</h2>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              Edit the monthly spend limit and resource caps for seeded plans.
+              Edit the monthly credits, price and resume cap for each plan.
             </p>
           </div>
           <PlanEditor plans={plans} />
