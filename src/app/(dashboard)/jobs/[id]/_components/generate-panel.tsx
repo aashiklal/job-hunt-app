@@ -323,7 +323,14 @@ export function GeneratePanel({
               </p>
             ) : (
               <div className="prose prose-sm max-w-none dark:prose-invert">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {/* Images are dropped: a job description can carry a prompt
+                    injection that makes the model emit an image whose URL
+                    smuggles resume text to a third-party server on render. */}
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  disallowedElements={["img"]}
+                  unwrapDisallowed
+                >
                   {content}
                 </ReactMarkdown>
               </div>

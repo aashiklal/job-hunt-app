@@ -1,16 +1,15 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { callMeteredStructured } from "@/lib/ai-execution";
-import * as users from "@/lib/repositories/users";
+import { requireApprovedApiUser } from "@/lib/api-access";
 import * as resumes from "@/lib/repositories/resumes";
 import { aiLimitResponse } from "@/lib/ai-limit-response";
 import { buildJobParsePrompt } from "@/lib/prompts";
 import { computeFitScore } from "@/lib/fit-score";
 import { jdAnalysisSchema, type JDAnalysis } from "@/lib/job-analysis";
 import { consume, rateLimitResponseInit } from "@/lib/rate-limit";
-import { isDemoUser, withDemoLatency, isDemoExpired } from "@/lib/demo";
+import { isDemoUser, withDemoLatency } from "@/lib/demo";
 import { demoAnalysis, demoParsedJob } from "@/lib/demo-fixtures";
 
 const MODEL = "claude-sonnet-4-5";
@@ -38,10 +37,9 @@ const parsedSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const { userId: clerkUserId } = await auth();
-  if (!clerkUserId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const access = await requireApprovedApiUser();
+  if (!access.ok) return access.response;
+  const { user } = access;
 
   let body: unknown;
   try {
@@ -59,13 +57,6 @@ export async function POST(req: NextRequest) {
   }
   const { text } = parseResult.data;
 
-  const user = await users.getByClerkId(clerkUserId);
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
-  if (isDemoExpired(user)) {
-    return NextResponse.json({ error: "This demo has ended." }, { status: 401 });
-  }
   const userIdStr = (user._id as { toString(): string }).toString();
 
   const limit = await consume(userIdStr, "jobs-parse");

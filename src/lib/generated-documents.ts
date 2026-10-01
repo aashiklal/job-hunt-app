@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { untrusted, UNTRUSTED_INPUT_NOTE } from "@/lib/prompt-safety";
 import { parseResumeContactInfo } from "@/lib/export/template-data";
 import { themeCapacityPrompt, type ThemeCapacity } from "@/lib/export/pixel-theme-contract";
 
@@ -173,11 +174,13 @@ JSON schema:
 Company: ${job.company}
 Role: ${job.role}${job.location ? `\nLocation: ${job.location}` : ""}
 
+${UNTRUSTED_INPUT_NOTE}
+
 Job description:
-${job.jobDescription ?? "(No job description provided)"}
+${untrusted("job_description", job.jobDescription ?? "(No job description provided)")}
 
 Base resume:
-${baseResume}
+${untrusted("resume", baseResume)}
 
 Return only the tailored resume JSON.`;
 
@@ -284,11 +287,13 @@ Role: ${job.role}${job.location ? `\nLocation: ${job.location}` : ""}
 Today's date: ${todayLongDate()}
 Applicant name: ${userName}
 
+${UNTRUSTED_INPUT_NOTE}
+
 Job description:
-${job.jobDescription ?? "(No job description provided)"}
+${untrusted("job_description", job.jobDescription ?? "(No job description provided)")}
 
 Base resume:
-${baseResume}
+${untrusted("resume", baseResume)}
 
 Return only the cover letter JSON.`;
 

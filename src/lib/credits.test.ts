@@ -241,6 +241,27 @@ describe("reserveCredits", () => {
     expect(res.creditsCharged).toBe(0);
     expect(await creditsUsed(userId)).toBe(0);
   });
+
+  it("refuses a rejected user who still has a subscription", async () => {
+    // Rejecting a user leaves the subscription approval created. Without the
+    // status check their credits would stay live on any metered path.
+    const userId = await makeUser();
+    await User.updateOne({ _id: userId }, { status: "rejected" });
+
+    await expect(reserveCredits(userId, 1)).rejects.toBeInstanceOf(
+      CreditsExceededError
+    );
+    expect(await creditsUsed(userId)).toBe(0);
+  });
+
+  it("refuses a rejected admin", async () => {
+    const userId = await makeUser({ isAdmin: true });
+    await User.updateOne({ _id: userId }, { status: "rejected" });
+
+    await expect(reserveCredits(userId, 1)).rejects.toBeInstanceOf(
+      CreditsExceededError
+    );
+  });
 });
 
 describe("releaseCredits", () => {

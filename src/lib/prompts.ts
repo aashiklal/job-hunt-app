@@ -1,3 +1,5 @@
+import { untrusted, UNTRUSTED_INPUT_NOTE } from "@/lib/prompt-safety";
+
 export function buildJobParsePrompt(args: { text: string }) {
   const system = `You are a job posting parser. Extract structured details from a raw job posting.
 
@@ -36,9 +38,9 @@ Rules:
 
 Respond with ONLY the JSON object.`;
 
-  const userMessage = `Job posting:
+  const userMessage = `${UNTRUSTED_INPUT_NOTE}
 
-${args.text}
+${untrusted("job_posting", args.text)}
 
 Return the JSON.`;
 
@@ -79,9 +81,9 @@ redFlags: concrete signals the role may be misrepresented or working conditions 
 
 Respond with ONLY the JSON object. No code fences. No preamble. No explanation.`;
 
-  const userMessage = `Job description:
+  const userMessage = `${UNTRUSTED_INPUT_NOTE}
 
-${jobDescription}
+${untrusted("job_description", jobDescription)}
 
 Return the JSON analysis.`;
 
@@ -116,8 +118,8 @@ Role I am applying for: ${job.role}
 My name: ${senderName}
 ${connectionReason ? `Shared context: ${connectionReason}` : ""}
 
-Most relevant part of my background (use one fact from this):
-${baseResume.slice(0, 800)}
+Most relevant part of my background (use one fact from this). ${UNTRUSTED_INPUT_NOTE}
+${untrusted("resume", baseResume.slice(0, 800))}
 
 Write the connection note. Stay under 300 characters.`;
 
@@ -156,11 +158,13 @@ Has already applied: ${hasApplied ? "yes" : "no"}
 Tone: ${tone}
 My name: ${senderName}
 
+${UNTRUSTED_INPUT_NOTE}
+
 Job description (excerpt for context, use to find one specific detail):
-${(job.jobDescription ?? "").slice(0, 600)}
+${untrusted("job_description", (job.jobDescription ?? "").slice(0, 600))}
 
 My background (use the single most relevant credential):
-${baseResume.slice(0, 800)}
+${untrusted("resume", baseResume.slice(0, 800))}
 
 Write the LinkedIn DM. 60-100 words, plain text only.`;
 
@@ -278,11 +282,13 @@ Role: ${job.role}
 Seniority level: ${seniorityLevel}
 ${focusAreas ? `Focus areas (user specified): ${focusAreas}` : ""}
 
+${UNTRUSTED_INPUT_NOTE}
+
 Job description:
-${(job.jobDescription ?? "(No job description provided)").slice(0, 2000)}
+${untrusted("job_description", (job.jobDescription ?? "(No job description provided)").slice(0, 2000))}
 
 Applicant's resume (to tailor behavioral questions to their actual experience):
-${baseResume.slice(0, 1200)}
+${untrusted("resume", baseResume.slice(0, 1200))}
 
 Generate the interview questions. Return ONLY the JSON object.`;
 

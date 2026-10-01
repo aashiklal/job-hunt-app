@@ -1,7 +1,5 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
-import * as users from "@/lib/repositories/users";
 import { aiLimitResponse } from "@/lib/ai-limit-response";
 import { consume, rateLimitResponseInit } from "@/lib/rate-limit";
 import {
@@ -9,13 +7,12 @@ import {
   JobGenerationError,
   jobGenerationRequestSchema,
 } from "@/lib/job-ai-generation";
-import { isDemoExpired } from "@/lib/demo";
+import { requireApprovedApiUser } from "@/lib/api-access";
 
 export async function POST(req: NextRequest) {
-  const { userId: clerkUserId } = await auth();
-  if (!clerkUserId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const access = await requireApprovedApiUser();
+  if (!access.ok) return access.response;
+  const { user } = access;
 
   let body: unknown;
   try {
@@ -30,14 +27,6 @@ export async function POST(req: NextRequest) {
       { error: "Invalid request", details: parseResult.error.flatten() },
       { status: 400 }
     );
-  }
-
-  const user = await users.getByClerkId(clerkUserId);
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
-  if (isDemoExpired(user)) {
-    return NextResponse.json({ error: "This demo has ended." }, { status: 401 });
   }
 
   const limit = await consume(user._id.toString(), "generate");
