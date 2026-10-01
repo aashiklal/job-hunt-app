@@ -7,8 +7,8 @@ import { sanitizeLatexBody } from "@/lib/export/sanitize-latex";
 const HAIKU_MODEL = "claude-haiku-4-5-20251001";
 
 type LatexTemplate = {
-  texFullTemplate?: string;
-  texPreamble?: string;
+  texFullTemplate: string;
+  texPreamble: string;
 };
 
 /**
@@ -53,8 +53,7 @@ export async function renderThemedLatex(
   resume: GeneratedResume,
   template: LatexTemplate
 ): Promise<{ tex: string; inputTokens: number; outputTokens: number }> {
-  const fullTemplate = template.texFullTemplate ?? "";
-  const preamble = template.texPreamble ?? "";
+  const { texFullTemplate: fullTemplate, texPreamble: preamble } = template;
   const prompt = buildLatexBodyPrompt(fullTemplate, resume as unknown as Record<string, unknown>);
   return renderLatex(userId, prompt, preamble);
 }
@@ -64,8 +63,7 @@ export async function renderThemedCoverLetterLatex(
   coverLetter: GeneratedCoverLetter,
   template: LatexTemplate
 ): Promise<{ tex: string; inputTokens: number; outputTokens: number }> {
-  const fullTemplate = template.texFullTemplate ?? "";
-  const preamble = template.texPreamble ?? "";
+  const { texFullTemplate: fullTemplate, texPreamble: preamble } = template;
   const prompt = buildCoverLetterLatexBodyPrompt(fullTemplate, coverLetter as unknown as Record<string, unknown>);
   return renderLatex(userId, prompt, preamble);
 }

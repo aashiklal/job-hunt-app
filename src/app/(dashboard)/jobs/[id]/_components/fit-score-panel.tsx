@@ -16,7 +16,7 @@ type Props = {
   defaultResumeContent: string;
 };
 
-export function ATSScorePanel({ analysis, defaultResumeContent }: Props) {
+export function FitScorePanel({ analysis, defaultResumeContent }: Props) {
   const result = useMemo(() => {
     if (!analysis || !defaultResumeContent.trim()) return null;
     return computeFitScore({

@@ -67,7 +67,7 @@ export function GeneratePanel({
   const [selectedResumeId, setSelectedResumeId] = useState(defaultId);
   const [content, setContent] = useState<string>(initialContent ?? "");
   const [documentId, setDocumentId] = useState<string | null>(initialDocumentId);
-  const [isStreaming, setIsStreaming] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(initialContent !== null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDownloadingTex, setIsDownloadingTex] = useState(false);
@@ -83,7 +83,7 @@ export function GeneratePanel({
       return;
     }
 
-    setIsStreaming(true);
+    setIsGenerating(true);
     setContent("");
     setHasGenerated(false);
     setDocumentId(null);
@@ -110,7 +110,7 @@ export function GeneratePanel({
         } else {
           toast.error(errBody?.error ?? errBody?.message ?? "Generation failed");
         }
-        setIsStreaming(false);
+        setIsGenerating(false);
         return;
       }
 
@@ -119,7 +119,7 @@ export function GeneratePanel({
       setDocumentId(data.documentId ?? null);
 
       setHasGenerated(true);
-      setIsStreaming(false);
+      setIsGenerating(false);
       toast.success(
         type === "resume" ? "Resume tailored" : "Cover letter ready"
       );
@@ -131,7 +131,7 @@ export function GeneratePanel({
         console.error(err);
         toast.error("Network error during generation");
       }
-      setIsStreaming(false);
+      setIsGenerating(false);
     } finally {
       abortControllerRef.current = null;
     }
@@ -271,7 +271,7 @@ export function GeneratePanel({
             <Select
               value={selectedResumeId}
               onValueChange={setSelectedResumeId}
-              disabled={isStreaming}
+              disabled={isGenerating}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Pick a resume" />
@@ -287,7 +287,7 @@ export function GeneratePanel({
             </Select>
           </div>
           <div className="flex gap-2">
-            {isStreaming ? (
+            {isGenerating ? (
               <Button onClick={handleCancel} variant="outline">
                 Cancel
               </Button>
@@ -299,12 +299,12 @@ export function GeneratePanel({
           </div>
         </div>
 
-        <GenerationProgressBar isLoading={isStreaming} durationMs={10000} />
+        <GenerationProgressBar isLoading={isGenerating} durationMs={10000} />
 
         {/* Output area */}
-        {(content || isStreaming) && (
+        {(content || isGenerating) && (
           <div className="border rounded-md p-4 bg-muted/30 min-h-32 max-h-[600px] overflow-y-auto">
-            {isStreaming && content === "" ? (
+            {isGenerating && content === "" ? (
               <p className="text-sm text-muted-foreground italic">
                 Generating...
               </p>
@@ -326,7 +326,7 @@ export function GeneratePanel({
         )}
 
         {/* Post-generation actions */}
-        {hasGenerated && !isStreaming && content && (
+        {hasGenerated && !isGenerating && content && (
           <div className="flex flex-wrap items-center gap-2">
             <Button onClick={handleCopy} variant="outline" size="sm">
               Copy

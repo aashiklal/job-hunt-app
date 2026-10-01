@@ -31,6 +31,7 @@ import {
 
 import { createJob, updateJob } from "../_actions";
 import { fitScoreBand, type FitScoreResult } from "@/lib/fit-score";
+import type { ParsedJobFields } from "@/app/api/jobs/parse/route";
 import type { JDAnalysis } from "@/lib/job-analysis";
 
 const jobStatusOptions = [
@@ -115,13 +116,7 @@ export function JobForm({ mode, initialValues, jobId }: Props) {
         return;
       }
       const { fields } = data as {
-        fields: {
-          company: string | null;
-          role: string | null;
-          location: string | null;
-          salary: string | null;
-          description: string | null;
-        };
+        fields: ParsedJobFields;
         analysis: JDAnalysis;
         fitScore: FitScoreResult | null;
         hasDefaultResume: boolean;

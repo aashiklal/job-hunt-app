@@ -3,7 +3,7 @@ import type { GeneratedDocument } from "@/lib/generated-documents";
 import { generatedDocumentBlocks } from "@/lib/generated-document-blocks";
 import { extractDocxStructure, getParagraphXmls, type DocxTextRegion } from "@/lib/export/extract-docx-structure";
 import { buildDOCXFromStyles } from "@/lib/export/build-from-styles";
-import { loadTemplate, setParaText } from "@/lib/export/from-template";
+import { loadTemplate, setParaText } from "@/lib/export/docx-template-io";
 import { buildFallbackPixelThemeMap, type PixelThemeMap, type PixelThemeRegionRole } from "@/lib/export/map-pixel-theme";
 import type { PixelThemeContract } from "@/lib/export/pixel-theme-contract";
 

@@ -3,17 +3,13 @@ import JSZip from "jszip";
 import { cloneParagraphWithText, extractParagraphs } from "@/lib/export/docx-xml";
 
 /**
- * Replace a template paragraph's text while preserving its run formatting.
+ * Reading a DOCX template and writing text into its paragraphs, shared by the
+ * themed renderer (render-themed-docx.ts) and the style-based builder
+ * (build-from-styles.ts).
  *
- * The template's run structure is the source of truth for styling. We never
- * hard-code bold, color, or any other property. Instead:
- *
- * - 1 template run  → single replacement run with the same rPr
- * - 2+ template runs, text has a date at the end (h3 job-title pattern)
- *     → run[0].rPr for the title, run[last].rPr for the date (right-aligned)
- * - 2+ template runs, text has "Label: value" (skill-line pattern)
- *     → run[0].rPr for the label, run[last].rPr for the value
- * - 2+ template runs, no pattern matched → all text into run[0].rPr
+ * Replaces a template paragraph's text while keeping its run formatting. The
+ * run-splitting rules (title and date, "Label: value" lines) live in
+ * cloneParagraphWithText in docx-xml.ts.
  */
 export function setParaText(paraXml: string, newText: string): string {
   return cloneParagraphWithText(paraXml, newText);
