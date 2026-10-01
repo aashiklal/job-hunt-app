@@ -1,7 +1,7 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { callMeteredStructured } from "@/lib/ai-execution";
+import { callMeteredStructured, chargeFixtureCredits } from "@/lib/ai-execution";
 import { requireApprovedApiUser } from "@/lib/api-access";
 import * as resumes from "@/lib/repositories/resumes";
 import { aiLimitResponse } from "@/lib/ai-limit-response";
@@ -68,30 +68,42 @@ export async function POST(req: NextRequest) {
   }
 
   if (isDemoUser(user)) {
-    const fields = demoParsedJob();
-    const analysis = demoAnalysis({
-      _id: "demo",
-      company: fields.company ?? "Example Corp",
-      role: fields.role ?? "Senior Full Stack Engineer",
-    });
-    const defaultResume = await resumes.getDefault(userIdStr);
-    const fitScore = defaultResume
-      ? computeFitScore({
-          resumeText: defaultResume.content,
-          requiredSkills: analysis.requiredSkills,
-          niceToHaves: analysis.niceToHaves,
-          keywordsForResume: analysis.keywordsForResume,
-        })
-      : null;
-
-    return NextResponse.json(
-      await withDemoLatency({
-        fields,
-        analysis: analysis satisfies JDAnalysis,
-        fitScore,
-        hasDefaultResume: !!defaultResume,
-      })
-    );
+    // Fixture output, but charged like the live import so the demo's balance
+    // behaves like the real app.
+    try {
+      const result = await chargeFixtureCredits(userIdStr, "jobs_parse", async () => {
+        const fields = demoParsedJob();
+        const analysis = demoAnalysis({
+          _id: "demo",
+          company: fields.company ?? "Example Corp",
+          role: fields.role ?? "Senior Full Stack Engineer",
+        });
+        const defaultResume = await resumes.getDefault(userIdStr);
+        const fitScore = defaultResume
+          ? computeFitScore({
+              resumeText: defaultResume.content,
+              requiredSkills: analysis.requiredSkills,
+              niceToHaves: analysis.niceToHaves,
+              keywordsForResume: analysis.keywordsForResume,
+            })
+          : null;
+        return {
+          fields,
+          analysis: analysis satisfies JDAnalysis,
+          fitScore,
+          hasDefaultResume: !!defaultResume,
+        };
+      });
+      return NextResponse.json(await withDemoLatency(result));
+    } catch (err) {
+      const limited = aiLimitResponse(err);
+      if (limited) return limited;
+      console.error("[jobs/parse] demo parse failed:", err);
+      return NextResponse.json(
+        { error: "Failed to parse the job posting. Please try again." },
+        { status: 502 }
+      );
+    }
   }
 
   const { system, userMessage } = buildJobParsePrompt({ text });

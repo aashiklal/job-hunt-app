@@ -52,8 +52,13 @@ export async function setBillingStatus(
 /** Plan key and billing status for many users at once, keyed by user id. */
 export async function bulkByUserId(
   userIds: string[]
-): Promise<Record<string, { planKey: string; status: BillingStatus }>> {
-  const result: Record<string, { planKey: string; status: BillingStatus }> = {};
+): Promise<
+  Record<string, { planKey: string; status: BillingStatus; createdAt: Date }>
+> {
+  const result: Record<
+    string,
+    { planKey: string; status: BillingStatus; createdAt: Date }
+  > = {};
   if (userIds.length === 0) return result;
 
   await connectDB();
@@ -65,6 +70,7 @@ export async function bulkByUserId(
     result[doc.userId.toString()] = {
       planKey: doc.planKey,
       status: doc.status as BillingStatus,
+      createdAt: doc.createdAt,
     };
   }
   return result;

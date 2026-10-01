@@ -22,7 +22,8 @@ expensive features at maximum length stays around $8, below the $12 plan price.
   per-credit target on long outputs, which the ceiling used to absorb. Outreach messages went
   from 1 to 2 credits and LaTeX export from 2 to 3.
 - **Monitoring instead of refusal.** Every call still writes a `UsageEvent` with its real
-  cost, and `Usage.aiSpendUSD` still totals it per month. The admin margin view flags any
+  cost, and `Usage.aiSpendUSD` still totals it per billing month
+  ([ADR 0008](./0008-per-user-billing-month.md)). The admin margin view flags any
   account or feature running more than 1.5 times over the per-credit target, which is the
   signal to re-price.
 - **Rate limits** per user and route stay, as protection against abuse rather than cost.

@@ -27,7 +27,7 @@ export async function UsageWidget() {
           <span className="text-muted-foreground">AI credits</span>
           <span className="font-medium text-foreground">No limit</span>
         </div>
-        <p className="text-muted-foreground">{balance.used} used this month</p>
+        <p className="text-muted-foreground">{balance.used} used this billing month</p>
       </div>
     );
   }
@@ -76,7 +76,14 @@ export async function UsageWidget() {
 
       <p className="mt-1 text-muted-foreground">{describeCredits(remaining)}</p>
       <p className="text-muted-foreground">
-        Resets {balance.periodEndsAt.toLocaleDateString()}
+        Resets{" "}
+        {balance.periodEndsAt.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+          // Cycles turn over at 00:00 UTC; local time would show the day before.
+          timeZone: "UTC",
+        })}
       </p>
     </div>
   );

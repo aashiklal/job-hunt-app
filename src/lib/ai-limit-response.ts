@@ -5,7 +5,7 @@ import { CreditsExceededError } from "@/lib/usage";
 /**
  * How AI routes answer when the credit allowance refuses a request.
  *
- * Credits are the only limit a user can hit (docs/adr/0006), so this is the
+ * Credits are the only limit a user can hit (docs/adr/0007), so this is the
  * one refusal they can meet, and it must read as an explanation rather than a
  * failure. Users are only ever spoken to in credits; real spend is for admins.
  *
@@ -13,7 +13,7 @@ import { CreditsExceededError } from "@/lib/usage";
  * field carries the sentence and `code` carries the machine-readable reason.
  */
 
-/** Reset dates are UTC month starts, so format them in UTC. */
+/** Billing months turn over at 00:00 UTC, so format reset dates in UTC. */
 function formatResetDate(date: Date): string {
   return date.toLocaleDateString("en-US", {
     month: "long",
@@ -24,7 +24,7 @@ function formatResetDate(date: Date): string {
 
 /** Plain-language refusal, in credits. */
 export function creditsExhaustedMessage(err: CreditsExceededError): string {
-  return `You have used all ${err.limit} credits for this month. They reset on ${formatResetDate(err.periodEndsAt)}.`;
+  return `You have used all ${err.limit} credits for this billing month. They reset on ${formatResetDate(err.periodEndsAt)}.`;
 }
 
 /**

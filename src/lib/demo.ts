@@ -8,7 +8,8 @@ import * as users from "@/lib/repositories/users";
  * temporary account (see src/lib/demo-accounts.ts) seeded with sample data. It
  * keeps full CRUD so a visitor can drag the kanban, create jobs and edit
  * records, but its AI requests never reach Anthropic. Every expensive route checks
- * isDemoUser() and serves a fixture instead.
+ * isDemoUser() and serves a fixture instead, charged the same credits as the
+ * live feature (chargeFixtureCredits) so the balance behaves like the real app.
  *
  * The guard lives here rather than in defineAction because the AI routes are
  * route handlers that call auth() directly and never pass through the action

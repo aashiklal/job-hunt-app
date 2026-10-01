@@ -82,7 +82,7 @@ describe("defineAction error mapping", () => {
     if (!result.ok) {
       expect(result.error.code).toBe("CREDITS_EXHAUSTED");
       expect(result.error.message).toBe(
-        "You have used all 500 credits for this month. They reset on October 1."
+        "You have used all 500 credits for this billing month. They reset on October 1."
       );
       if (result.error.code === "CREDITS_EXHAUSTED") {
         expect(result.error.limit).toBe(500);

@@ -80,10 +80,12 @@ Users get a monthly allowance of **credits**, and each AI feature has a fixed cr
 weighted by what it costs to run: a tailored resume is 6, a cover letter 3, an outreach
 message 2. A flat "N generations a month" would let a resume-heavy user cost five times a
 note-heavy one for the same money. Credits are the only limit: a user can keep going until
-they are used up, then waits for the next month. Every call is still recorded with its real
+they are used up, then waits for their reset, which falls monthly on the day they were
+approved rather than on the 1st. Every call is still recorded with its real
 cost, which is what the admin margin view is built from, and features running over their
-price are flagged for re-pricing. See [ADR 0006](./docs/adr/0006-credits-over-a-usd-backstop.md)
-and [ADR 0007](./docs/adr/0007-credits-are-the-only-limit.md).
+price are flagged for re-pricing. See [ADR 0006](./docs/adr/0006-credits-over-a-usd-backstop.md),
+[ADR 0007](./docs/adr/0007-credits-are-the-only-limit.md) and
+[ADR 0008](./docs/adr/0008-per-user-billing-month.md).
 
 The obvious way to enforce any such limit is to read the user's usage, compare it to their
 limit, call the model, and record the cost. That is a check-then-act race with a

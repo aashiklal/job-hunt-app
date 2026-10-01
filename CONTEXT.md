@@ -64,7 +64,7 @@ The person running a job search. Called a User in code, because that is also the
 and database identity.
 
 **Plan**:
-A named tier defining a monthly **Credit** allowance (`monthlyCredits`), a resume cap
+A named tier defining a **Credit** allowance per **Period** (`monthlyCredits`), a resume cap
 (`maxResumes`) and a price (`monthlyPriceUSD`). `-1` means unlimited. Admins edit plans
 from the dashboard.
 
@@ -83,7 +83,7 @@ The unit a **Seeker** sees and spends on AI features. Each feature has a fixed p
 credits set by its typical cost (a short outreach message is 2, a tailored resume is 6),
 so a heavy feature cannot be run as cheaply as a light one. Known before the call,
 unlike the USD cost. The only limit a **Seeker** can hit: they keep going until the
-month's credits are used up.
+**Period's** credits are used up.
 _Avoid_: Generation, token, quota (when talking to users)
 
 **Usage**:
@@ -94,8 +94,13 @@ One AI call as it happened: the feature, model, token counts, real USD cost and
 **Credits** charged. The record behind every cost and margin figure an admin sees.
 
 **Period**:
-A calendar month in UTC, formatted `YYYY-MM`. The window a **Usage** total covers and
-the interval after which spend resets.
+A **Seeker's** billing month: from their anchor day to the same day next month, at
+00:00 UTC. The anchor is the day they were approved (their **Subscription** was created);
+a day past the end of a short month is clamped to its last day, so the 31st resets on
+Feb 28 and then Mar 31. Keyed on **Usage** by its start date, `YYYY-MM-DD`. Records from
+before per-user periods use the calendar month, `YYYY-MM`. Admin "this month" figures are
+calendar months, not **Periods**. See `docs/adr/0008-per-user-billing-month.md`.
+_Avoid_: Cycle (in user-facing copy, say "billing month")
 
 **Reservation**:
 A **Credit** price charged against a **Seeker** atomically before a model call, and
@@ -110,7 +115,8 @@ What an account pays against what it costs to serve, from its **Plan** price, it
 A private, temporary **Seeker** created for one visitor when they click "Try the live demo",
 seeded with sample data and deleted after 2 hours, or straight away if the visitor ends it
 (exiting, or choosing to sign up or sign in). AI requests are served from fixtures, so it
-spends no credits and no money. Full read and write within per-demo creation caps, never
+spends no money, but each is charged the live feature's **Credits** against the demo's own
+60-credit allowance, so the balance behaves as it does for a real **Seeker**. Full read and write within per-demo creation caps, never
 visible to another visitor, and never listed among real users for admins.
 _Avoid_: Demo user, guest, trial (a trial is a **Billing status**)
 

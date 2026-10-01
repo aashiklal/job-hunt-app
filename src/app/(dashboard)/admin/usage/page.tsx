@@ -5,6 +5,7 @@ import * as usageRepo from "@/lib/repositories/usage";
 import * as users from "@/lib/repositories/users";
 import * as subscriptions from "@/lib/repositories/subscriptions";
 import * as plansRepo from "@/lib/repositories/plans";
+import { getCycle } from "@/lib/usage";
 import { CREDIT_LABELS, type CreditFeature } from "@/lib/credits";
 import {
   accountMargin,
@@ -48,10 +49,14 @@ export default async function AdminMarginPage() {
     (u._id as { toString(): string }).toString()
   );
 
-  const [subs, costs] = await Promise.all([
-    subscriptions.bulkByUserId(accountIds),
-    usageRepo.currentPeriodByUser(accountIds),
-  ]);
+  // Each account is measured over its own billing month.
+  const subs = await subscriptions.bulkByUserId(accountIds);
+  const costs = await usageRepo.currentPeriodByUser(
+    accountIds.map((userId) => ({
+      userId,
+      period: getCycle(subs[userId]?.createdAt ?? new Date()).period,
+    }))
+  );
 
   const rows: MarginRow[] = accounts
     .map((user) => {
@@ -104,7 +109,7 @@ export default async function AdminMarginPage() {
         <p className="mt-2 text-sm text-muted-foreground">
           {nothingEarned
             ? `${money(0)} earned so far. Nobody is paying yet, so revenue here is what your prices would bring in if every account converted.`
-            : `${money(totals.earnedRevenueUSD)} earned from ${totals.payingCount} paying ${totals.payingCount === 1 ? "account" : "accounts"} this month.`}
+            : `${money(totals.earnedRevenueUSD)} earned from ${totals.payingCount} paying ${totals.payingCount === 1 ? "account" : "accounts"} in their current billing month.`}
         </p>
 
         <div className="mt-6">
@@ -112,8 +117,8 @@ export default async function AdminMarginPage() {
         </div>
 
         <p className="mt-4 text-xs text-muted-foreground">
-          Each bar is what an account costs against what its plan charges. The
-          demo account is excluded.
+          Each bar is what an account costs in its current billing month against
+          what its plan charges. Demo accounts are excluded.
         </p>
       </section>
 

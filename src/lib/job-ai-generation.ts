@@ -5,7 +5,12 @@ import * as resumes from "@/lib/repositories/resumes";
 import * as documents from "@/lib/repositories/documents";
 import * as templates from "@/lib/repositories/templates";
 import type { DocumentType } from "@/lib/repositories/documents";
-import { callMeteredStructured, callMeteredText } from "@/lib/ai-execution";
+import {
+  callMeteredStructured,
+  callMeteredText,
+  chargeFixtureCredits,
+} from "@/lib/ai-execution";
+import type { CreditFeature } from "@/lib/credits";
 import { jdAnalysisSchema, type JDAnalysis } from "@/lib/job-analysis";
 import { isDemoUser, withDemoLatency } from "@/lib/demo";
 import {
@@ -144,6 +149,13 @@ function isOutreachType(
   );
 }
 
+/** The credit price each generation type is charged under. */
+function creditFeatureFor(type: JobGenerationInput["type"]): CreditFeature {
+  if (type === "jd_analysis" || type === "interview_prep") return type;
+  if (type === "resume" || type === "cover_letter") return type;
+  return "outreach";
+}
+
 async function demoGeneration(
   userIdStr: string,
   job: { _id: string; company: string; role: string; location?: string | null },
@@ -177,10 +189,16 @@ export async function generateForJob(
     throw new JobGenerationError("Job not found", "Job not found", 404);
   }
 
-  // The public demo account never reaches Anthropic. Fixtures are interpolated
-  // with this job so the output still reads as tailored. See src/lib/demo.ts.
+  // Demo accounts never reach Anthropic. Fixtures are interpolated with this
+  // job so the output still reads as tailored, and they cost the same credits
+  // as the live feature so the balance behaves like the real app.
   if (isDemoUser(user)) {
-    return withDemoLatency(await demoGeneration(userIdStr, job, input.type));
+    const result = await chargeFixtureCredits(
+      userIdStr,
+      creditFeatureFor(input.type),
+      () => demoGeneration(userIdStr, job, input.type)
+    );
+    return withDemoLatency(result);
   }
 
   if (input.type === "jd_analysis") {

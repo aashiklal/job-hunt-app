@@ -10,6 +10,7 @@ import { DEMO_SEED_COUNTS, seedDemoData, wipeDemoData } from "@/lib/demo-seed";
 import { buildDemoEmail } from "@/lib/demo-constants";
 import { isDemoUser } from "@/lib/demo";
 import {
+  DEMO_CREDITS,
   DEMO_EXTRA_ALLOWANCE,
   DemoLimitError,
   type DemoCapacityKind,
@@ -208,6 +209,7 @@ export async function createDemoAccount(
       throw new Error("Could not create a subscription for the demo account.");
     }
     await subscriptions.setBillingStatus(userId, "comped");
+    await subscriptions.setCustomLimit(userId, DEMO_CREDITS);
 
     await seedDemoData(userId);
 

@@ -53,7 +53,7 @@ export function SetCustomLimitDialog({ userId, currentCredits, planCredits }: Pr
     startTransition(async () => {
       const result = await setUserCustomLimit({ userId, monthlyCredits: parsed });
       if (result.ok) {
-        toast.success(`Allowance set to ${formatCredits(parsed)} a month`);
+        toast.success(`Allowance set to ${formatCredits(parsed)} a billing month`);
         setOpen(false);
         router.refresh();
       } else {
@@ -79,7 +79,7 @@ export function SetCustomLimitDialog({ userId, currentCredits, planCredits }: Pr
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
-          <Label htmlFor="credits-input">Credits per month (-1 for unlimited)</Label>
+          <Label htmlFor="credits-input">Credits per billing month (-1 for unlimited)</Label>
           <Input
             id="credits-input"
             type="number"

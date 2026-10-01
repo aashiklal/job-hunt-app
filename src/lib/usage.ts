@@ -3,6 +3,7 @@ import connectDB from "@/lib/db/connect";
 import Plan, { IPlan } from "@/lib/models/Plan";
 import Subscription from "@/lib/models/Subscription";
 import Usage from "@/lib/models/Usage";
+import UsageEvent from "@/lib/models/UsageEvent";
 import User from "@/lib/models/User";
 
 // ---------------------------------------------------------------------------
@@ -33,28 +34,71 @@ export function calculateCost(model: string, inputTokens: number, outputTokens: 
 
 // ---------------------------------------------------------------------------
 // Periods
+//
+// Each user has their own billing month, anchored to the day they were
+// approved (docs/adr/0008). A user approved on the 14th resets on the 14th of
+// every month. An anchor past the end of a short month is clamped to its last
+// day (an anchor on the 31st resets Feb 28, then Mar 31), so cycles never
+// drift. Boundaries fall at 00:00 UTC.
 // ---------------------------------------------------------------------------
 
-/** Returns the current billing period as "YYYY-MM" in UTC. */
-export function getCurrentPeriod(): string {
-  const now = new Date();
-  const year = now.getUTCFullYear();
-  const month = String(now.getUTCMonth() + 1).padStart(2, "0");
-  return `${year}-${month}`;
+export type CreditCycle = {
+  /** The cycle's key on Usage: its start date as "YYYY-MM-DD". */
+  period: string;
+  startsAt: Date;
+  endsAt: Date;
+};
+
+function daysInUtcMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
 }
 
-/** Returns a Date for the first millisecond of the next UTC month. */
-function getPeriodEndsAt(): Date {
-  const now = new Date();
-  return new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0)
-  );
+/** The anchor day in the month containing (year, month), clamped. */
+function cycleBoundary(anchorDay: number, year: number, month: number): Date {
+  const normalised = new Date(Date.UTC(year, month, 1));
+  const y = normalised.getUTCFullYear();
+  const m = normalised.getUTCMonth();
+  return new Date(Date.UTC(y, m, Math.min(anchorDay, daysInUtcMonth(y, m))));
+}
+
+/** The billing cycle containing `now` for a user anchored at `anchor`. */
+export function getCycle(anchor: Date, now: Date = new Date()): CreditCycle {
+  const anchorDay = anchor.getUTCDate();
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth();
+
+  let startsAt = cycleBoundary(anchorDay, year, month);
+  let startMonth = month;
+  if (startsAt.getTime() > now.getTime()) {
+    startMonth = month - 1;
+    startsAt = cycleBoundary(anchorDay, year, startMonth);
+  }
+  const endsAt = cycleBoundary(anchorDay, year, startMonth + 1);
+
+  return { period: startsAt.toISOString().slice(0, 10), startsAt, endsAt };
+}
+
+/** First millisecond of the current UTC calendar month, for platform totals. */
+export function startOfUtcMonth(now: Date = new Date()): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+}
+
+/**
+ * The date a user's cycle is anchored to: their subscription's creation, which
+ * happens on approval. Falls back to the account's creation (admins can have
+ * no subscription), then to now.
+ */
+function cycleAnchor(
+  subscription: { createdAt?: Date } | null | undefined,
+  user: { createdAt?: Date } | null | undefined
+): Date {
+  return subscription?.createdAt ?? user?.createdAt ?? new Date();
 }
 
 // ---------------------------------------------------------------------------
 // Credits
 //
-// Credits are the only limit a user can hit (docs/adr/0006). Each feature has
+// Credits are the only limit a user can hit (docs/adr/0007). Each feature has
 // a fixed price, charged in full before the call by one atomic conditional
 // update, so the allowance holds under concurrent requests and is never
 // overshot. Real USD cost is recorded after each call for the admin margin
@@ -68,7 +112,7 @@ export class CreditsExceededError extends Error {
 
   constructor(args: { used: number; limit: number; periodEndsAt: Date }) {
     super(
-      `Out of credits (${args.used} of ${args.limit} used this month). Resets ${args.periodEndsAt.toISOString()}.`
+      `Out of credits (${args.used} of ${args.limit} used this cycle). Resets ${args.periodEndsAt.toISOString()}.`
     );
     this.name = "CreditsExceededError";
     this.used = args.used;
@@ -78,8 +122,9 @@ export class CreditsExceededError extends Error {
 }
 
 /**
- * The user's monthly credit allowance: an admin's per-user override if set,
- * otherwise their plan's. -1 is unlimited; admins are always unlimited.
+ * The user's credit allowance for their current billing month, and that
+ * cycle. The allowance is an admin's per-user override if set, otherwise
+ * their plan's. -1 is unlimited; admins are always unlimited.
  *
  * A plan saved without an allowance gives 0 rather than a guessed number, so
  * a configuration mistake refuses loudly instead of silently handing out the
@@ -89,14 +134,18 @@ export class CreditsExceededError extends Error {
  * this is the backstop, because rejecting a user leaves their subscription in
  * place and a subscription alone would otherwise keep their credits live.
  */
-async function resolveCreditLimit(
+async function resolveCreditContext(
   userId: mongoose.Types.ObjectId | string
-): Promise<number> {
-  const userDoc = await User.findById(userId).lean();
-  if (!userDoc || userDoc.status !== "approved") return 0;
-  if (userDoc.isAdmin) return -1;
+): Promise<{ limit: number; cycle: CreditCycle }> {
+  const [userDoc, subscription] = await Promise.all([
+    User.findById(userId).lean(),
+    Subscription.findOne({ userId }).lean(),
+  ]);
+  const cycle = getCycle(cycleAnchor(subscription, userDoc));
 
-  const subscription = await Subscription.findOne({ userId }).lean();
+  if (!userDoc || userDoc.status !== "approved") return { limit: 0, cycle };
+  if (userDoc.isAdmin) return { limit: -1, cycle };
+
   if (!subscription) {
     throw new Error(
       "No subscription found for user. Approving them creates one."
@@ -104,22 +153,24 @@ async function resolveCreditLimit(
   }
 
   const override = subscription.customLimits?.monthlyCredits;
-  if (typeof override === "number") return override;
+  if (typeof override === "number") return { limit: override, cycle };
 
   const plan = await Plan.findOne({ key: subscription.planKey }).lean();
   if (!plan) throw new Error(`Plan not found: ${subscription.planKey}`);
 
   const allowance = (plan as IPlan).monthlyCredits;
-  if (typeof allowance === "number") return allowance;
+  if (typeof allowance === "number") return { limit: allowance, cycle };
 
   console.error(
     `[credits] plan "${subscription.planKey}" has no monthlyCredits; its users get none until an admin sets one.`
   );
-  return 0;
+  return { limit: 0, cycle };
 }
 
 export type CreditReservation = {
   creditsCharged: number;
+  /** The cycle charged. Refunds and spend must land in this same period. */
+  period: string;
   limit: number;
   remaining: number;
   periodEndsAt: Date;
@@ -140,12 +191,11 @@ export async function reserveCredits(
 ): Promise<CreditReservation> {
   await connectDB();
 
-  const periodEndsAt = getPeriodEndsAt();
-  const period = getCurrentPeriod();
-  const limit = await resolveCreditLimit(userId);
+  const { limit, cycle } = await resolveCreditContext(userId);
+  const { period, endsAt: periodEndsAt } = cycle;
 
   if (limit === -1) {
-    return { creditsCharged: 0, limit: -1, remaining: -1, periodEndsAt };
+    return { creditsCharged: 0, period, limit: -1, remaining: -1, periodEndsAt };
   }
 
   await Usage.updateOne(
@@ -173,51 +223,69 @@ export async function reserveCredits(
 
   return {
     creditsCharged: credits,
+    period,
     limit,
     remaining: Math.max(0, limit - updated.creditsUsed),
     periodEndsAt,
   };
 }
 
-/** Refunds credits after a failed call. */
+/**
+ * Refunds credits after a failed call, into the period they were charged to,
+ * so a call that straddles a reset refunds the cycle that paid for it.
+ */
 export async function releaseCredits(
   userId: mongoose.Types.ObjectId | string,
-  credits: number
+  credits: number,
+  period: string
 ): Promise<void> {
   if (credits <= 0) return;
   await connectDB();
   await Usage.findOneAndUpdate(
-    { userId, period: getCurrentPeriod() },
+    { userId, period },
     { $inc: { creditsUsed: -credits } },
     { returnDocument: "after", strict: false }
   );
 }
 
-/** Credit balance for the current period. Never throws. */
+export type CreditBalance = {
+  used: number;
+  limit: number;
+  remaining: number;
+  periodStartsAt: Date;
+  periodEndsAt: Date;
+};
+
+/** Credit balance for the user's current cycle. Never throws. */
 export async function getCreditBalance(
   userId: mongoose.Types.ObjectId | string
-): Promise<{ used: number; limit: number; remaining: number; periodEndsAt: Date }> {
+): Promise<CreditBalance> {
   await connectDB();
-  const periodEndsAt = getPeriodEndsAt();
 
-  let limit: number;
+  let context: { limit: number; cycle: CreditCycle };
   try {
-    limit = await resolveCreditLimit(userId);
+    context = await resolveCreditContext(userId);
   } catch {
-    return { used: 0, limit: 0, remaining: 0, periodEndsAt };
+    const cycle = getCycle(new Date());
+    return {
+      used: 0,
+      limit: 0,
+      remaining: 0,
+      periodStartsAt: cycle.startsAt,
+      periodEndsAt: cycle.endsAt,
+    };
   }
+  const { limit, cycle } = context;
 
-  const doc = await Usage.findOne({
-    userId,
-    period: getCurrentPeriod(),
-  }).lean();
+  const doc = await Usage.findOne({ userId, period: cycle.period }).lean();
   const used = (doc as { creditsUsed?: number } | null)?.creditsUsed ?? 0;
 
   return {
     used,
     limit,
     remaining: limit === -1 ? -1 : Math.max(0, limit - used),
-    periodEndsAt,
+    periodStartsAt: cycle.startsAt,
+    periodEndsAt: cycle.endsAt,
   };
 }
 
@@ -226,7 +294,8 @@ export async function getCreditBalance(
 // ---------------------------------------------------------------------------
 
 /**
- * Adds a call's real USD cost to the user's period total. Record-only: it
+ * Adds a call's real USD cost to the total for `period` (the cycle the call
+ * was charged to, from its reservation). Record-only: it
  * never refuses, because spend is not a limit, just what the admin margin
  * view reports against.
  *
@@ -235,12 +304,12 @@ export async function getCreditBalance(
  */
 export async function recordSpend(
   userId: mongoose.Types.ObjectId | string,
-  costUSD: number
+  costUSD: number,
+  period: string
 ): Promise<void> {
   if (costUSD <= 0) return;
   await connectDB();
 
-  const period = getCurrentPeriod();
   await Usage.findOneAndUpdate(
     { userId, period },
     {
@@ -252,46 +321,54 @@ export async function recordSpend(
 }
 
 /**
- * The user's real USD spend for the current period, for admin screens.
+ * The user's real USD spend for their current cycle, for admin screens.
  * Never throws; a user with no subscription reports zero.
  */
 export async function getCurrentUsage(
   userId: mongoose.Types.ObjectId | string
-): Promise<{ used: number; periodEndsAt: Date; planKey: string | null }> {
+): Promise<{
+  used: number;
+  periodStartsAt: Date;
+  periodEndsAt: Date;
+  planKey: string | null;
+}> {
   await connectDB();
 
-  const periodEndsAt = getPeriodEndsAt();
-  const period = getCurrentPeriod();
-
-  const [subscription, usageDoc] = await Promise.all([
+  const [userDoc, subscription] = await Promise.all([
+    User.findById(userId).lean(),
     Subscription.findOne({ userId }).lean(),
-    Usage.findOne({ userId, period }).lean(),
   ]);
+  const cycle = getCycle(cycleAnchor(subscription, userDoc));
+  const usageDoc = await Usage.findOne({ userId, period: cycle.period }).lean();
 
   return {
     used: (usageDoc as { aiSpendUSD?: number } | null)?.aiSpendUSD ?? 0,
-    periodEndsAt,
+    periodStartsAt: cycle.startsAt,
+    periodEndsAt: cycle.endsAt,
     planKey: subscription?.planKey ?? null,
   };
 }
 
 /**
- * Returns total platform AI spend and the count of users who have spent
- * anything in the current billing period. Used by the admin stats bar.
+ * Total platform AI spend and the count of users who spent anything in the
+ * current UTC calendar month. Used by the admin stats bar.
+ *
+ * Built from UsageEvent rather than Usage: each user's Usage periods follow
+ * their own billing month, so they no longer line up into a platform month.
  */
 export async function getPlatformStats(): Promise<{
   totalSpendUSD: number;
   activeUserCount: number;
 }> {
   await connectDB();
-  const period = getCurrentPeriod();
-  const result = await Usage.aggregate([
-    { $match: { period } },
+  const result = await UsageEvent.aggregate([
+    { $match: { createdAt: { $gte: startOfUtcMonth() } } },
+    { $group: { _id: "$userId", spend: { $sum: "$costUSD" } } },
     {
       $group: {
         _id: null,
-        totalSpendUSD: { $sum: "$aiSpendUSD" },
-        activeUserCount: { $sum: { $cond: [{ $gt: ["$aiSpendUSD", 0] }, 1, 0] } },
+        totalSpendUSD: { $sum: "$spend" },
+        activeUserCount: { $sum: { $cond: [{ $gt: ["$spend", 0] }, 1, 0] } },
       },
     },
   ]);
