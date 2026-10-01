@@ -2,6 +2,7 @@ import "server-only";
 import { callMeteredText } from "@/lib/ai-execution";
 import type { GeneratedResume, GeneratedCoverLetter } from "@/lib/generated-documents";
 import { buildLatexBodyPrompt, buildCoverLetterLatexBodyPrompt } from "@/lib/prompts";
+import { sanitizeLatexBody } from "@/lib/export/sanitize-latex";
 
 const HAIKU_MODEL = "claude-haiku-4-5-20251001";
 
@@ -35,7 +36,7 @@ async function renderLatex(
     feature: "latex_export",
   });
 
-  const body = raw
+  const body = sanitizeLatexBody(raw)
     .replace(/^```[a-z]*\n?/i, "")
     .replace(/```\s*$/i, "")
     .replace(/\\begin\{document\}/g, "")

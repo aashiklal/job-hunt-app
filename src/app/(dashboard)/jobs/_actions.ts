@@ -27,7 +27,13 @@ const createJobSchema = z.object({
   role: z.string().min(1, "Role is required").max(200),
   location: z.string().max(200).optional(),
   jobDescription: z.string().max(50000).optional(),
-  url: z.string().url("Must be a valid URL").max(2000).optional().or(z.literal("")),
+  url: z
+    .string()
+    .url("Must be a valid URL")
+    .max(2000)
+    .refine((u) => /^https?:\/\//i.test(u), "Must be an http or https link")
+    .optional()
+    .or(z.literal("")),
   salary: z.string().max(200).optional(),
   status: jobStatusSchema.optional(),
   notes: z.string().max(10000).optional(),

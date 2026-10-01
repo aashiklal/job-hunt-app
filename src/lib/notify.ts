@@ -31,6 +31,25 @@ function getResend(): Resend {
   return new Resend(key);
 }
 
+/**
+ * Escapes text for an HTML email body. Names and emails come straight from a
+ * stranger's Clerk sign-up, so unescaped they could inject a convincing link
+ * into a message admins trust.
+ */
+export function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** Removes line breaks so a value cannot add lines to an email header. */
+export function singleLine(value: string): string {
+  return value.replace(/[\r\n]+/g, " ").trim();
+}
+
 /** Fetch every admin's email address from the DB. */
 async function getAdminEmails(): Promise<string[]> {
   const admins = await listAdmins();
@@ -64,7 +83,7 @@ export async function notifyAdminsNewSignup(user: {
 
   const html = `
     <p>Hi,</p>
-    <p><strong>${displayName}</strong> (${user.email}) just signed up and is waiting for approval.</p>
+    <p><strong>${escapeHtml(displayName)}</strong> (${escapeHtml(user.email)}) just signed up and is waiting for approval.</p>
     <p><a href="${adminUrl}">Review in the admin panel →</a></p>
   `.trim();
 
@@ -77,7 +96,7 @@ export async function notifyAdminsNewSignup(user: {
       .emails.send({
         from: FROM,
         to: adminEmails,
-        subject: `New sign-up pending approval: ${displayName}`,
+        subject: `New sign-up pending approval: ${singleLine(displayName)}`,
         html,
         text,
       })
