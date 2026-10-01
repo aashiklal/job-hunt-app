@@ -19,10 +19,6 @@ const PLANS = [
     monthlyPriceUSD: 12,
     monthlyCredits: 500,
     maxResumes: 5,
-    pdfParsingEnabled: true,
-    docxParsingEnabled: true,
-    pdfExportEnabled: true,
-    active: true,
   },
 ];
 
@@ -33,9 +29,19 @@ async function main() {
   for (const plan of PLANS) {
     await Plan.findOneAndUpdate(
       { key: plan.key },
-      // aiSpendLimitUSD was the old USD ceiling; credits replaced it. strict:false
-      // lets the $unset reach documents even though the schema no longer has it.
-      { $set: plan, $unset: { aiSpendLimitUSD: "" } },
+      // Removes fields from retired designs: aiSpendLimitUSD (the old USD
+      // ceiling) and per-plan feature flags that were never enforced. strict:false
+      // lets the $unset reach documents even though the schema no longer has them.
+      {
+        $set: plan,
+        $unset: {
+          aiSpendLimitUSD: "",
+          pdfParsingEnabled: "",
+          docxParsingEnabled: "",
+          pdfExportEnabled: "",
+          active: "",
+        },
+      },
       { upsert: true, returnDocument: "after", strict: false }
     );
     console.log(

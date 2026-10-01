@@ -35,7 +35,6 @@ export type IJob = {
   status: JobStatus;
   notes?: string;
   appliedAt?: Date;
-  coverLetterGenerated?: boolean;
   contactName?: string;
   contactTitle?: string;
   deletedAt?: Date | null;
@@ -59,7 +58,6 @@ const JobSchema = new Schema<IJob>(
     },
     notes: { type: String },
     appliedAt: { type: Date },
-    coverLetterGenerated: { type: Boolean, default: false },
     contactName: { type: String, trim: true },
     contactTitle: { type: String, trim: true },
     deletedAt: { type: Date, default: null },
