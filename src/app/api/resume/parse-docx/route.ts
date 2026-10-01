@@ -1,6 +1,9 @@
+import "server-only";
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { requireApprovedApiUser } from "@/lib/api-access";
+import { consume, rateLimitResponseInit } from "@/lib/rate-limit";
 import mammoth from "mammoth";
+import { assertZipWithinLimits, ZipLimitError } from "@/lib/zip-limits";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
@@ -8,9 +11,26 @@ const DOCX_MIME =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 export async function POST(req: NextRequest) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await requireApprovedApiUser();
+  if (!access.ok) return access.response;
+
+  // formData() buffers the whole body, so refuse an oversized upload from its
+  // declared length first. The file.size check below still covers a missing
+  // or false header.
+  const declaredLength = Number(req.headers.get("content-length") ?? 0);
+  if (declaredLength > MAX_FILE_SIZE + 64 * 1024) {
+    return NextResponse.json(
+      { error: "File too large. Maximum size is 5 MB." },
+      { status: 413 }
+    );
+  }
+
+  const limit = await consume(access.user._id.toString(), "resume-parse");
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Too many uploads in a row. Try again shortly." },
+      rateLimitResponseInit(limit.retryAfterSeconds)
+    );
   }
 
   try {
@@ -36,6 +56,18 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
+
+    try {
+      assertZipWithinLimits(buffer);
+    } catch (err) {
+      if (err instanceof ZipLimitError) {
+        return NextResponse.json(
+          { error: "This DOCX could not be read safely. Try pasting your resume instead." },
+          { status: 422 }
+        );
+      }
+      throw err;
+    }
 
     // convertToMarkdown preserves headings and bullets, which helps AI tailoring.
     // The type declaration omits it (stale types), so cast through unknown to call it.

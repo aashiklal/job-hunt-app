@@ -5,6 +5,7 @@ import * as templates from "@/lib/repositories/templates";
 import * as auditLog from "@/lib/repositories/audit-log";
 import type { TemplateType } from "@/lib/repositories/templates";
 import { uploadGlobalTemplate } from "@/lib/template-intake";
+import { assertZipWithinLimits, ZipLimitError } from "@/lib/zip-limits";
 
 const DOCX_MIME =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -62,6 +63,14 @@ export async function POST(req: NextRequest) {
 
   const buffer = Buffer.from(await file.arrayBuffer());
 
+  try {
+    assertZipWithinLimits(buffer);
+  } catch (err) {
+    if (err instanceof ZipLimitError)
+      return NextResponse.json({ error: err.message }, { status: 422 });
+    throw err;
+  }
+
   let intake: Awaited<ReturnType<typeof uploadGlobalTemplate>>;
   try {
     intake = await uploadGlobalTemplate({
@@ -70,8 +79,11 @@ export async function POST(req: NextRequest) {
       fileData: buffer,
     });
   } catch (err) {
+    // The message can come from jszip or the model SDK, so log it rather than
+    // returning internals to the browser.
+    console.error("[admin/templates] template intake failed:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Could not process template" },
+      { error: "Could not process this template. Check it is a valid .docx file." },
       { status: 422 }
     );
   }
