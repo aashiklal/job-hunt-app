@@ -20,8 +20,8 @@ describe("calculateCost", () => {
     const haiku = calculateCost("claude-haiku-4-5", 500_000, 500_000);
     const sonnet = calculateCost("claude-sonnet-4-5", 500_000, 500_000);
     expect(haiku).toBeLessThan(sonnet);
-    // 0.5M * $0.80 + 0.5M * $4.00
-    expect(haiku).toBeCloseTo(2.4, 10);
+    // 0.5M * $1.00 + 0.5M * $5.00
+    expect(haiku).toBeCloseTo(3.0, 10);
   });
 
   it("prices Opus above Sonnet for identical usage", () => {
