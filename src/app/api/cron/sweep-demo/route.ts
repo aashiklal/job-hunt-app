@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import {
   createDefaultDemoClerk,
@@ -18,6 +19,15 @@ import {
 
 export const maxDuration = 60;
 
+/**
+ * Constant-time comparison. Hashing first gives both sides the same length,
+ * which timingSafeEqual requires, without leaking the secret's length.
+ */
+function matchesSecret(header: string | null, secret: string): boolean {
+  const digest = (value: string) => createHash("sha256").update(value).digest();
+  return timingSafeEqual(digest(header ?? ""), digest(`Bearer ${secret}`));
+}
+
 const CRON_SWEEP_LIMIT = 500;
 
 export async function GET(req: NextRequest) {
@@ -27,7 +37,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Not configured" }, { status: 500 });
   }
 
-  if (req.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!matchesSecret(req.headers.get("authorization"), secret)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
