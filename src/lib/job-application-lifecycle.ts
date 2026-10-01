@@ -1,18 +1,13 @@
 import "server-only";
 import * as jobs from "@/lib/repositories/jobs";
 import type { JobStatus } from "@/lib/repositories/jobs";
-import { InvalidTransitionError, isValidTransition } from "@/lib/repositories/jobs";
 
+// Any status may move to any other (see Status in CONTEXT.md).
 export async function moveJobStatus(
   userId: string,
   jobId: string,
   status: JobStatus
 ) {
-  const current = await jobs.getById(userId, jobId);
-  if (!current) return null;
-  if (!isValidTransition(current.status, status)) {
-    throw new InvalidTransitionError(current.status, status);
-  }
   return jobs.setStatus(userId, jobId, status);
 }
 
