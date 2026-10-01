@@ -81,12 +81,17 @@ export class CreditsExceededError extends Error {
  * A plan saved without an allowance gives 0 rather than a guessed number, so
  * a configuration mistake refuses loudly instead of silently handing out the
  * paid allowance.
+ *
+ * Anyone not currently approved also gets 0. The routes check status first;
+ * this is the backstop, because rejecting a user leaves their subscription in
+ * place and a subscription alone would otherwise keep their credits live.
  */
 async function resolveCreditLimit(
   userId: mongoose.Types.ObjectId | string
 ): Promise<number> {
   const userDoc = await User.findById(userId).lean();
-  if (userDoc?.isAdmin) return -1;
+  if (!userDoc || userDoc.status !== "approved") return 0;
+  if (userDoc.isAdmin) return -1;
 
   const subscription = await Subscription.findOne({ userId }).lean();
   if (!subscription) {

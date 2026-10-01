@@ -161,10 +161,17 @@ export async function upsertFromClerk(args: {
   );
 }
 
+/** Prefix scripts/bootstrap-admin.ts gives the clerkId of a placeholder record. */
+export const PLACEHOLDER_CLERK_ID_PREFIX = "pending_";
+
 /**
  * Merges a Clerk user into an existing bootstrap placeholder found by email.
  * Sets clerkId and profile fields only. Does not touch status or isAdmin.
  * Used by the user.created webhook when a pre-provisioned record already exists.
+ *
+ * Only placeholders can be claimed. Matching any record by email would let
+ * whoever next registers an address in Clerk take over a real account that
+ * still holds it, for example after an email change whose webhook was lost.
  */
 export async function claimByEmail(
   email: string,
@@ -175,7 +182,11 @@ export async function claimByEmail(
   const update: Record<string, unknown> = { clerkId };
   if (args.firstName !== undefined) update.firstName = args.firstName;
   if (args.lastName !== undefined) update.lastName = args.lastName;
-  return User.findOneAndUpdate({ email }, { $set: update }, { returnDocument: "after" });
+  return User.findOneAndUpdate(
+    { email, clerkId: { $regex: `^${PLACEHOLDER_CLERK_ID_PREFIX}` } },
+    { $set: update },
+    { returnDocument: "after" }
+  );
 }
 
 export async function countApproved(): Promise<number> {

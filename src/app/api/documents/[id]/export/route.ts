@@ -1,8 +1,7 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
-import * as users from "@/lib/repositories/users";
+import { requireApprovedApiUser } from "@/lib/api-access";
 import * as templates from "@/lib/repositories/templates";
 import * as documents from "@/lib/repositories/documents";
 import { exportDocument } from "@/lib/export";
@@ -16,8 +15,9 @@ import {
   buildDefaultLatexDoc,
   buildDefaultCoverLetterLatexDoc,
 } from "@/lib/export/to-latex";
-import { isDemoUser, isDemoExpired } from "@/lib/demo";
+import { isDemoUser } from "@/lib/demo";
 import { aiLimitResponse } from "@/lib/ai-limit-response";
+import { safeFilename } from "@/lib/safe-filename";
 
 const querySchema = z.object({
   format: z.enum(["docx", "tex"]).default("docx"),
@@ -32,24 +32,15 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { userId: clerkUserId } = await auth();
-  if (!clerkUserId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const access = await requireApprovedApiUser();
+  if (!access.ok) return access.response;
+  const { user } = access;
 
   const parsed = querySchema.safeParse(
     Object.fromEntries(req.nextUrl.searchParams.entries())
   );
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
-  }
-
-  const user = await users.getByClerkId(clerkUserId);
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
-  if (isDemoExpired(user)) {
-    return NextResponse.json({ error: "This demo has ended." }, { status: 401 });
   }
 
   const { id } = await params;
@@ -59,7 +50,10 @@ export async function GET(
     return NextResponse.json({ error: "Document not found" }, { status: 404 });
   }
 
-  const filename = parsed.data.filename ?? defaultFilename(doc.type);
+  const filename = safeFilename(
+    parsed.data.filename ?? "",
+    defaultFilename(doc.type)
+  );
 
   // LaTeX export branch — uses hardcoded templates baked into to-latex.ts
   if (parsed.data.format === "tex") {
