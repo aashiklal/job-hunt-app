@@ -15,7 +15,7 @@ describe("creditsExhaustedMessage", () => {
   it("says what happened and when it resets, in the user's unit", () => {
     const err = new CreditsExceededError({ used: 500, limit: 500, periodEndsAt });
     expect(creditsExhaustedMessage(err)).toBe(
-      "You have used all 500 credits for this month. They reset on October 1."
+      "You have used all 500 credits for this billing month. They reset on October 1."
     );
   });
 
@@ -42,7 +42,7 @@ describe("aiLimitResponse", () => {
 
     expect(res?.status).toBe(429);
     expect(await res?.json()).toEqual({
-      error: "You have used all 500 credits for this month. They reset on October 1.",
+      error: "You have used all 500 credits for this billing month. They reset on October 1.",
       code: "CREDITS_EXHAUSTED",
       used: 498,
       limit: 500,

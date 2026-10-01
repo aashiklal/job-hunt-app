@@ -9,7 +9,7 @@ import Usage from "@/lib/models/Usage";
 import UsageEvent from "@/lib/models/UsageEvent";
 
 /**
- * Credits are the only limit a user can hit (docs/adr/0006). A user with
+ * Credits are the only limit a user can hit (docs/adr/0007). A user with
  * credits left must never be refused because of what they have spent in
  * dollars, and the real cost of every call must still be recorded, because
  * the admin margin view is built from it.
@@ -29,8 +29,11 @@ vi.mock("@/lib/ai", () => ({
 
 vi.mock("@/lib/anthropic", () => ({ default: {} }));
 
-const { callMeteredStructured } = await import("@/lib/ai-execution");
-const { CreditsExceededError, getCurrentPeriod, calculateCost } = await import("@/lib/usage");
+const { callMeteredStructured, chargeFixtureCredits } = await import("@/lib/ai-execution");
+const { CreditsExceededError, getCycle, calculateCost } = await import("@/lib/usage");
+
+/** Test subscriptions are created now, so the current cycle is anchored today. */
+const currentPeriod = () => getCycle(new Date()).period;
 
 const CREDIT_LIMIT = 20;
 
@@ -46,7 +49,7 @@ async function makeUser() {
 }
 
 async function usageOf(userId: string) {
-  const doc = await Usage.findOne({ userId, period: getCurrentPeriod() }).lean();
+  const doc = await Usage.findOne({ userId, period: currentPeriod() }).lean();
   return {
     credits: (doc as { creditsUsed?: number } | null)?.creditsUsed ?? 0,
     spend: (doc as { aiSpendUSD?: number } | null)?.aiSpendUSD ?? 0,
@@ -90,7 +93,7 @@ describe("callMeteredStructured", () => {
     const userId = await makeUser();
     await Usage.create({
       userId,
-      period: getCurrentPeriod(),
+      period: currentPeriod(),
       aiSpendUSD: 1000,
       creditsUsed: 0,
     });
@@ -131,5 +134,42 @@ describe("callMeteredStructured", () => {
 
     expect(await usageOf(userId)).toEqual({ credits: 0, spend: 0 });
     expect(await UsageEvent.countDocuments({ userId })).toBe(0);
+  });
+});
+
+describe("chargeFixtureCredits", () => {
+  it("charges the feature's credits but records no spend or event", async () => {
+    const userId = await makeUser();
+
+    await expect(
+      chargeFixtureCredits(userId, "cover_letter", async () => "fixture")
+    ).resolves.toBe("fixture");
+
+    expect(await usageOf(userId)).toEqual({ credits: 3, spend: 0 });
+    expect(await UsageEvent.countDocuments({ userId })).toBe(0);
+  });
+
+  it("refunds the credits when the fixture fails", async () => {
+    const userId = await makeUser();
+
+    await expect(
+      chargeFixtureCredits(userId, "resume", async () => {
+        throw new Error("fixture broke");
+      })
+    ).rejects.toThrow("fixture broke");
+
+    expect((await usageOf(userId)).credits).toBe(0);
+  });
+
+  it("refuses once the allowance is used up, without running the fixture", async () => {
+    const userId = await makeUser();
+    const run = vi.fn(async () => "fixture");
+
+    for (let i = 0; i < 3; i++) await chargeFixtureCredits(userId, "resume", run); // 18
+    await expect(chargeFixtureCredits(userId, "resume", run)).rejects.toBeInstanceOf(
+      CreditsExceededError
+    );
+    expect(run).toHaveBeenCalledTimes(3);
+    expect((await usageOf(userId)).credits).toBe(18);
   });
 });

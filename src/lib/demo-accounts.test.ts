@@ -43,7 +43,7 @@ const {
   sweepOrphanClerkDemoUsers,
   DemoCapacityError,
 } = await import("@/lib/demo-accounts");
-const { DemoLimitError, DEMO_EXTRA_ALLOWANCE } = await import("@/lib/demo-limits");
+const { DemoLimitError, DEMO_EXTRA_ALLOWANCE, DEMO_CREDITS } = await import("@/lib/demo-limits");
 const { DEMO_SEED_COUNTS } = await import("@/lib/demo-seed");
 type DemoClerk = import("@/lib/demo-accounts").DemoClerk;
 
@@ -128,6 +128,10 @@ describe("createDemoAccount", () => {
     expect(counts.resumes).toBe(DEMO_SEED_COUNTS.resumes);
     expect(counts.subs).toBe(1);
     expect((await Subscription.findOne({ userId: created.userId }))?.status).toBe("comped");
+    // Its own small allowance, so a visitor can watch credits fall and run out.
+    expect(
+      (await Subscription.findOne({ userId: created.userId }))?.customLimits?.monthlyCredits
+    ).toBe(DEMO_CREDITS);
   });
 
   it("gives every visitor a separate account", async () => {

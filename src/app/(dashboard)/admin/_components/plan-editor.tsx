@@ -122,7 +122,7 @@ function PlanRow({ plan }: PlanRowProps) {
               </div>
               <div className="space-y-2">
                 <Label htmlFor={`credits-${plan._id}`}>
-                  Monthly credits (-1 for unlimited)
+                  Credits per billing month (-1 for unlimited)
                 </Label>
                 <Input
                   id={`credits-${plan._id}`}

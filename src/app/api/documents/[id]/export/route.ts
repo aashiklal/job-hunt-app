@@ -16,6 +16,7 @@ import {
   buildDefaultCoverLetterLatexDoc,
 } from "@/lib/export/to-latex";
 import { isDemoUser } from "@/lib/demo";
+import { chargeFixtureCredits } from "@/lib/ai-execution";
 import { aiLimitResponse } from "@/lib/ai-limit-response";
 import { safeFilename } from "@/lib/safe-filename";
 
@@ -72,7 +73,9 @@ export async function GET(
         // The themed renderer calls Haiku to lay the content into the
         // template. The demo must not, so it uses the deterministic builders
         // instead: real, valid LaTeX for the same document, just laid out by
-        // code rather than by a model.
+        // code rather than by a model. It still costs the live export's
+        // credits, and is cached like a live export, so re-downloads are free
+        // exactly as they are for real users.
         if (doc.type === "resume") {
           const parsedResume = generatedResumeSchema.safeParse(doc.structuredContent);
           if (!parsedResume.success) {
@@ -81,7 +84,9 @@ export async function GET(
               { status: 422 }
             );
           }
-          tex = buildDefaultLatexDoc(parsedResume.data);
+          tex = await chargeFixtureCredits(userIdStr, "latex_export", async () =>
+            buildDefaultLatexDoc(parsedResume.data)
+          );
         } else {
           const parsedLetter = generatedCoverLetterSchema.safeParse(doc.structuredContent);
           if (!parsedLetter.success) {
@@ -90,8 +95,13 @@ export async function GET(
               { status: 422 }
             );
           }
-          tex = buildDefaultCoverLetterLatexDoc(parsedLetter.data);
+          tex = await chargeFixtureCredits(userIdStr, "latex_export", async () =>
+            buildDefaultCoverLetterLatexDoc(parsedLetter.data)
+          );
         }
+        documents.setLatexCache(userIdStr, id, tex).catch((err) => {
+          console.error("[documents/export] latex cache write failed:", err);
+        });
       } else {
         const hardcodedTemplate =
           doc.type === "resume"

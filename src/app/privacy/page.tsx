@@ -46,7 +46,7 @@ export default function PrivacyPage() {
               </li>
               <li>
                 Usage records: which AI features you used and when, to enforce the
-                monthly credit allowance.
+                credit allowance for each billing month.
               </li>
             </ul>
             <p>

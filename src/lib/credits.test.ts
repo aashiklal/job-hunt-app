@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
 import mongoose from "mongoose";
 import {
   startTestMongo,
@@ -15,7 +15,7 @@ import {
   releaseCredits,
   getCreditBalance,
   CreditsExceededError,
-  getCurrentPeriod,
+  getCycle,
 } from "@/lib/usage";
 import {
   CREDIT_COSTS,
@@ -40,8 +40,11 @@ async function makeUser(opts: { isAdmin?: boolean } = {}) {
   return user._id.toString();
 }
 
+/** Test subscriptions are created now, so the current cycle is anchored today. */
+const currentPeriod = () => getCycle(new Date()).period;
+
 async function creditsUsed(userId: string): Promise<number> {
-  const doc = await Usage.findOne({ userId, period: getCurrentPeriod() }).lean();
+  const doc = await Usage.findOne({ userId, period: currentPeriod() }).lean();
   return (doc as { creditsUsed?: number } | null)?.creditsUsed ?? 0;
 }
 
@@ -205,7 +208,7 @@ describe("reserveCredits", () => {
       Array.from({ length: 12 }, () => reserveCredits(userId, 1))
     );
     expect(
-      await Usage.countDocuments({ userId, period: getCurrentPeriod() })
+      await Usage.countDocuments({ userId, period: currentPeriod() })
     ).toBe(1);
   });
 
@@ -243,14 +246,39 @@ describe("reserveCredits", () => {
 describe("releaseCredits", () => {
   it("refunds a failed call in full", async () => {
     const userId = await makeUser();
-    await reserveCredits(userId, 6);
-    await releaseCredits(userId, 6);
+    const res = await reserveCredits(userId, 6);
+    await releaseCredits(userId, 6, res.period);
     expect(await creditsUsed(userId)).toBe(0);
+  });
+
+  it("refunds into the period that was charged, even after a reset", async () => {
+    const userId = await makeUser();
+    // Raw driver write: Mongoose treats createdAt as immutable.
+    await Subscription.collection.updateOne(
+      { userId: new mongoose.Types.ObjectId(userId) },
+      { $set: { createdAt: new Date("2026-01-14T09:00:00Z") } }
+    );
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-03-13T23:59:00Z"));
+      const res = await reserveCredits(userId, 6);
+      expect(res.period).toBe("2026-02-14");
+
+      // The call fails after the cycle has turned over.
+      vi.setSystemTime(new Date("2026-03-14T00:01:00Z"));
+      await releaseCredits(userId, 6, res.period);
+
+      const old = await Usage.findOne({ userId, period: "2026-02-14" }).lean();
+      expect(old?.creditsUsed).toBe(0);
+      expect(await Usage.countDocuments({ userId, period: "2026-03-14" })).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("ignores a zero refund from an admin reservation", async () => {
     const userId = await makeUser({ isAdmin: true });
-    await releaseCredits(userId, 0);
+    await releaseCredits(userId, 0, currentPeriod());
     expect(await creditsUsed(userId)).toBe(0);
   });
 });

@@ -35,7 +35,7 @@ type TextCallParams = MeteredCallParams & {
 /**
  * Runs a metered Anthropic call against the user's credit allowance.
  *
- * Credits are the only limit (docs/adr/0006): the feature's full price is
+ * Credits are the only limit (docs/adr/0007): the feature's full price is
  * charged atomically before the call, so concurrent requests cannot overshoot
  * the allowance, and refunded if the call fails. The real USD cost is then
  * recorded for the admin margin view; it never refuses anyone.
@@ -65,7 +65,11 @@ async function withReservation<T>(
   try {
     outcome = await run();
   } catch (err) {
-    await releaseCredits(userId, reservation.creditsCharged).catch((e) =>
+    await releaseCredits(
+      userId,
+      reservation.creditsCharged,
+      reservation.period
+    ).catch((e) =>
       console.error("[releaseCredits failed]", e)
     );
     throw err;
@@ -75,7 +79,7 @@ async function withReservation<T>(
 
   // Reporting only, and deliberately off the charging path.
   await Promise.all([
-    recordSpend(userId, cost).catch((err) =>
+    recordSpend(userId, cost, reservation.period).catch((err) =>
       console.error("[recordSpend failed]", err)
     ),
     usageEvents
@@ -92,6 +96,34 @@ async function withReservation<T>(
   ]);
 
   return outcome;
+}
+
+/**
+ * Charges a demo fixture the same credits the live feature would cost.
+ *
+ * The demo should behave like the real app, so the balance has to move and a
+ * visitor can run out. Nothing reaches Anthropic and nothing is spent, so no
+ * spend or UsageEvent is recorded: admin cost reports stay at zero for demos.
+ * Credits are refunded if the fixture fails, exactly as for a live call.
+ *
+ * @throws {CreditsExceededError} when the demo allowance cannot cover it.
+ */
+export async function chargeFixtureCredits<T>(
+  userId: string,
+  feature: CreditFeature,
+  run: () => Promise<T>
+): Promise<T> {
+  const reservation = await reserveCredits(userId, creditCost(feature));
+  try {
+    return await run();
+  } catch (err) {
+    await releaseCredits(
+      userId,
+      reservation.creditsCharged,
+      reservation.period
+    ).catch((e) => console.error("[releaseCredits failed]", e));
+    throw err;
+  }
 }
 
 export async function callMeteredStructured<T>(

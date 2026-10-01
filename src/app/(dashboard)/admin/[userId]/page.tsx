@@ -123,12 +123,22 @@ export default async function Page({
   const isLow =
     !isOut && !creditsUnlimited && remaining <= credits.limit * 0.15;
   const fmtUSD = (n: number) => `$${n.toFixed(2)}`;
+  // Legacy periods are calendar months ("YYYY-MM"); current ones are billing
+  // months keyed by their start date ("YYYY-MM-DD").
   const formatPeriod = (period: string) => {
-    const [year, month] = period.split("-");
-    return new Date(parseInt(year), parseInt(month) - 1, 1).toLocaleDateString(
+    const [year, month, day] = period.split("-").map((n) => parseInt(n, 10));
+    if (!day) {
+      return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC",
+      });
+    }
+    const start = new Date(Date.UTC(year, month - 1, day)).toLocaleDateString(
       "en-US",
-      { month: "long", year: "numeric" }
+      { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }
     );
+    return `Billing month from ${start}`;
   };
   const totalSpend = spendHistory.reduce((sum, e) => sum + e.aiSpendUSD, 0);
 
@@ -277,7 +287,7 @@ export default async function Page({
                   : describeCredits(credits.remaining)}
               </p>
               <p className="text-xs text-muted-foreground">
-                Real spend this month: {fmtUSD(usage.used)}
+                Real spend this billing month: {fmtUSD(usage.used)}
               </p>
               <p className="text-xs text-muted-foreground">
                 Resets{" "}
@@ -285,6 +295,7 @@ export default async function Page({
                   month: "short",
                   day: "numeric",
                   year: "numeric",
+                  timeZone: "UTC",
                 })}
               </p>
               <Separator />
@@ -451,11 +462,11 @@ export default async function Page({
       <Card className="border border-border/60 shadow-xs transition-shadow duration-200 ease-[var(--ease-out-expo)] hover:shadow-sm">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg font-medium">
-            Earlier monthly totals
+            Totals by billing month
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Recorded before per-call tracking existed, so these are month totals
-            only with no breakdown of what they were spent on.
+            Totals per billing month (calendar months before per-user billing
+            months existed), with no breakdown of what they were spent on.
           </p>
         </CardHeader>
         <CardContent>
@@ -468,7 +479,7 @@ export default async function Page({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Month</TableHead>
+                    <TableHead>Period</TableHead>
                     <TableHead className="text-right">AI spend</TableHead>
                   </TableRow>
                 </TableHeader>

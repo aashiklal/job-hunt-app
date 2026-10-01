@@ -67,7 +67,7 @@ describe("POST /api/generate when credits run out", () => {
     const body = await res.json();
     expect(body.code).toBe("CREDITS_EXHAUSTED");
     expect(body.error).toBe(
-      "You have used all 500 credits for this month. They reset on October 1."
+      "You have used all 500 credits for this billing month. They reset on October 1."
     );
   });
 

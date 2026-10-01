@@ -20,7 +20,8 @@ function money(n: number): string {
 }
 
 function monthLabel(period: string): string {
-  const [year, month] = period.split("-");
+  // Periods are "YYYY-MM" here; slice so a cycle key would also parse.
+  const [year, month] = period.slice(0, 7).split("-");
   const date = new Date(Number(year), Number(month) - 1, 1);
   return date.toLocaleDateString("en-US", { month: "short" });
 }

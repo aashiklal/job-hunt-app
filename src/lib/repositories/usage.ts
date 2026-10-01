@@ -1,7 +1,6 @@
 import connectDB from "@/lib/db/connect";
 import Usage, { IUsage } from "@/lib/models/Usage";
 import { Types } from "mongoose";
-import { getCurrentPeriod } from "@/lib/usage";
 
 export async function listForUser(
   userId: string,
@@ -13,22 +12,26 @@ export async function listForUser(
 }
 
 /**
- * Current-period cost and credits for a set of users, keyed by user id.
+ * Cost and credits for each user's current period, keyed by user id. Each
+ * user has their own billing month, so callers pass the period per user (see
+ * getCycle in usage.ts).
  *
  * Drives the margin bars. Every requested id gets an entry, since a missing
  * key would render as a blank bar rather than a zero-cost one.
  */
 export async function currentPeriodByUser(
-  userIds: string[]
+  entries: Array<{ userId: string; period: string }>
 ): Promise<Record<string, { costUSD: number; credits: number }>> {
   const result: Record<string, { costUSD: number; credits: number }> = {};
-  for (const id of userIds) result[id] = { costUSD: 0, credits: 0 };
-  if (userIds.length === 0) return result;
+  for (const e of entries) result[e.userId] = { costUSD: 0, credits: 0 };
+  if (entries.length === 0) return result;
 
   await connectDB();
   const docs = await Usage.find({
-    userId: { $in: userIds.map((id) => new Types.ObjectId(id)) },
-    period: getCurrentPeriod(),
+    $or: entries.map((e) => ({
+      userId: new Types.ObjectId(e.userId),
+      period: e.period,
+    })),
   }).lean();
 
   for (const doc of docs) {
@@ -41,11 +44,13 @@ export async function currentPeriodByUser(
 }
 
 /**
- * Platform-wide cost per month, oldest first.
+ * Platform-wide cost per month ("YYYY-MM"), oldest first.
  *
  * Uses the Usage counters rather than UsageEvent deliberately: these hold the
- * only record of spend from before per-call tracking existed, and monthly is
- * exactly the grain this chart needs.
+ * only record of spend from before per-call tracking existed. Periods are
+ * legacy calendar months ("YYYY-MM") or per-user cycles keyed by their start
+ * date ("YYYY-MM-DD"); both bucket by their first seven characters, so a
+ * cycle counts toward the month it started in.
  */
 export async function monthlyTotals(
   opts: { limit?: number; excludeUserIds?: string[] } = {}
@@ -63,7 +68,7 @@ export async function monthlyTotals(
     ...(Object.keys(match).length ? [{ $match: match }] : []),
     {
       $group: {
-        _id: "$period",
+        _id: { $substrBytes: ["$period", 0, 7] },
         costUSD: { $sum: "$aiSpendUSD" },
         credits: { $sum: "$creditsUsed" },
       },
@@ -81,11 +86,11 @@ export async function monthlyTotals(
 }
 
 /**
- * Deletes every usage record for a user, resetting their spend to zero.
+ * Deletes every usage record for a user, resetting their credits and spend.
  *
  * Used when a demo account is deleted. Demo AI calls are served from fixtures
- * and should never cost anything, but any spend that does accrue is removed
- * with the demo rather than left orphaned.
+ * and charge credits but never cost anything; the records go with the demo
+ * rather than being left orphaned.
  */
 export async function deleteAllForUser(userId: string): Promise<number> {
   await connectDB();
