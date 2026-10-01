@@ -5,6 +5,7 @@ const isPublicRoute = createRouteMatcher([
   "/",
   "/sign-in(.*)",
   "/sign-up(.*)",
+  "/privacy",
   "/api/webhooks(.*)",
   // Scheduled invocations carry no Clerk session. These routes authenticate
   // themselves with a CRON_SECRET bearer token instead.

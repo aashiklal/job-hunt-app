@@ -190,9 +190,14 @@ export default async function LandingPage() {
 
       <footer className="flex items-center justify-between gap-4 px-4 py-4 sm:px-8 lg:px-12">
         <BrandLogo variant="muted" />
-        <p className="text-xs text-muted-foreground">
-          &copy; {new Date().getFullYear()} JobHunt
-        </p>
+        <div className="flex items-center gap-2">
+          <Link href="/privacy" className={quietLink}>
+            Privacy
+          </Link>
+          <p className="text-xs text-muted-foreground">
+            &copy; {new Date().getFullYear()} JobHunt
+          </p>
+        </div>
       </footer>
     </main>
   );
