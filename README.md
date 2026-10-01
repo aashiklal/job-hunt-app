@@ -6,6 +6,8 @@ interviews, and export the result as LaTeX or DOCX.
 
 Built with Next.js 16 (App Router), React 19, MongoDB and the Claude API.
 
+![Offerstitch demo: dragging jobs across the pipeline, a quick-import fit score, a tailored resume and the tracker dashboard](.github/assets/demo.gif)
+
 ### [Try the live demo](https://offerstitch.vercel.app)
 
 Click "Try the live demo" on the landing page. You get a private workspace with realistic
