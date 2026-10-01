@@ -3,8 +3,9 @@
 `GET /api/documents/[id]/export` serves two formats from one route, chosen by a `format`
 query parameter, and only for `resume` and `cover_letter` documents.
 
-- **`format=tex`** renders the document's structured JSON into a LaTeX source file using
-  templates hardcoded in `src/lib/export/to-latex.ts`. Output is cached on the Document.
+- **`format=tex`** has Haiku lay the document's structured JSON into LaTeX templates
+  hardcoded in `src/lib/export/to-latex.ts`. It is a metered call (3 credits); demo users get
+  the deterministic `buildDefault*LatexDoc` builders instead. Output is cached on the Document.
 - **`format=docx`** (the default) renders into an admin-uploaded DOCX template, reusing that
   file's own styles and run-level formatting, and falls back to a generically built DOCX when
   no template exists.
@@ -42,8 +43,10 @@ not parse. Documents generated before a schema change are therefore not exportab
 The DOCX path is more forgiving because it can fall back to the markdown in `content`.
 
 **The LaTeX cache is keyed on staleness, not on content.** `latexBodyCache` is used only
-while `latexBodyCachedAt` is newer than the Document's `updatedAt`. Cache writes are
-fire-and-forget: a failed write is logged and the export still succeeds.
+while `latexBodyCachedAt` is newer than the Document's `updatedAt`, so the cache write must
+not touch `updatedAt` itself (`timestamps: false`); for a while it did, and every export
+re-ran the model and re-charged credits. Cache writes are fire-and-forget: a failed write is
+logged and the export still succeeds.
 
 Adding a new exportable type means extending the type guard in the route, adding a LaTeX
 template, and teaching the DOCX theme analyzer about its block structure.

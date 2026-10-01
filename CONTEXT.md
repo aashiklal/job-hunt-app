@@ -1,4 +1,4 @@
-# JobHunt
+# Offerstitch
 
 A single job seeker's application pipeline: the roles they are pursuing and the documents
 they generate for each one. One user, one search, no collaboration or sharing.
@@ -80,7 +80,7 @@ yet, so nobody is `active` today.
 
 **Credit**:
 The unit a **Seeker** sees and spends on AI features. Each feature has a fixed price in
-credits set by its typical cost (a short outreach message is 1, a tailored resume is 6),
+credits set by its typical cost (a short outreach message is 2, a tailored resume is 6),
 so a heavy feature cannot be run as cheaply as a light one. Known before the call,
 unlike the USD cost. The only limit a **Seeker** can hit: they keep going until the
 month's credits are used up.
