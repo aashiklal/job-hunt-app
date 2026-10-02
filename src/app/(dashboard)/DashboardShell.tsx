@@ -19,6 +19,7 @@ import {
   Sun,
 } from "lucide-react";
 import { DemoExitButton } from "@/components/DemoExitButton";
+import { BrandLogo } from "@/components/BrandLogo";
 import {
   Sheet,
   SheetContent,
@@ -146,29 +147,6 @@ function NavLinks({
 }
 
 /**
- * The Offerstitch logo. Always a plain link home, for demo visitors too: the
- * landing page offers a live demo "Back to your demo", so leaving the
- * dashboard no longer has to end it.
- */
-function HomeLink({
-  className,
-  children,
-}: {
-  className: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href="/"
-      aria-label="Offerstitch home"
-      className={`rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none ${className}`}
-    >
-      {children}
-    </Link>
-  );
-}
-
-/**
  * Account control. Real users get Clerk's menu. Demo visitors get a plain exit
  * instead: Clerk's "Manage account" would let them rename the account, change
  * its email or password, or delete it, none of which a demo should offer.
@@ -218,17 +196,8 @@ function SidebarContent({
 }) {
   return (
     <div className="flex flex-col h-full px-3 py-4 overflow-hidden">
-      <div className={`mb-5 flex items-center px-1 ${collapsed ? "justify-center" : "justify-between"}`}>
-        <HomeLink
-          className={`flex items-center gap-2 transition-opacity duration-200 ease-[var(--ease-out-expo)] hover:opacity-70 ${collapsed ? "justify-center" : ""}`}
-        >
-          <Briefcase className="size-5 shrink-0 text-foreground" strokeWidth={1.75} />
-          {!collapsed && (
-            <span className="text-base font-semibold tracking-tight text-foreground">
-              Offerstitch
-            </span>
-          )}
-        </HomeLink>
+      <div className={`mb-5 flex items-center px-1 ${collapsed ? "flex-col gap-2" : "justify-between"}`}>
+        <BrandLogo iconOnly={collapsed} />
 
         {onToggleCollapse && (
           <button
@@ -307,14 +276,7 @@ export default function DashboardShell({
           >
             <Menu className="size-5" />
           </button>
-          <HomeLink
-            className="flex items-center gap-2 transition-opacity duration-200 ease-[var(--ease-out-expo)] hover:opacity-70"
-          >
-            <Briefcase className="size-4 text-foreground" strokeWidth={1.75} />
-            <span className="text-sm font-semibold tracking-tight text-foreground">
-              Offerstitch
-            </span>
-          </HomeLink>
+          <BrandLogo />
         </div>
         <AccountControl isDemo={isDemo} compact />
       </header>

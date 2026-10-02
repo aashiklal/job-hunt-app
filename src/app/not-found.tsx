@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function NotFound() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-background px-4">
+      <BrandLogo />
       <Card className="w-full max-w-md border border-border/60 shadow-xs">
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-semibold text-foreground">
