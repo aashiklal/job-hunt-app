@@ -151,8 +151,8 @@ npm run build        # production build
 credit and rate-limiting tests depend on atomic updates and unique index enforcement that a
 mock cannot demonstrate. Nothing needs to be installed or running first.
 
-`check:docs` exists because this repository previously documented a test suite and a CI
-pipeline that had never been written. It makes that particular lie impossible to reintroduce.
+`check:docs` fails the build if this README cites an npm script that does not exist, so the
+documentation cannot drift from what the repository actually runs.
 
 CI runs all five on every push and pull request to `main`.
 
